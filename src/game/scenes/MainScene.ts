@@ -1,0 +1,619 @@
+import * as Phaser from "phaser";
+
+export class MainScene extends Phaser.Scene {
+  private player!: Phaser.Physics.Arcade.Sprite;
+  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private platforms!: Phaser.Physics.Arcade.StaticGroup;
+  private isJumping: boolean = false;
+  private hasDoubleJumped: boolean = false;
+  private faceLeft: boolean = false;
+  private spaceKey!: Phaser.Input.Keyboard.Key;
+  private jumpCooldown = 0;
+  private worldWidth = 1500; // Increased world width
+  private minimap!: Phaser.GameObjects.Graphics;
+  private playerDot!: Phaser.GameObjects.Graphics;
+  private minimapWidth = 180;
+  private minimapHeight = 100;
+  private minimapScale = 0.12; // Scale factor for the minimap
+  // Change background layers to regular sprites
+  private backgroundLayers: Phaser.GameObjects.Sprite[] = [];
+  private layerPositions: number[] = [0, 0, 0, 0]; // Store initial positions
+  private backgroundMusic!:
+    | Phaser.Sound.BaseSound
+    | Phaser.Sound.WebAudioSound
+    | Phaser.Sound.HTML5AudioSound
+    | Phaser.Sound.NoAudioSound;
+  private isMusicPlaying: boolean = false;
+  private interactionText: Phaser.GameObjects.Text | undefined;
+  private eKey!: Phaser.Input.Keyboard.Key;
+  private isSketchOpen: boolean = false;
+
+  constructor() {
+    super({ key: "MainScene" });
+  }
+
+  preload() {
+    console.log("Loading game assets...");
+    // Add loading error handler
+    this.load.on("loaderror", (file: { src: string }) => {
+      console.error("Error loading file:", file.src);
+    });
+
+    // Load NPC
+    this.load.image("npc_sketch", "/NPC/Sketch_booth2.png");
+    this.load.image("npc_video", "/NPC/Video_booth.png");
+    this.load.image("npc_camera", "/NPC/Camera.png");
+
+    // Load sky tile
+    this.load.image("sky", "/BG/BG_sky.png");
+
+    // Load walking frames
+    for (let i = 0; i <= 4; i++) {
+      this.load.image(`walk${i}`, `/sprites/smile/0/walk1_${i}.png`);
+    }
+
+    // Load standing frames
+    for (let i = 0; i <= 3; i++) {
+      this.load.image(`stand${i}`, `/sprites/smile/0/stand1_${i}.png`);
+    }
+
+    // Load jump frames
+    for (let i = 0; i <= 1; i++) {
+      this.load.image(`jump${i}`, `/sprites/smile/0/jump_${i}.png`);
+      // public/sprites/smile/0/jump_0.png
+    }
+
+    // Load game assets
+    // Load tiles
+    for (let i = 1; i <= 3; i++) {
+      this.load.image(`DRT_top${i}`, `/tiles/DRT_top${i}.png`);
+      this.load.image(`DRT_middle${i}`, `/tiles/DRT_middle${i}.png`);
+      this.load.image(`DRT_bottom${i}`, `/tiles/DRT_bottom${i}.png`);
+    }
+    this.load.image("DRT_slope_top", "/tiles/DRT_slope_top.png");
+    this.load.image("DRT_slope_bottom", "/tiles/DRT_slope_bottom.png");
+
+    // Load background layers
+    this.load.image("bg_layer1", "/BG/CDB.png");
+    this.load.image("bg_layer2", "/BG/HDB.png");
+    this.load.image("bg_layer3", "/BG/Merlion.png");
+    this.load.image("bg_layer4", "/BG/Building_FG.png");
+
+    // Load background music
+    this.load.audio("bgm", "/audio/CBD_town.mp3");
+
+    console.log("Assets loaded");
+  }
+
+  create() {
+    console.log("Creating game scene...");
+
+    // Initialize background music (only once)
+    this.backgroundMusic = this.sound.add("bgm", {
+      volume: 0.5,
+      loop: true,
+    });
+
+    // Add sky tile (non-scrolling)
+    const sky = this.add.tileSprite(
+      0,
+      0,
+      this.cameras.main.width,
+      this.cameras.main.height,
+      "sky"
+    );
+    sky.setOrigin(0, 0);
+    sky.setScrollFactor(0);
+    sky.setScale(2);
+
+    // Create background layers with parallax effect
+    const layer1 = this.add.sprite(0, 0, "bg_layer1");
+    const layer2 = this.add.sprite(0, 0, "bg_layer2");
+    const layer3 = this.add.sprite(0, 0, "bg_layer3");
+    const layer4 = this.add.sprite(0, 0, "bg_layer4");
+    const layerOrigin = [
+      [0, -1.7], // CBD
+      [-1, -1.5], // HDB
+      [-6.5, -4.3], //merlion
+      [0, -1.5], // CBD buidling
+    ];
+
+    // Set the origin of all layers to top-left
+    [layer1, layer2, layer3, layer4].forEach((layer, index) => {
+      layer.setOrigin(layerOrigin[index][0], layerOrigin[index][1]);
+      layer.setScrollFactor(0);
+      // Set display size to match game height while maintaining aspect ratio
+      // layer.setDisplaySize(
+      //   layer.width * (this.cameras.main.height / layer.height),
+      //   this.cameras.main.height
+      // );
+    });
+
+    // Store layers for update
+    this.backgroundLayers = [layer1, layer2, layer3, layer4];
+
+    // Set world bounds
+    this.physics.world.setBounds(
+      0,
+      0,
+      this.worldWidth,
+      this.cameras.main.height
+    );
+
+    // Add a background color to make sure the scene is visible
+    this.cameras.main.setBackgroundColor("#87CEEB"); // Sky blue background
+
+    // Calculate player spawn position
+    const groundY = this.cameras.main.height - 50; // Changed from -140 to -80 to make ground lower
+    const spawnX = 100; // Start from left side
+    const spawnY = groundY - 70;
+    console.log("Player spawn position:", spawnX, spawnY);
+
+    // Create player
+    try {
+      this.player = this.physics.add.sprite(spawnX, spawnY, "stand0");
+      this.player.setCollideWorldBounds(true);
+      this.player.setGravityY(300);
+      this.player.flipX = true; // Set player to face right by default
+      this.faceLeft = false; // Set faceLeft to false by default
+      console.log("Player created at position:", this.player.x, this.player.y);
+    } catch (error) {
+      console.error("Error creating player:", error);
+    }
+
+    // --- Create invisible physics ground for collision ---
+    const groundHeight = 100; // 40(top) + 60(middle) + 40(bottom) or 100+40 for slope
+    const groundWidth = 20 * 90; // 2x3 flat + 1 slope + 2x3 flat = 13 tiles wide
+    const ground = this.add.rectangle(
+      groundWidth / 2,
+      groundY + groundHeight / 2,
+      groundWidth,
+      groundHeight - 10,
+      0x000000
+      // invisible
+    );
+    this.physics.add.existing(ground, true); // static body
+    this.physics.add.collider(this.player, ground);
+
+    // Slope
+    const slopeStartX = 6 * 90 + 30; // wherever your slope starts
+    const slopeStepHeight = 1;
+    const stepWidth = 1.5;
+    const stepCount = 90 / stepWidth;
+
+    for (let i = 0; i < stepCount; i++) {
+      const x = slopeStartX + i * stepWidth;
+      const y = groundY - (i + 1) * slopeStepHeight;
+      const step = this.add.rectangle(
+        x + 45,
+        y,
+        90,
+        slopeStepHeight - 10,
+        0x00ff00,
+        0
+      ); // invisible
+      this.physics.add.existing(step, true);
+      this.physics.add.collider(this.player, step);
+    }
+
+    // Top of slope
+    const topSlopeWidth = 90 * 20;
+    const topSlope = this.add.rectangle(
+      slopeStartX + stepCount * stepWidth + topSlopeWidth / 2,
+      groundY - stepCount * slopeStepHeight,
+      topSlopeWidth,
+      slopeStepHeight - 10,
+      0x000000,
+      0
+      // invisible
+    );
+    this.physics.add.existing(topSlope, true);
+    this.physics.add.collider(this.player, topSlope);
+
+    // --- Overlay decorative tiles (no physics) ---
+    let x = 0;
+    const tileWidth = 90;
+    // Helper to place a flat set
+    const placeFlatSet = (setNum: number, yOffset: number) => {
+      this.add.image(
+        x + tileWidth / 2,
+        groundY + 20 + yOffset,
+        `DRT_top${setNum}`
+      );
+      this.add.image(
+        x + tileWidth / 2,
+        groundY + 60 + yOffset,
+        `DRT_middle${setNum}`
+      );
+      this.add.image(
+        x + tileWidth / 2,
+        groundY + 110 + yOffset,
+        `DRT_bottom${setNum}`
+      );
+      x += tileWidth;
+    };
+    // Helper to place a slope set
+    const placeSlope = (yOffset: number) => {
+      this.add.image(
+        x + tileWidth / 2,
+        groundY + 25 + yOffset,
+        "DRT_slope_top"
+      );
+      this.add.image(
+        x + tileWidth / 2,
+        groundY + 120 + yOffset,
+        "DRT_slope_bottom"
+      );
+      x += tileWidth;
+    };
+
+    // 2 x 3 sets of flat ground
+    for (let repeat = 0; repeat < 2; repeat++) {
+      for (let set = 1; set <= 3; set++) {
+        placeFlatSet(set, 0);
+      }
+    }
+    // 1 slope set
+    placeSlope(-38);
+    // 5 x 3 sets of flat ground
+    for (let repeat = 0; repeat < 5; repeat++) {
+      for (let set = 1; set <= 3; set++) {
+        placeFlatSet(set, -60);
+      }
+    }
+
+    // Set up camera to follow player
+    this.cameras.main.startFollow(this.player, true);
+    this.cameras.main.setFollowOffset(0, 0);
+    this.cameras.main.setBounds(
+      0,
+      0,
+      this.worldWidth,
+      this.cameras.main.height
+    );
+
+    // Create minimap
+    this.createMinimap();
+
+    // // Add collision between player and platforms
+    // this.physics.add.collider(this.player, this.platforms);
+
+    // Set up cursor keys and space key
+    if (this.input.keyboard) {
+      this.cursors = this.input.keyboard.createCursorKeys();
+      this.spaceKey = this.input.keyboard.addKey(
+        Phaser.Input.Keyboard.KeyCodes.SPACE
+      );
+      console.log("Keyboard controls initialized");
+    }
+
+    // Create player animations
+    try {
+      this.anims.create({
+        key: "walk",
+        frames: [
+          { key: "walk0" },
+          { key: "walk1" },
+          { key: "walk2" },
+          { key: "walk3" },
+          { key: "walk4" },
+          { key: "walk3" },
+          { key: "walk2" },
+          { key: "walk1" },
+        ],
+        frameRate: 10,
+        repeat: -1,
+      });
+
+      this.anims.create({
+        key: "idle",
+        frames: [
+          { key: "stand0" },
+          { key: "stand1" },
+          { key: "stand2" },
+          { key: "stand3" },
+          { key: "stand2" },
+          { key: "stand1" },
+          { key: "stand0" },
+        ],
+        frameRate: 4,
+        repeat: -1,
+      });
+
+      this.anims.create({
+        key: "jump",
+        frames: [{ key: "jump0" }, { key: "jump1" }],
+        frameRate: 2,
+        repeat: -1,
+      });
+      console.log("Animations created");
+    } catch (error) {
+      console.error("Error creating animations:", error);
+    }
+
+    // Add debug text
+    this.add.text(10, 10, "Use arrow keys to move\nSpace to jump", {
+      color: "#000000",
+      fontSize: "16px",
+    });
+
+    // Add music control button
+    const musicButton = this.add.text(
+      this.cameras.main.width - 100,
+      10,
+      "Music: ON",
+      {
+        color: "#000000",
+        fontSize: "16px",
+        backgroundColor: "#ffffff",
+        padding: { x: 10, y: 5 },
+      }
+    );
+    musicButton.setScrollFactor(0);
+    musicButton.setInteractive();
+    musicButton.on("pointerdown", () => {
+      this.toggleMusic();
+      musicButton.setText(
+        this.backgroundMusic.isPlaying ? "Music: ON" : "Music: OFF"
+      );
+    });
+
+    // Add volume control button
+    const volumeButton = this.add.text(
+      this.cameras.main.width - 100,
+      40,
+      "Vol: 50%",
+      {
+        color: "#000000",
+        fontSize: "16px",
+        backgroundColor: "#ffffff",
+        padding: { x: 10, y: 5 },
+      }
+    );
+    volumeButton.setScrollFactor(0);
+    volumeButton.setInteractive();
+    volumeButton.on("pointerdown", () => {
+      if (this.backgroundMusic instanceof Phaser.Sound.WebAudioSound) {
+        const currentVol = this.backgroundMusic.volume;
+        let newVol = 0;
+        if (currentVol === 0) newVol = 0.25;
+        else if (currentVol === 0.25) newVol = 0.5;
+        else if (currentVol === 0.5) newVol = 0.75;
+        else if (currentVol === 0.75) newVol = 1;
+        else newVol = 0;
+
+        this.backgroundMusic.setVolume(newVol);
+        volumeButton.setText(`Vol: ${Math.round(newVol * 100)}%`);
+      }
+    });
+
+    // Add NPC
+    const npcX = 300; // Position NPC 500 pixels from the left
+    const npcY = groundY - 60; // Place NPC on the ground
+    const npc = this.add.sprite(npcX, npcY, "npc_sketch");
+    npc.setScale(1.7); // Adjust scale as needed
+
+    const npcVideoX = npcX + 600;
+    const npcVideoY = npcY - 54;
+    const npcVideo = this.add.sprite(npcVideoX, npcVideoY, "npc_video");
+    npcVideo.setScale(0.33); // Adjust scale as needed
+    const npcCameraX = npcX + 700;
+    const npcCameraY = npcY - 50;
+    const npcCamera = this.add.sprite(npcCameraX, npcCameraY, "npc_camera");
+    npcCamera.setScale(0.25); // Adjust scale as needed
+
+    // Add interaction zone
+    const interactionZone = this.add.zone(npcX, npcY, 100, 100);
+    this.physics.add.existing(interactionZone, true);
+
+    // Add collision between player and interaction zone
+    this.physics.add.overlap(
+      this.player,
+      interactionZone,
+      () => {
+        // Show interaction prompt when player is near
+        if (!this.interactionText) {
+          this.interactionText = this.add.text(
+            npcX,
+            npcY - 100,
+            "Press E to interact",
+            {
+              color: "#ffffff",
+              fontSize: "16px",
+              backgroundColor: "#000000",
+              padding: { x: 10, y: 5 },
+            }
+          );
+          this.interactionText.setOrigin(0.5);
+        }
+      },
+      undefined,
+      this
+    );
+
+    // Add E key for interaction
+    if (this.input.keyboard) {
+      this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+    }
+  }
+
+  private createMinimap() {
+    // Create minimap background
+    this.minimap = this.add.graphics();
+    this.minimap.fillStyle(0x000000, 0.5);
+    this.minimap.fillRect(
+      this.cameras.main.width - this.minimapWidth - 10,
+      10,
+      this.minimapWidth,
+      this.minimapHeight
+    );
+
+    // Create player dot
+    this.playerDot = this.add.graphics();
+    this.playerDot.fillStyle(0xff0000, 1);
+    this.playerDot.fillCircle(0, 0, 3);
+
+    // Make minimap stay fixed on screen
+    this.minimap.setScrollFactor(0);
+    this.playerDot.setScrollFactor(0);
+  }
+
+  private playAnimOnce(key: string) {
+    const current = this.player.anims.currentAnim?.key;
+    const isPlaying = this.player.anims.isPlaying;
+    if (current !== key || !isPlaying) {
+      this.player.anims.play(key, true);
+    }
+  }
+
+  update(time: number, delta: number) {
+    if (!this.cursors || !this.spaceKey) return;
+
+    // Update parallax scrolling
+    if (this.player && this.player.body) {
+      // Calculate new positions based on player movement
+      const playerDeltaX =
+        this.player.x -
+        (this.player.x - (this.player.body.velocity.x * delta) / 1000);
+
+      // Update each layer's position with different speeds
+
+      if (playerDeltaX !== 0) {
+        // TODO: clamp, user at the boundary, the background should not move
+        this.backgroundLayers.forEach((layer, index) => {
+          const speed = 0.1 * (index * 0.1 + 1); // 0.1, 0.2, 0.3, 0.4
+          this.layerPositions[index] -= playerDeltaX * speed;
+
+          // // Keep layers within bounds
+          // const maxOffset = layer.width * layer.scaleX - this.cameras.main.width;
+          // this.layerPositions[index] = Phaser.Math.Clamp(
+          //   this.layerPositions[index],
+          //   -maxOffset,
+          //   0
+          // );
+
+          layer.x = this.layerPositions[index];
+        });
+      }
+    }
+
+    // Update player dot position on minimap
+    const minimapX =
+      this.cameras.main.width -
+      this.minimapWidth -
+      10 +
+      this.player.x * this.minimapScale;
+    const minimapY = 10 + this.player.y * this.minimapScale;
+    this.playerDot.setPosition(minimapX, minimapY);
+
+    const isOnGround = this.player.body?.touching.down;
+    const currentAnim = this.player.anims.currentAnim?.key;
+
+    // When Jump is pressed and player is on ground, jump
+    if (this.spaceKey.isDown && isOnGround && !this.isJumping) {
+      this.player.setVelocityY(-300);
+      this.isJumping = true;
+      this.hasDoubleJumped = false; // Reset double jump when landing
+      return;
+    }
+
+    // === Jump Handling ===
+    // When player is in the air, play jump animation
+    if (!isOnGround && this.isJumping) {
+      // Handle double jump
+      if (
+        Phaser.Input.Keyboard.JustDown(this.spaceKey) &&
+        !this.hasDoubleJumped &&
+        currentAnim === "jump"
+      ) {
+        this.player.setVelocityY(-200);
+        this.player.setVelocityX(this.faceLeft ? -250 : 250);
+        this.hasDoubleJumped = true;
+      }
+      this.player.anims.play("jump", true);
+      return;
+    }
+
+    // When player is on ground and jump animation is playing, reset jumping flag
+    if (isOnGround && this.isJumping && currentAnim === "jump") {
+      this.isJumping = false;
+    }
+
+    // Prevent constant jump spamming
+    this.jumpCooldown -= delta;
+
+    // === Movement ===
+    let isMoving = false;
+
+    if (this.cursors.left.isDown) {
+      this.faceLeft = true;
+      this.player.setVelocityX(-160);
+      this.player.flipX = false;
+      isMoving = true;
+    } else if (this.cursors.right.isDown) {
+      this.faceLeft = false;
+      this.player.setVelocityX(160);
+      this.player.flipX = true;
+      isMoving = true;
+    } else {
+      this.player.setVelocityX(0);
+    }
+
+    //remove jumpCooldown
+    if (isOnGround) {
+      this.jumpCooldown = 0;
+    }
+
+    // === Animation Handling ===
+
+    // Jumping animation: play only when NOT on ground
+    if (isMoving && isOnGround) {
+      if (currentAnim !== "walk") this.player.anims.play("walk", true);
+    } else {
+      if (currentAnim !== "idle") this.player.anims.play("idle", true);
+    }
+
+    // Handle NPC interaction
+    if (this.eKey.isDown && this.interactionText) {
+      this.openSketchCanvas();
+    }
+
+    // Remove interaction text when player moves away
+    if (this.interactionText && this.player) {
+      const distance = Phaser.Math.Distance.Between(
+        this.player.x,
+        this.player.y,
+        this.interactionText.x,
+        this.interactionText.y
+      );
+      if (distance > 150) {
+        this.interactionText.destroy();
+        this.interactionText = undefined;
+      }
+    }
+  }
+
+  // Add method to control music
+  toggleMusic() {
+    if (this.backgroundMusic.isPlaying) {
+      this.backgroundMusic.stop();
+    } else {
+      this.backgroundMusic.play();
+    }
+  }
+
+  // Add method to adjust volume
+  setMusicVolume(volume: number) {
+    if (this.backgroundMusic instanceof Phaser.Sound.WebAudioSound) {
+      this.backgroundMusic.setVolume(volume);
+    }
+  }
+
+  // Add method to handle sketch interaction
+  private openSketchCanvas() {
+    this.isSketchOpen = true;
+    // Dispatch a custom event to open the sketch canvas
+    const event = new CustomEvent("openSketchCanvas");
+    window.dispatchEvent(event);
+  }
+}
