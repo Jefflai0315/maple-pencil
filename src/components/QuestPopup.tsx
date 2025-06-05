@@ -74,6 +74,8 @@ const GalleryCard = ({
                     "0 4px 16px 0 rgba(0,0,0,0.13), 0 1.5px 0 0 #fff inset",
                   filter: "brightness(1.2) contrast(1.1)",
                 }}
+                loading="lazy"
+                decoding="async"
                 onClick={() => onImageClick(index, categoryIndex)}
               />
             );
@@ -104,8 +106,46 @@ const ImageModal = ({
   const [transitionDirection, setTransitionDirection] = useState<
     null | "next" | "prev"
   >(null);
+  const [loadedImages, setLoadedImages] = useState<Set<number>>(
+    new Set([initialIndex])
+  );
+
+  // Ensure modalIndex is within bounds
+  useEffect(() => {
+    if (modalIndex >= images.length) {
+      setModalIndex(0);
+    }
+  }, [modalIndex, images.length]);
+
+  // Preload adjacent images
+  useEffect(() => {
+    if (isOpen && images.length > 0) {
+      const nextIndex = (modalIndex + 1) % images.length;
+      const prevIndex = (modalIndex - 1 + images.length) % images.length;
+
+      const preloadImage = (index: number) => {
+        if (!loadedImages.has(index) && images[index]) {
+          const img = new Image();
+          img.src = `/gallery/${category}/${images[index]}`;
+          img.onload = () => {
+            setLoadedImages((prev) => new Set([...prev, index]));
+          };
+        }
+      };
+
+      preloadImage(nextIndex);
+      preloadImage(prevIndex);
+    }
+  }, [modalIndex, isOpen, images, category, loadedImages]);
+
+  // Safety check for empty images array
+  if (!images || images.length === 0) {
+    return null;
+  }
 
   const handleModalNav = (dir: "next" | "prev") => {
+    if (images.length <= 1) return;
+
     setTransitionDirection(dir);
     setZoomed(false);
     setTimeout(() => {
@@ -120,6 +160,13 @@ const ImageModal = ({
   };
 
   if (!isOpen) return null;
+
+  const currentImage = images[modalIndex];
+  if (!currentImage) return null;
+
+  const getImageAlt = (imageName: string) => {
+    return imageName ? imageName.replace(/_/g, " ").replace(".jpg", "") : "";
+  };
 
   return (
     <div
@@ -145,23 +192,31 @@ const ImageModal = ({
             src={`/gallery/${category}/${
               images[(modalIndex - 1 + images.length) % images.length]
             }`}
-            alt="prev"
+            alt={getImageAlt(
+              images[(modalIndex - 1 + images.length) % images.length]
+            )}
             className="absolute left-0 top-1/2 -translate-y-1/2 cursor-pointer rounded-lg border border-white/20 shadow-lg bg-white/10 backdrop-blur-sm transition-all duration-300 hover:scale-105"
             style={{
               width: "50%",
-              opacity: 0.7,
+              opacity: loadedImages.has(
+                (modalIndex - 1 + images.length) % images.length
+              )
+                ? 0.7
+                : 0,
               zIndex: 1,
               transform: "translateX(-40%) scale(0.85) rotate(-20deg)",
               filter: "blur(2px)",
             }}
+            loading="lazy"
+            decoding="async"
             onClick={() => handleModalNav("prev")}
           />
         )}
 
         {/* Main Image */}
         <img
-          src={`/gallery/${category}/${images[modalIndex]}`}
-          alt={images[modalIndex].replace(/_/g, " ").replace(".jpg", "")}
+          src={`/gallery/${category}/${currentImage}`}
+          alt={getImageAlt(currentImage)}
           className={`rounded-lg shadow-2xl bg-white/10 backdrop-blur-sm transition-all duration-300
             ${transitionDirection === "next" ? "modal-slide-next" : ""}
             ${transitionDirection === "prev" ? "modal-slide-prev" : ""}
@@ -174,6 +229,8 @@ const ImageModal = ({
             opacity: zoomed ? 1 : 0.5,
             filter: "brightness(1.2) contrast(1.1)",
           }}
+          loading="eager"
+          decoding="async"
           onLoad={() => setTimeout(() => setZoomed(true), 10)}
         />
 
@@ -183,34 +240,42 @@ const ImageModal = ({
             src={`/gallery/${category}/${
               images[(modalIndex + 1) % images.length]
             }`}
-            alt="next"
+            alt={getImageAlt(images[(modalIndex + 1) % images.length])}
             className="absolute right-0 top-1/2 -translate-y-1/2 cursor-pointer rounded-lg border border-white/20 shadow-lg bg-white/10 backdrop-blur-sm transition-all duration-300 hover:scale-105"
             style={{
               width: "50%",
-              opacity: 0.7,
+              opacity: loadedImages.has((modalIndex + 1) % images.length)
+                ? 0.7
+                : 0,
               zIndex: 1,
               transform: "translateX(40%) scale(0.85) rotate(20deg)",
               filter: "blur(2px)",
             }}
+            loading="lazy"
+            decoding="async"
             onClick={() => handleModalNav("next")}
           />
         )}
 
         {/* Navigation arrows */}
-        <button
-          className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full w-10 h-10 flex items-center justify-center text-2xl font-bold z-10 transition-all duration-300"
-          onClick={() => handleModalNav("prev")}
-          style={{ pointerEvents: "auto" }}
-        >
-          &#8592;
-        </button>
-        <button
-          className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full w-10 h-10 flex items-center justify-center text-2xl font-bold z-10 transition-all duration-300"
-          onClick={() => handleModalNav("next")}
-          style={{ pointerEvents: "auto" }}
-        >
-          &#8594;
-        </button>
+        {images.length > 1 && (
+          <>
+            <button
+              className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full w-10 h-10 flex items-center justify-center text-2xl font-bold z-10 transition-all duration-300"
+              onClick={() => handleModalNav("prev")}
+              style={{ pointerEvents: "auto" }}
+            >
+              &#8592;
+            </button>
+            <button
+              className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full w-10 h-10 flex items-center justify-center text-2xl font-bold z-10 transition-all duration-300"
+              onClick={() => handleModalNav("next")}
+              style={{ pointerEvents: "auto" }}
+            >
+              &#8594;
+            </button>
+          </>
+        )}
 
         {/* Close Button */}
         <button
