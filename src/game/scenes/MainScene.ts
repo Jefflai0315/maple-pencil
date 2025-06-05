@@ -90,7 +90,7 @@ export class MainScene extends Phaser.Scene {
 
     // Initialize background music (only once)
     this.backgroundMusic = this.sound.add("bgm", {
-      volume: 0.5,
+      volume: 0,
       loop: true,
     });
 
@@ -337,39 +337,36 @@ export class MainScene extends Phaser.Scene {
       fontSize: "16px",
     });
 
+    // Create a container for audio controls at bottom left
+    const audioControls = this.add.container(20, this.cameras.main.height - 60);
+    audioControls.setScrollFactor(0);
+
+    // Create background for audio controls
+    const audioBg = this.add.rectangle(0, 0, 160, 40, 0x000000, 0.3);
+    audioBg.setStrokeStyle(1, 0xffffff, 0.5);
+    audioControls.add(audioBg);
+
     // Add music control button
-    const musicButton = this.add.text(
-      this.cameras.main.width - 100,
-      10,
-      "Music: ON",
-      {
-        color: "#000000",
-        fontSize: "16px",
-        backgroundColor: "#ffffff",
-        padding: { x: 10, y: 5 },
-      }
-    );
-    musicButton.setScrollFactor(0);
-    musicButton.setInteractive();
-    musicButton.on("pointerdown", () => {
-      this.toggleMusic();
-      musicButton.setText(
-        this.backgroundMusic.isPlaying ? "Music: ON" : "Music: OFF"
-      );
-    });
+    // const musicButton = this.add.text(10, 0, "🔊", {
+    //   color: "#ffffff",
+    //   fontSize: "24px",
+    // });
+    // // musicButton.setOrigin(0.5);
+    // musicButton.setScrollFactor(0);
+    // musicButton.setInteractive();
+    // musicButton.on("pointerdown", () => {
+    //   this.toggleMusic();
+    //   musicButton.setText(
+    //     this.backgroundMusic.isPlaying ? "Music: ON" : "Music: OFF"
+    //   );
+    // });
+    // audioControls.add(musicButton);
 
     // Add volume control button
-    const volumeButton = this.add.text(
-      this.cameras.main.width - 100,
-      40,
-      "Vol: 50%",
-      {
-        color: "#000000",
-        fontSize: "16px",
-        backgroundColor: "#ffffff",
-        padding: { x: 10, y: 5 },
-      }
-    );
+    const volumeButton = this.add.text(50, 0, "🔇", {
+      color: "#ffffff",
+      fontSize: "24px",
+    });
     volumeButton.setScrollFactor(0);
     volumeButton.setInteractive();
     volumeButton.on("pointerdown", () => {
@@ -377,15 +374,17 @@ export class MainScene extends Phaser.Scene {
         const currentVol = this.backgroundMusic.volume;
         let newVol = 0;
         if (currentVol === 0) newVol = 0.25;
-        else if (currentVol === 0.25) newVol = 0.5;
-        else if (currentVol === 0.5) newVol = 0.75;
-        else if (currentVol === 0.75) newVol = 1;
+        // else if (currentVol === 0.25) newVol = 0.5;
+        // else if (currentVol === 0.5) newVol = 0.75;
+        // else if (currentVol === 0.75) newVol = 1;
         else newVol = 0;
 
         this.backgroundMusic.setVolume(newVol);
-        volumeButton.setText(`Vol: ${Math.round(newVol * 100)}%`);
+        volumeButton.setText(currentVol === 0 ? `🔇` : `🔊`);
       }
     });
+    audioControls.add(volumeButton);
+    this.backgroundMusic.play();
 
     // Add NPC
     const npcX = 300; // Position NPC 500 pixels from the left
@@ -593,14 +592,14 @@ export class MainScene extends Phaser.Scene {
     }
   }
 
-  // Add method to control music
-  toggleMusic() {
-    if (this.backgroundMusic.isPlaying) {
-      this.backgroundMusic.stop();
-    } else {
-      this.backgroundMusic.play();
-    }
-  }
+  // // Add method to control music
+  // toggleMusic() {
+  //   if (this.backgroundMusic.isPlaying) {
+  //     this.backgroundMusic.stop();
+  //   } else {
+  //     this.backgroundMusic.play();
+  //   }
+  // }
 
   // Add method to adjust volume
   setMusicVolume(volume: number) {
