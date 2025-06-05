@@ -112,8 +112,10 @@ html, body {
 }
 
 .quest-popup {
-  width: 500px;
-  height: 600px;
+  width: 95%;
+  max-width: 800px;
+  height: 80vh;
+  max-height: 800px;
   background: rgba(0, 0, 0, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.85);
   box-shadow:

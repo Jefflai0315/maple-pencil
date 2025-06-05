@@ -46,7 +46,7 @@ const GalleryCard = ({
   };
 
   return (
-    <div className="flex flex-col bg-white/5 backdrop-blur-sm rounded-lg p-6 hover:bg-white/10 transition-all duration-300">
+    <div className="flex flex-col bg-white/5 backdrop-blur-sm rounded-lg p-2 md:p-6 hover:bg-white/10 transition-all duration-300">
       <h3 className="text-lg font-bold mb-2 text-yellow-400">{title}</h3>
       <p className="text-sm mb-4 text-gray-300">{description}</p>
       <div className="relative flex items-center justify-center h-40 overflow-hidden group">
@@ -289,7 +289,6 @@ const QuestPopup = ({
   section: string;
 }) => {
   const content = sectionContent[section as keyof typeof sectionContent];
-  const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const popupRef = useRef<HTMLDivElement>(null);
@@ -297,17 +296,6 @@ const QuestPopup = ({
   const [selectedCategory, setSelectedCategory] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalIndex, setModalIndex] = useState(0);
-
-  // Center the popup on mount
-  useEffect(() => {
-    if (popupRef.current) {
-      const popupWidth = popupRef.current.offsetWidth;
-      const popupHeight = popupRef.current.offsetHeight;
-      const x = (window.innerWidth - popupWidth) / 2;
-      const y = (window.innerHeight - popupHeight) / 2;
-      setPosition({ x, y });
-    }
-  }, []);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (popupRef.current) {
@@ -324,7 +312,7 @@ const QuestPopup = ({
     if (isDragging && popupRef.current) {
       const x = e.clientX - dragOffset.x;
       const y = e.clientY - dragOffset.y;
-      setPosition({ x, y });
+      popupRef.current.style.transform = `translate(${x}px, ${y}px)`;
     }
   };
 
@@ -385,9 +373,6 @@ const QuestPopup = ({
         ref={popupRef}
         className="quest-popup"
         style={{
-          position: "absolute",
-          left: `${position.x}px`,
-          top: `${position.y}px`,
           cursor: isDragging ? "grabbing" : "default",
         }}
       >
@@ -430,9 +415,9 @@ const QuestPopup = ({
                 {/* Service Gallery */}
                 <div className="quest-level">
                   <div className="quest-desc">
-                    <div className="flex flex-col gap-8">
+                    <div className="flex flex-col gap-4 md:gap-8">
                       {/* Grid layout for categories */}
-                      <div className="grid grid-cols-2 gap-8 px-4">
+                      <div className="grid grid-cols-2 gap-4 md:gap-8 px-4">
                         <GalleryCard
                           title="Quick Sketches"
                           description="Fast and expressive sketches perfect for capturing moments on the go."
