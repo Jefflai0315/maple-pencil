@@ -387,13 +387,10 @@ export class MainScene extends Phaser.Scene {
         const currentVol = this.backgroundMusic.volume;
         let newVol = 0;
         if (currentVol === 0) newVol = 0.25;
-        // else if (currentVol === 0.25) newVol = 0.5;
-        // else if (currentVol === 0.5) newVol = 0.75;
-        // else if (currentVol === 0.75) newVol = 1;
         else newVol = 0;
 
         this.backgroundMusic.setVolume(newVol);
-        volumeButton.setText(currentVol === 0 ? `🔇` : `🔊`);
+        volumeButton.setText(currentVol === 0 ? `🔊` : `🔇`);
       }
     });
     audioControls.add(volumeButton);
@@ -756,15 +753,6 @@ export class MainScene extends Phaser.Scene {
       }
     }
   }
-
-  // // Add method to control music
-  // toggleMusic() {
-  //   if (this.backgroundMusic.isPlaying) {
-  //     this.backgroundMusic.stop();
-  //   } else {
-  //     this.backgroundMusic.play();
-  //   }
-  // }
 
   // Add method to adjust volume
   setMusicVolume(volume: number) {
