@@ -28,6 +28,19 @@ export class MainScene extends Phaser.Scene {
   private eKey!: Phaser.Input.Keyboard.Key;
   private isSketchOpen: boolean = false;
 
+  // Touch controls
+  private joystick!: Phaser.GameObjects.Container;
+  private joystickBase!: Phaser.GameObjects.Graphics;
+  private joystickThumb!: Phaser.GameObjects.Graphics;
+  private joystickActive: boolean = false;
+  private joystickPosition: { x: number; y: number } = { x: 0, y: 0 };
+  private jumpButton!: Phaser.GameObjects.Container;
+  private isMobile: boolean = false;
+  private jumpButtonPressed: boolean = false;
+  private lastPointerPosition: { x: number; y: number } = { x: 0, y: 0 };
+  private lastJumpTime: number = 0;
+  private jumpCooldownTime: number = 200; // 300ms cooldown between jumps
+
   constructor() {
     super({ key: "MainScene" });
   }
@@ -434,6 +447,16 @@ export class MainScene extends Phaser.Scene {
     if (this.input.keyboard) {
       this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
     }
+
+    // Check if device is mobile
+    this.isMobile =
+      this.sys.game.device.os.android ||
+      this.sys.game.device.os.iOS ||
+      this.sys.game.device.os.windowsPhone;
+
+    if (this.isMobile) {
+      this.createTouchControls();
+    }
   }
 
   private createMinimap() {
@@ -465,6 +488,129 @@ export class MainScene extends Phaser.Scene {
     }
   }
 
+  private createTouchControls() {
+    // Create joystick base
+    this.joystickBase = this.add.graphics();
+    this.joystickBase.fillStyle(0x000000, 0.5);
+    this.joystickBase.fillCircle(0, 0, 50);
+    this.joystickBase.setScrollFactor(0);
+
+    // Create joystick thumb
+    this.joystickThumb = this.add.graphics();
+    this.joystickThumb.fillStyle(0xffffff, 0.8);
+    this.joystickThumb.fillCircle(0, 0, 25);
+    this.joystickThumb.setScrollFactor(0);
+
+    // Create joystick container
+    this.joystick = this.add.container(150, this.cameras.main.height - 150);
+    this.joystick.add([this.joystickBase, this.joystickThumb]);
+    this.joystick.setScrollFactor(0);
+
+    // Make joystick interactive
+    this.joystick.setInteractive(
+      new Phaser.Geom.Circle(0, 0, 50),
+      Phaser.Geom.Circle.Contains
+    );
+    this.joystick.on("pointerdown", this.startJoystick, this);
+    this.joystick.on("pointermove", this.moveJoystick, this);
+    this.joystick.on("pointerup", this.stopJoystick, this);
+    this.joystick.on("pointerout", this.stopJoystick, this);
+
+    // Create jump button
+    const jumpButtonBg = this.add.graphics();
+    jumpButtonBg.fillStyle(0x000000, 0.5);
+    jumpButtonBg.fillCircle(0, 0, 40);
+    jumpButtonBg.setScrollFactor(0);
+
+    const jumpButtonText = this.add.text(0, 0, "JUMP", {
+      fontSize: "16px",
+      color: "#ffffff",
+    });
+    jumpButtonText.setOrigin(0.5);
+    jumpButtonText.setScrollFactor(0);
+
+    this.jumpButton = this.add.container(
+      this.cameras.main.width - 100,
+      this.cameras.main.height - 100
+    );
+    this.jumpButton.add([jumpButtonBg, jumpButtonText]);
+    this.jumpButton.setScrollFactor(0);
+
+    // Make jump button interactive
+    this.jumpButton.setInteractive(
+      new Phaser.Geom.Circle(0, 0, 40),
+      Phaser.Geom.Circle.Contains
+    );
+    this.jumpButton.on("pointerdown", () => {
+      const currentTime = this.time.now;
+      if (currentTime - this.lastJumpTime >= this.jumpCooldownTime) {
+        this.jumpButtonPressed = true;
+        this.lastJumpTime = currentTime;
+      }
+    });
+    this.jumpButton.on("pointerup", () => {
+      this.jumpButtonPressed = false;
+    });
+    this.jumpButton.on("pointerout", () => {
+      this.jumpButtonPressed = false;
+    });
+  }
+
+  private startJoystick(pointer: Phaser.Input.Pointer) {
+    this.joystickActive = true;
+    this.lastPointerPosition = { x: pointer.x, y: pointer.y };
+    this.moveJoystick(pointer);
+  }
+
+  private moveJoystick(pointer: Phaser.Input.Pointer) {
+    if (!this.joystickActive) return;
+
+    const distance = Phaser.Math.Distance.Between(
+      this.joystick.x,
+      this.joystick.y,
+      pointer.x,
+      pointer.y
+    );
+
+    const angle = Phaser.Math.Angle.Between(
+      this.joystick.x,
+      this.joystick.y,
+      pointer.x,
+      pointer.y
+    );
+
+    const maxDistance = 50;
+    const actualDistance = Math.min(distance, maxDistance);
+
+    this.joystickPosition = {
+      x: Math.cos(angle) * actualDistance,
+      y: Math.sin(angle) * actualDistance,
+    };
+
+    this.joystickThumb.setPosition(
+      this.joystickPosition.x,
+      this.joystickPosition.y
+    );
+    this.lastPointerPosition = { x: pointer.x, y: pointer.y };
+
+    // Update player movement based on joystick position
+    const normalizedX = this.joystickPosition.x / maxDistance;
+    if (Math.abs(normalizedX) > 0.1) {
+      this.player.setVelocityX(normalizedX * 160);
+      this.faceLeft = normalizedX < 0;
+      this.player.flipX = !this.faceLeft;
+    } else {
+      this.player.setVelocityX(0);
+    }
+  }
+
+  private stopJoystick() {
+    this.joystickActive = false;
+    this.joystickPosition = { x: 0, y: 0 };
+    this.joystickThumb.setPosition(0, 0);
+    this.player.setVelocityX(0);
+  }
+
   update(time: number, delta: number) {
     if (!this.cursors || !this.spaceKey) return;
 
@@ -476,7 +622,6 @@ export class MainScene extends Phaser.Scene {
         (this.player.x - (this.player.body.velocity.x * delta) / 1000);
 
       // Update each layer's position with different speeds
-
       if (playerDeltaX !== 0) {
         // TODO: clamp, user at the boundary, the background should not move
         this.backgroundLayers.forEach((layer, index) => {
@@ -508,26 +653,35 @@ export class MainScene extends Phaser.Scene {
     const isOnGround = this.player.body?.touching.down;
     const currentAnim = this.player.anims.currentAnim?.key;
 
+    // === Jump Handling ===
     // When Jump is pressed and player is on ground, jump
-    if (this.spaceKey.isDown && isOnGround && !this.isJumping) {
+    if (
+      (this.spaceKey.isDown || this.jumpButtonPressed) &&
+      isOnGround &&
+      !this.isJumping
+    ) {
       this.player.setVelocityY(-300);
       this.isJumping = true;
       this.hasDoubleJumped = false; // Reset double jump when landing
+      this.jumpButtonPressed = false; // Reset button state after jump
+      console.log("jump");
       return;
     }
 
-    // === Jump Handling ===
     // When player is in the air, play jump animation
     if (!isOnGround && this.isJumping) {
       // Handle double jump
       if (
-        Phaser.Input.Keyboard.JustDown(this.spaceKey) &&
+        (Phaser.Input.Keyboard.JustDown(this.spaceKey) ||
+          this.jumpButtonPressed) &&
         !this.hasDoubleJumped &&
         currentAnim === "jump"
       ) {
         this.player.setVelocityY(-200);
         this.player.setVelocityX(this.faceLeft ? -250 : 250);
         this.hasDoubleJumped = true;
+        this.jumpButtonPressed = false; // Reset button state after double jump
+        console.log("double jump");
       }
       this.player.anims.play("jump", true);
       return;
@@ -536,26 +690,46 @@ export class MainScene extends Phaser.Scene {
     // When player is on ground and jump animation is playing, reset jumping flag
     if (isOnGround && this.isJumping && currentAnim === "jump") {
       this.isJumping = false;
+      // Reset horizontal velocity when landing
+      if (!this.joystickActive) {
+        this.player.setVelocityX(0);
+      }
     }
 
     // Prevent constant jump spamming
     this.jumpCooldown -= delta;
-
-    // === Movement ===
     let isMoving = false;
 
-    if (this.cursors.left.isDown) {
-      this.faceLeft = true;
-      this.player.setVelocityX(-160);
-      this.player.flipX = false;
-      isMoving = true;
-    } else if (this.cursors.right.isDown) {
-      this.faceLeft = false;
-      this.player.setVelocityX(160);
-      this.player.flipX = true;
-      isMoving = true;
+    // Only process keyboard input if not on mobile
+    if (!this.isMobile) {
+      // === Movement ===
+      if (this.cursors.left.isDown) {
+        this.faceLeft = true;
+        this.player.setVelocityX(-160);
+        this.player.flipX = false;
+        isMoving = true;
+      } else if (this.cursors.right.isDown) {
+        this.faceLeft = false;
+        this.player.setVelocityX(160);
+        this.player.flipX = true;
+        isMoving = true;
+      } else {
+        this.player.setVelocityX(0);
+      }
     } else {
-      this.player.setVelocityX(0);
+      // Handle mobile input
+      if (this.joystickActive) {
+        // Create a pointer object with the last known position
+        const pointer = {
+          x: this.lastPointerPosition.x,
+          y: this.lastPointerPosition.y,
+        } as Phaser.Input.Pointer;
+        isMoving = true;
+        this.moveJoystick(pointer);
+      } else {
+        // Reset velocity when joystick is not active
+        this.player.setVelocityX(0);
+      }
     }
 
     //remove jumpCooldown
@@ -564,7 +738,6 @@ export class MainScene extends Phaser.Scene {
     }
 
     // === Animation Handling ===
-
     // Jumping animation: play only when NOT on ground
     if (isMoving && isOnGround) {
       if (currentAnim !== "walk") this.player.anims.play("walk", true);
