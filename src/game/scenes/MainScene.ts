@@ -465,7 +465,7 @@ export class MainScene extends Phaser.Scene {
     this.minimap.fillStyle(0x000000, 0.5);
     this.minimap.fillRect(
       this.cameras.main.width - this.minimapWidth - 10,
-      10,
+      70,
       this.minimapWidth,
       this.minimapHeight
     );
@@ -478,14 +478,6 @@ export class MainScene extends Phaser.Scene {
     // Make minimap stay fixed on screen
     this.minimap.setScrollFactor(0);
     this.playerDot.setScrollFactor(0);
-  }
-
-  private playAnimOnce(key: string) {
-    const current = this.player.anims.currentAnim?.key;
-    const isPlaying = this.player.anims.isPlaying;
-    if (current !== key || !isPlaying) {
-      this.player.anims.play(key, true);
-    }
   }
 
   private createTouchControls() {
@@ -647,7 +639,7 @@ export class MainScene extends Phaser.Scene {
       this.minimapWidth -
       10 +
       this.player.x * this.minimapScale;
-    const minimapY = 10 + this.player.y * this.minimapScale;
+    const minimapY = 70 + this.player.y * this.minimapScale;
     this.playerDot.setPosition(minimapX, minimapY);
 
     const isOnGround = this.player.body?.touching.down;

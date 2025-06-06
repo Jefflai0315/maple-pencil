@@ -2,7 +2,7 @@ import { useState } from "react";
 import QuestPopup from "./QuestPopup";
 
 export const Navbar = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [selectedSection, setSelectedSection] = useState("About");
 
   const handleClick = (item: string) => {
