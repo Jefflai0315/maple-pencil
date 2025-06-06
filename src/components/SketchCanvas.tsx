@@ -23,6 +23,7 @@ export const SketchCanvas = ({ isOpen, onClose }: SketchCanvasProps) => {
     null
   );
   const [sketchName, setSketchName] = useState("");
+  const [canvasScale, setCanvasScale] = useState(1);
 
   // Add escape key handler
   useEffect(() => {
@@ -49,8 +50,21 @@ export const SketchCanvas = ({ isOpen, onClose }: SketchCanvasProps) => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    canvas.width = 500;
-    canvas.height = 400;
+    // Original dimensions
+    const originalWidth = 485;
+    const originalHeight = 380;
+
+    // Calculate new dimensions maintaining aspect ratio
+    const newWidth = Math.min(originalWidth, window.innerWidth * 0.7); // 70% of screen width
+    const newHeight = (newWidth * originalHeight) / originalWidth;
+
+    // Calculate scale factor
+    const scale = newWidth / originalWidth;
+    setCanvasScale(scale);
+
+    // Set canvas dimensions
+    canvas.width = newWidth;
+    canvas.height = newHeight;
 
     ctx.strokeStyle = "#000000";
     ctx.lineWidth = 2;
@@ -190,7 +204,7 @@ export const SketchCanvas = ({ isOpen, onClose }: SketchCanvasProps) => {
         </button>
 
         {/* Easel frame */}
-        <div className="relative w-[700px] h-[800px]">
+        <div className="relative w-[90vw] max-w-[700px] h-[90vh] max-h-[800px]">
           <img
             src="/NPC/easel.png"
             alt="Easel"
@@ -198,10 +212,17 @@ export const SketchCanvas = ({ isOpen, onClose }: SketchCanvasProps) => {
           />
 
           {/* Canvas positioned within the easel frame */}
-          <div className="absolute top-[80px] left-[110px] w-[485px] h-[380px] overflow-hidden">
+          <div
+            className="absolute left-[15%] w-[70%] overflow-hidden"
+            style={{
+              top: `calc(50% -  ${10 * canvasScale}vh)`,
+              height: `calc(47%  ${canvasScale})`,
+              transform: "translateY(-50%)",
+            }}
+          >
             <canvas
               ref={canvasRef}
-              className="border-4 border-black pixel-border rounded-md cursor-pencil touch-none w-[485px] h-[380px] bg-white"
+              className="border-4 border-black pixel-border rounded-md cursor-pencil touch-none w-full h-full bg-white"
               onMouseDown={startDrawing}
               onMouseMove={draw}
               onMouseUp={stopDrawing}
@@ -209,14 +230,12 @@ export const SketchCanvas = ({ isOpen, onClose }: SketchCanvasProps) => {
               onTouchStart={startDrawing}
               onTouchMove={draw}
               onTouchEnd={stopDrawing}
-              width={485}
-              height={380}
               style={{ imageRendering: "pixelated" }}
             />
           </div>
 
           {/* Controls positioned below the easel */}
-          <div className="absolute w-full bottom-50 px-15 flex flex-col sm:flex-row gap-3 items-center justify-between px-4">
+          <div className="absolute w-full bottom-[10%] px-[5%] flex flex-col sm:flex-row gap-3 items-center justify-between">
             <input
               type="text"
               placeholder="Name your sketch"

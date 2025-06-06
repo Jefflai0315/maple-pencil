@@ -401,6 +401,12 @@ export class MainScene extends Phaser.Scene {
     const npcY = groundY - 60; // Place NPC on the ground
     const npc = this.add.sprite(npcX, npcY, "npc_sketch");
     npc.setScale(1.7); // Adjust scale as needed
+    npc.setInteractive(); // Make NPC interactive for touch
+    npc.on("pointerdown", () => {
+      if (this.interactionText) {
+        this.openSketchCanvas();
+      }
+    });
 
     const npcVideoX = npcX + 600;
     const npcVideoY = npcY - 54;
@@ -425,7 +431,7 @@ export class MainScene extends Phaser.Scene {
           this.interactionText = this.add.text(
             npcX,
             npcY - 100,
-            "Press E to interact",
+            this.isMobile ? "Tap NPC to interact" : "Press E to interact",
             {
               color: "#ffffff",
               fontSize: "16px",
