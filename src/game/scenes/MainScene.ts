@@ -47,9 +47,25 @@ export class MainScene extends Phaser.Scene {
 
   preload() {
     console.log("Loading game assets...");
+
     // Add loading error handler
     this.load.on("loaderror", (file: { src: string }) => {
       console.error("Error loading file:", file.src);
+    });
+
+    // Add audio loading error handler
+    this.load.on("audioerror", (file: { src: string }) => {
+      console.error("Error loading audio file:", file.src);
+    });
+
+    // Add file complete handler
+    this.load.on("filecomplete", (key: string) => {
+      console.log("File loaded successfully:", key);
+    });
+
+    // Add load complete handler
+    this.load.on("complete", () => {
+      console.log("All assets loaded successfully");
     });
 
     // Load NPC
@@ -73,7 +89,6 @@ export class MainScene extends Phaser.Scene {
     // Load jump frames
     for (let i = 0; i <= 1; i++) {
       this.load.image(`jump${i}`, `/sprites/smile/0/jump_${i}.png`);
-      // public/sprites/smile/0/jump_0.png
     }
 
     // Load game assets
@@ -92,8 +107,13 @@ export class MainScene extends Phaser.Scene {
     this.load.image("bg_layer3", "/BG/Merlion.png");
     this.load.image("bg_layer4", "/BG/Building_FG.png");
 
-    // Load background music
-    this.load.audio("bgm", "/audio/CBD_town.mp3");
+    // Load background music with proper error handling
+    try {
+      // Try to load the audio file
+      this.load.audio("bgm", "/audio/CBD_town.mp3");
+    } catch (error) {
+      console.error("Error loading audio file:", error);
+    }
 
     console.log("Assets loaded");
   }
@@ -101,11 +121,20 @@ export class MainScene extends Phaser.Scene {
   create() {
     console.log("Creating game scene...");
 
-    // Initialize background music (only once)
-    this.backgroundMusic = this.sound.add("bgm", {
-      volume: 0,
-      loop: true,
-    });
+    // Initialize background music with error handling
+    try {
+      // Wait for the audio to be fully loaded
+      if (this.load.isLoading()) {
+        console.log("Waiting for assets to finish loading...");
+        this.load.once("complete", () => {
+          this.initializeAudio();
+        });
+      } else {
+        this.initializeAudio();
+      }
+    } catch (error) {
+      console.error("Error in create:", error);
+    }
 
     // Add sky tile (non-scrolling)
     const sky = this.add.tileSprite(
@@ -359,22 +388,6 @@ export class MainScene extends Phaser.Scene {
     audioBg.setStrokeStyle(1, 0xffffff, 0.5);
     audioControls.add(audioBg);
 
-    // Add music control button
-    // const musicButton = this.add.text(10, 0, "🔊", {
-    //   color: "#ffffff",
-    //   fontSize: "24px",
-    // });
-    // // musicButton.setOrigin(0.5);
-    // musicButton.setScrollFactor(0);
-    // musicButton.setInteractive();
-    // musicButton.on("pointerdown", () => {
-    //   this.toggleMusic();
-    //   musicButton.setText(
-    //     this.backgroundMusic.isPlaying ? "Music: ON" : "Music: OFF"
-    //   );
-    // });
-    // audioControls.add(musicButton);
-
     // Add volume control button
     const volumeButton = this.add.text(50, -10, "🔇", {
       color: "#ffffff",
@@ -394,7 +407,6 @@ export class MainScene extends Phaser.Scene {
       }
     });
     audioControls.add(volumeButton);
-    this.backgroundMusic.play();
 
     // Add NPC
     const npcX = 300; // Position NPC 500 pixels from the left
@@ -459,6 +471,63 @@ export class MainScene extends Phaser.Scene {
 
     if (this.isMobile) {
       this.createTouchControls();
+    }
+  }
+
+  private initializeAudio() {
+    try {
+      // Check if audio is loaded
+      if (!this.cache.audio.exists("bgm")) {
+        console.error("Audio file not found in cache");
+        return;
+      }
+
+      // Initialize audio system
+      this.sound.setMute(false);
+
+      // Create audio instance
+      this.backgroundMusic = this.sound.add("bgm", {
+        volume: 0,
+        loop: true,
+      });
+
+      // Add error handler for audio playback
+      this.backgroundMusic.on("playerror", () => {
+        console.warn(
+          "Error playing background music, attempting to restart..."
+        );
+        if (this.backgroundMusic) {
+          this.backgroundMusic.stop();
+          setTimeout(() => {
+            try {
+              this.backgroundMusic.play();
+            } catch (e) {
+              console.error("Failed to restart music:", e);
+            }
+          }, 1000);
+        }
+      });
+
+      // Start music with user interaction
+      const startMusic = () => {
+        if (!this.isMusicPlaying && this.backgroundMusic) {
+          try {
+            this.backgroundMusic.play();
+            this.isMusicPlaying = true;
+            // Remove the event listeners after first play
+            this.input.off("pointerdown", startMusic);
+            this.input.keyboard?.off("keydown", startMusic);
+          } catch (e) {
+            console.error("Failed to start music:", e);
+          }
+        }
+      };
+
+      // Add event listeners for user interaction
+      this.input.on("pointerdown", startMusic);
+      this.input.keyboard?.on("keydown", startMusic);
+    } catch (error) {
+      console.error("Error initializing audio:", error);
     }
   }
 
