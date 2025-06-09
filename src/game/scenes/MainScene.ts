@@ -509,7 +509,19 @@ export class MainScene extends Phaser.Scene {
     this.joystick.on("pointerdown", this.startJoystick, this);
     this.joystick.on("pointermove", this.moveJoystick, this);
     this.joystick.on("pointerup", this.stopJoystick, this);
-    this.joystick.on("pointerout", this.stopJoystick, this);
+
+    // Add global pointer move and up events to handle joystick movement outside the base
+    this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
+      if (this.joystickActive) {
+        this.moveJoystick(pointer);
+      }
+    });
+
+    this.input.on("pointerup", () => {
+      if (this.joystickActive) {
+        this.stopJoystick();
+      }
+    });
 
     // Create jump button
     const jumpButtonBg = this.add.graphics();
@@ -544,9 +556,6 @@ export class MainScene extends Phaser.Scene {
       }
     });
     this.jumpButton.on("pointerup", () => {
-      this.jumpButtonPressed = false;
-    });
-    this.jumpButton.on("pointerout", () => {
       this.jumpButtonPressed = false;
     });
   }
