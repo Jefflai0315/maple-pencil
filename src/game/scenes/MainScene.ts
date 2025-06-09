@@ -345,7 +345,7 @@ export class MainScene extends Phaser.Scene {
     }
 
     // Add debug text
-    this.add.text(10, 10, "Use arrow keys to move\nSpace to jump", {
+    this.add.text(10, 70, "Use arrow keys to move\nSpace to jump", {
       color: "#000000",
       fontSize: "16px",
     });
@@ -376,7 +376,7 @@ export class MainScene extends Phaser.Scene {
     // audioControls.add(musicButton);
 
     // Add volume control button
-    const volumeButton = this.add.text(50, 0, "🔇", {
+    const volumeButton = this.add.text(50, -10, "🔇", {
       color: "#ffffff",
       fontSize: "24px",
     });

@@ -198,7 +198,11 @@ export const SketchCanvas = ({ isOpen, onClose }: SketchCanvasProps) => {
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-15 right-20 pixel-button bg-red-600 hover:bg-red-700 px-3 py-1 rounded z-10"
+          className="absolute top-15 right-10 pixel-button w-10 py-1 rounded z-10"
+          style={{
+            top: `calc(35% -  ${5 * canvasScale}vh)`,
+            transform: "translateY(-50%)",
+          }}
         >
           X
         </button>
@@ -215,8 +219,8 @@ export const SketchCanvas = ({ isOpen, onClose }: SketchCanvasProps) => {
           <div
             className="absolute left-[15%] w-[70%] overflow-hidden"
             style={{
-              top: `calc(50% -  ${10 * canvasScale}vh)`,
-              height: `calc(47%  ${canvasScale})`,
+              top: `calc(50% -  ${5 * canvasScale}vh)`,
+              height: `calc(47% - 17vh)`,
               transform: "translateY(-50%)",
             }}
           >
