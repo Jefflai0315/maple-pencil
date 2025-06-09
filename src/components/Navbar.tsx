@@ -35,7 +35,7 @@ export const Navbar = () => {
         }}
         className="navbar-tab"
       >
-        {["About", "Shop", "Art & Event", "Contact"].map((item) => (
+        {["About", "Shop", "Art & Event"].map((item) => (
           <button
             key={item}
             onMouseEnter={(e) => {

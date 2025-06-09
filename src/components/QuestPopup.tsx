@@ -48,7 +48,18 @@ const GalleryCard = ({
   return (
     <div className="flex flex-col bg-white/5 backdrop-blur-sm rounded-lg p-2 md:p-6 hover:bg-white/10 transition-all duration-300">
       <h3 className="text-lg font-bold mb-2 text-yellow-400">{title}</h3>
-      <p className="text-sm mb-4 text-gray-300">{description}</p>
+      <p className="text-base mb-6 text-gray-600">{description}</p>
+      {/* Add magnifying glass icon */}
+      <div className="absolute bottom-0 right-0 bg-white/90 rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-100">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-5 w-5 text-gray-800"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+        </svg>
+      </div>
       <div className="relative flex items-center justify-center h-40 overflow-hidden group">
         <div className="relative w-full h-full group-hover:scale-105 transition-all duration-300">
           {images.map((img, index) => {
@@ -302,21 +313,21 @@ const StyleGuide = () => (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
         <div>
           <h4 className="font-bold text-yellow-400 mb-2">Quick Sketches</h4>
-          <p className="text-gray-300">Perfect for events and live sketching</p>
+          <p className="text-gray-600">Perfect for events and live sketching</p>
         </div>
         <div>
           <h4 className="font-bold text-yellow-400 mb-2">Wood Sketches</h4>
-          <p className="text-gray-300">Unique texture and natural feel</p>
+          <p className="text-gray-600">Unique texture and natural feel</p>
         </div>
         <div>
           <h4 className="font-bold text-yellow-400 mb-2">Detailed Portraits</h4>
-          <p className="text-gray-300">
+          <p className="text-gray-600">
             High attention to detail and precision
           </p>
         </div>
         <div>
           <h4 className="font-bold text-yellow-400 mb-2">Big Sketches</h4>
-          <p className="text-gray-300">Bold statements and grand displays</p>
+          <p className="text-gray-600">Bold statements and grand displays</p>
         </div>
       </div>
     </div>
@@ -433,7 +444,7 @@ const QuestPopup = ({
   };
 
   return (
-    <div className="quest-popup-overlay">
+    <div className="quest-popup-overlay ">
       <div
         ref={popupRef}
         className="quest-popup"
@@ -512,16 +523,16 @@ const QuestPopup = ({
                           onImageClick={handleImageClick}
                         />
                       </div>
+
                       <StyleGuide />
+                      <ContactForm />
                     </div>
                   </div>
                 </div>
               </>
             ) : section === "Contact" ? (
               <div className="quest-level">
-                <div className="quest-desc">
-                  <ContactForm />
-                </div>
+                <div className="quest-desc"></div>
               </div>
             ) : (
               <div className="quest-level">
@@ -530,6 +541,25 @@ const QuestPopup = ({
                 </div>
               </div>
             )}
+          </div>
+        </div>
+
+        <div className="sticky bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm border-t border-gray-200 py-3 px-4 flex justify-between items-center">
+          <button className="bg-yellow-400 text-gray-900 px-6 py-2 rounded-full font-medium hover:bg-yellow-500 transition-colors">
+            <a
+              href="https://www.instagram.com/direct/t/115317676524782/"
+              target="_blank"
+            >
+              Book Now
+            </a>
+          </button>
+          <div className="flex gap-4">
+            <a
+              href="mailto:playingwithpencil@gmail.com"
+              className="text-gray-600 hover:text-gray-900"
+            >
+              Email
+            </a>
           </div>
         </div>
       </div>

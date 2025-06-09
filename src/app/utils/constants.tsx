@@ -121,41 +121,41 @@ export const sectionContent = {
         ],
         dynamic: true,
       },
-      {
-        name: "Social Media Videos",
-        description:
-          "Short videos showcasing the sketching process, perfect for sharing on social media.",
-        examples: [
-          {
-            type: "video",
-            src: "/gallery/video1.mp4",
-            caption: "Time-lapse Sketch",
-          },
-        ],
-      },
-      {
-        name: "Event Boothing",
-        description:
-          "Live sketching at events and booths. Engage your guests with on-the-spot art.",
-        examples: [
-          {
-            type: "image",
-            src: "/gallery/event1.jpg",
-            caption: "Corporate Event",
-          },
-        ],
-      },
+      // {
+      //   name: "Social Media Videos",
+      //   description:
+      //     "Short videos showcasing the sketching process, perfect for sharing on social media.",
+      //   examples: [
+      //     {
+      //       type: "video",
+      //       src: "/gallery/video1.mp4",
+      //       caption: "Time-lapse Sketch",
+      //     },
+      //   ],
+      // },
+      // {
+      //   name: "Event Boothing",
+      //   description:
+      //     "Live sketching at events and booths. Engage your guests with on-the-spot art.",
+      //   examples: [
+      //     {
+      //       type: "image",
+      //       src: "/gallery/event1.jpg",
+      //       caption: "Corporate Event",
+      //     },
+      //   ],
+      // },
     ],
     npc: "/sprites/smile/0/jump_0.png",
     level: "All Levels",
     buttons: ["BOOK NOW", "VIEW GALLERY", "EVENT CALENDAR", "JOIN EVENT"],
   },
-  Contact: {
-    title: "Contact Us",
-    description:
-      "Have questions or suggestions? Reach out to us through our various channels. We'd love to hear from you!",
-    npc: "/sprites/smile/0/jump_0.png",
-    level: "All Levels",
-    buttons: ["SEND MESSAGE", "FAQ", "SUPPORT", "FEEDBACK"],
-  },
+  // Contact: {
+  //   title: "Contact Us",
+  //   description:
+  //     "Have questions or suggestions? Reach out to us through our various channels. We'd love to hear from you!",
+  //   npc: "/sprites/smile/0/jump_0.png",
+  //   level: "All Levels",
+  //   buttons: ["SEND MESSAGE", "FAQ", "SUPPORT", "FEEDBACK"],
+  // },
 };
