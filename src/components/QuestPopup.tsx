@@ -192,7 +192,7 @@ const ImageModal = ({
         style={{
           width: "80vw",
           maxWidth: 700,
-          height: "80vh",
+          height: "80dvh",
           maxHeight: 500,
         }}
         onClick={(e) => e.stopPropagation()}
@@ -233,7 +233,7 @@ const ImageModal = ({
             ${transitionDirection === "prev" ? "modal-slide-prev" : ""}
           `}
           style={{
-            maxHeight: "80vh",
+            maxHeight: "80dvh",
             maxWidth: "90vw",
             zIndex: 2,
             transform: zoomed ? "scale(1)" : "scale(0.7)",

@@ -25,8 +25,8 @@ export class MainScene extends Phaser.Scene {
     | Phaser.Sound.NoAudioSound;
   private isMusicPlaying: boolean = false;
   private interactionText: Phaser.GameObjects.Text | undefined;
+  private interactionText2: Phaser.GameObjects.Text | undefined;
   private eKey!: Phaser.Input.Keyboard.Key;
-  private isSketchOpen: boolean = false;
 
   // Touch controls
   private joystick!: Phaser.GameObjects.Container;
@@ -70,6 +70,7 @@ export class MainScene extends Phaser.Scene {
 
     // Load NPC
     this.load.image("npc_sketch", "/NPC/Sketch_booth2.png");
+    this.load.image("npc_sketch2", "/NPC/Sketch_booth.png");
     this.load.image("npc_video", "/NPC/Video_booth.png");
     this.load.image("npc_camera", "/NPC/Camera.png");
 
@@ -420,6 +421,17 @@ export class MainScene extends Phaser.Scene {
       }
     });
 
+    const npc2X = 500; // Position NPC 500 pixels from the left
+    const npc2Y = groundY - 60; // Place NPC on the ground
+    const npc2 = this.add.sprite(npc2X, npc2Y, "npc_sketch2");
+    npc2.setScale(1.2); // Adjust scale as needed
+    npc2.setInteractive(); // Make NPC interactive for touch
+    npc2.on("pointerdown", () => {
+      if (this.interactionText2) {
+        this.openWebcamCapture();
+      }
+    });
+    this.openWebcamCapture();
     const npcVideoX = npcX + 600;
     const npcVideoY = npcY - 54;
     const npcVideo = this.add.sprite(npcVideoX, npcVideoY, "npc_video");
@@ -432,6 +444,9 @@ export class MainScene extends Phaser.Scene {
     // Add interaction zone
     const interactionZone = this.add.zone(npcX, npcY, 100, 100);
     this.physics.add.existing(interactionZone, true);
+
+    const interactionZone2 = this.add.zone(npc2X, npc2Y, 100, 100);
+    this.physics.add.existing(interactionZone2, true);
 
     // Add collision between player and interaction zone
     this.physics.add.overlap(
@@ -452,6 +467,29 @@ export class MainScene extends Phaser.Scene {
             }
           );
           this.interactionText.setOrigin(0.5);
+        }
+      },
+      undefined,
+      this
+    );
+
+    this.physics.add.overlap(
+      this.player,
+      interactionZone2,
+      () => {
+        if (!this.interactionText2) {
+          this.interactionText2 = this.add.text(
+            npc2X,
+            npc2Y - 100,
+            this.isMobile ? "Tap NPC to interact" : "Press E to interact",
+            {
+              color: "#ffffff",
+              fontSize: "16px",
+              backgroundColor: "#000000",
+              padding: { x: 10, y: 5 },
+            }
+          );
+          this.interactionText2.setOrigin(0.5);
         }
       },
       undefined,
@@ -822,6 +860,9 @@ export class MainScene extends Phaser.Scene {
     if (this.eKey.isDown && this.interactionText) {
       this.openSketchCanvas();
     }
+    if (this.eKey.isDown && this.interactionText2) {
+      this.openWebcamCapture();
+    }
 
     // Remove interaction text when player moves away
     if (this.interactionText && this.player) {
@@ -836,6 +877,18 @@ export class MainScene extends Phaser.Scene {
         this.interactionText = undefined;
       }
     }
+    if (this.interactionText2 && this.player) {
+      const distance = Phaser.Math.Distance.Between(
+        this.player.x,
+        this.player.y,
+        this.interactionText2.x,
+        this.interactionText2.y
+      );
+      if (distance > 150) {
+        this.interactionText2.destroy();
+        this.interactionText2 = undefined;
+      }
+    }
   }
 
   // Add method to adjust volume
@@ -847,9 +900,26 @@ export class MainScene extends Phaser.Scene {
 
   // Add method to handle sketch interaction
   private openSketchCanvas() {
-    this.isSketchOpen = true;
     // Dispatch a custom event to open the sketch canvas
     const event = new CustomEvent("openSketchCanvas");
     window.dispatchEvent(event);
+  }
+
+  private openWebcamCapture() {
+    // Pause the game
+    this.scene.pause();
+    // Dispatch a custom event to open the webcam capture
+    const event = new CustomEvent("openWebcamCapture");
+    window.dispatchEvent(event);
+
+    // Add event listener for webcam close
+    window.addEventListener("webcamClosed", this.resumeGame.bind(this));
+  }
+
+  // Add method to resume game
+  private resumeGame() {
+    this.scene.resume();
+    // Remove the event listener
+    window.removeEventListener("webcamClosed", this.resumeGame.bind(this));
   }
 }

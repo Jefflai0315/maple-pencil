@@ -194,7 +194,7 @@ export const SketchCanvas = ({ isOpen, onClose }: SketchCanvasProps) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative bg-transparent max-w-[90vw] max-h-[90vh] p-4 flex flex-col items-center">
+      <div className="relative bg-transparent max-w-[90vw] max-h-[90dvh] p-4 flex flex-col items-center">
         {/* Close button */}
         <button
           onClick={onClose}
@@ -208,7 +208,7 @@ export const SketchCanvas = ({ isOpen, onClose }: SketchCanvasProps) => {
         </button>
 
         {/* Easel frame */}
-        <div className="relative w-[90vw] max-w-[700px] h-[90vh] max-h-[800px]">
+        <div className="relative w-[90vw] max-w-[700px] h-[90dvh] max-h-[800px]">
           <img
             src="/NPC/easel.png"
             alt="Easel"
@@ -219,8 +219,8 @@ export const SketchCanvas = ({ isOpen, onClose }: SketchCanvasProps) => {
           <div
             className="absolute left-[15%] w-[70%] overflow-hidden"
             style={{
-              top: `calc(50% -  ${5 * canvasScale}vh)`,
-              height: `calc(47% - 17vh)`,
+              top: `calc(50% -  ${5 * canvasScale}dvh)`,
+              height: `calc(47% - 17dvh)`,
               transform: "translateY(-50%)",
             }}
           >
