@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import emailjs from "@emailjs/browser";
+import Image from "next/image";
 
 // Helper function to convert File to base64
 const convertFileToBase64 = (file: File): Promise<string> => {
@@ -399,9 +400,11 @@ export const ContactForm = () => {
                     key={index}
                     className="relative group bg-white rounded-md p-2 border-2 border-[#ffd700]"
                   >
-                    <img
+                    <Image
                       src={photo.preview}
                       alt={`Preview ${index}`}
+                      width={100}
+                      height={100}
                       className="w-full h-40 object-cover rounded-md"
                     />
                     <button

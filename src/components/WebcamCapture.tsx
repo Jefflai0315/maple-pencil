@@ -11,10 +11,9 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
-  const [currentImage, setCurrentImage] = useState<string | null>(null);
 
   const captureImage = useCallback(() => {
     if (videoRef.current && canvasRef.current) {
@@ -27,13 +26,13 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({
         canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         const imageData = canvas.toDataURL("image/png");
-        if (stream) {
-          stream.getTracks().forEach((track) => track.stop());
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
         }
         onCapture(imageData);
       }
     }
-  }, [stream, onCapture]);
+  }, [streamRef, onCapture]);
 
   useEffect(() => {
     const initializeWebcam = async () => {
@@ -48,6 +47,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          streamRef.current = stream;
         }
       } catch (error) {
         console.error("Error accessing webcam:", error);
@@ -64,7 +64,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({
     return () => {
       // Cleanup: stop all tracks when component unmounts
       if (videoRef.current && videoRef.current.srcObject) {
-        const tracks = videoRef.current.srcObject.getTracks();
+        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
         tracks.forEach((track) => track.stop());
       }
     };
@@ -91,8 +91,8 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({
   const handleCancel = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
     }
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
@@ -110,7 +110,6 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({
       //convert the image to a blob
       const blob = new Blob([file], { type: file.type });
       const url = URL.createObjectURL(blob);
-      setCurrentImage(url);
       onCapture(url);
     }
   };

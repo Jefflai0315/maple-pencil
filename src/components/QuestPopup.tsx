@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { ContactForm } from "./ContactForm";
+import Image from "next/image";
 
 import {
   comImages,
@@ -68,7 +69,7 @@ const GalleryCard = ({
             const yOffset = (rand(index + 20) - 0.5) * 8;
 
             return (
-              <img
+              <Image
                 key={img}
                 src={`/gallery/${getCategoryPath(title)}/${img}`}
                 alt={img.replace(/_/g, " ").replace(".jpg", "")}
@@ -136,7 +137,7 @@ const ImageModal = ({
 
       const preloadImage = (index: number) => {
         if (!loadedImages.has(index) && images[index]) {
-          const img = new Image();
+          const img = new window.Image();
           img.src = `/gallery/${category}/${images[index]}`;
           img.onload = () => {
             setLoadedImages((prev) => new Set([...prev, index]));
@@ -199,7 +200,7 @@ const ImageModal = ({
       >
         {/* Previous Image */}
         {images.length > 1 && (
-          <img
+          <Image
             src={`/gallery/${category}/${
               images[(modalIndex - 1 + images.length) % images.length]
             }`}
@@ -225,7 +226,7 @@ const ImageModal = ({
         )}
 
         {/* Main Image */}
-        <img
+        <Image
           src={`/gallery/${category}/${currentImage}`}
           alt={getImageAlt(currentImage)}
           className={`rounded-lg shadow-2xl bg-white/10 backdrop-blur-sm transition-all duration-300
@@ -247,7 +248,7 @@ const ImageModal = ({
 
         {/* Next Image */}
         {images.length > 1 && (
-          <img
+          <Image
             src={`/gallery/${category}/${
               images[(modalIndex + 1) % images.length]
             }`}
