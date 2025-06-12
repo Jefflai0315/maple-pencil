@@ -70,6 +70,8 @@ const GalleryCard = ({
 
             return (
               <Image
+                width={100}
+                height={130}
                 key={img}
                 src={`/gallery/${getCategoryPath(title)}/${img}`}
                 alt={img.replace(/_/g, " ").replace(".jpg", "")}

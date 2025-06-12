@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from "react";
 import WebcamCapture from "./WebcamCapture";
-import dynamic from "next/dynamic";
-
-// Dynamically import p5sketch
-const P5Sketch = dynamic(() => import("../app/p5sketch/page"), { ssr: false });
+import P5SketchPopup from "./P5SketchPopup";
 
 const WebcamContainer: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -38,7 +35,7 @@ const WebcamContainer: React.FC = () => {
       )}
       {capturedImage && (
         <div className="bg-white rounded-lg shadow-xl p-4 relative">
-          <P5Sketch
+          <P5SketchPopup
             key={capturedImage}
             capturedImage={capturedImage}
             onClose={handleClose}

@@ -327,7 +327,12 @@ export class MainScene extends Phaser.Scene {
       this.spaceKey = this.input.keyboard.addKey(
         Phaser.Input.Keyboard.KeyCodes.SPACE
       );
-      console.log("Keyboard controls initialized");
+      console.log("Keyboard controls initialized:", {
+        cursors: this.cursors,
+        spaceKey: this.spaceKey,
+      });
+    } else {
+      console.error("Keyboard input not available!");
     }
 
     // Create player animations
@@ -723,7 +728,21 @@ export class MainScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number) {
-    if (!this.cursors || !this.spaceKey) return;
+    if (!this.cursors || !this.spaceKey) {
+      console.warn("Controls not initialized:", {
+        cursors: this.cursors,
+        spaceKey: this.spaceKey,
+      });
+      return;
+    }
+
+    // Debug keyboard state
+    if (this.cursors.left.isDown || this.cursors.right.isDown) {
+      console.log("Arrow keys pressed:", {
+        left: this.cursors.left.isDown,
+        right: this.cursors.right.isDown,
+      });
+    }
 
     // Update parallax scrolling
     if (this.player && this.player.body) {
@@ -913,13 +932,10 @@ export class MainScene extends Phaser.Scene {
     window.dispatchEvent(event);
 
     // Add event listener for webcam close
-    window.addEventListener("webcamClosed", this.resumeGame.bind(this));
-  }
-
-  // Add method to resume game
-  private resumeGame() {
-    this.scene.resume();
-    // Remove the event listener
-    window.removeEventListener("webcamClosed", this.resumeGame.bind(this));
+    const resumeHandler = () => {
+      this.scene.resume();
+      window.removeEventListener("webcamClosed", resumeHandler);
+    };
+    window.addEventListener("webcamClosed", resumeHandler);
   }
 }
