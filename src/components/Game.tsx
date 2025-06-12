@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import type { Game as PhaserGame } from "phaser";
 import { SketchCanvas } from "./SketchCanvas";
 import { Navbar } from "./Navbar";
+import WebcamContainer from "./WebcamContainer";
 
 const GameComponent = () => {
   const gameRef = useRef<PhaserGame | null>(null);
@@ -58,6 +59,7 @@ const GameComponent = () => {
         isOpen={isSketchOpen}
         onClose={() => setIsSketchOpen(false)}
       />
+      <WebcamContainer />
     </>
   );
 };

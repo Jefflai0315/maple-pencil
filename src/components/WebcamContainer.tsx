@@ -27,11 +27,9 @@ const WebcamContainer: React.FC = () => {
   if (!isOpen && !capturedImage) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 bg-black/10 flex items-center justify-center">
       {isOpen && !capturedImage && (
-        <div className="bg-white rounded-lg shadow-xl p-4 max-w-2xl w-full mx-4">
-          <WebcamCapture onCapture={handleCapture} onClose={handleClose} />
-        </div>
+        <WebcamCapture onCapture={handleCapture} onClose={handleClose} />
       )}
       {capturedImage && (
         <div className="bg-white rounded-lg shadow-xl p-4 relative">

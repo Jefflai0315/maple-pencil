@@ -436,7 +436,6 @@ export class MainScene extends Phaser.Scene {
         this.openWebcamCapture();
       }
     });
-    this.openWebcamCapture();
     const npcVideoX = npcX + 600;
     const npcVideoY = npcY - 54;
     const npcVideo = this.add.sprite(npcVideoX, npcVideoY, "npc_video");
