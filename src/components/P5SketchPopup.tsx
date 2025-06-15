@@ -78,6 +78,8 @@ function Page({ capturedImage, onClose }: PageProps) {
   const setup = (p5: p5, canvasParentRef: Element) => {
     if (!imgDims) return;
     p5.createCanvas(imgDims.width, imgDims.height).parent(canvasParentRef); // Only call ONCE!
+    console.log(imgDims.width, imgDims.height);
+    p5.resizeCanvas(imgDims.width, imgDims.height);
     img.current = p5.createImage(p5.width, p5.height);
     nextImage(p5);
     paint.current = new Paint(p5.createVector(p5.width / 2, p5.height / 2), p5);

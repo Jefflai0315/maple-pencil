@@ -27,6 +27,7 @@ export class MainScene extends Phaser.Scene {
   private interactionText: Phaser.GameObjects.Text | undefined;
   private interactionText2: Phaser.GameObjects.Text | undefined;
   private eKey!: Phaser.Input.Keyboard.Key;
+  private interactionText3: Phaser.GameObjects.Text | undefined;
 
   // Touch controls
   private joystick!: Phaser.GameObjects.Container;
@@ -449,10 +450,24 @@ export class MainScene extends Phaser.Scene {
     const interactionZone = this.add.zone(npcX, npcY, 100, 100);
     this.physics.add.existing(interactionZone, true);
 
+    const npcARTraceX = npcX + 400;
+    const npcARTraceY = npcY - 60;
+    const npcARTrace = this.add.sprite(npcARTraceX, npcARTraceY, "npc_camera");
+    npcARTrace.setScale(0.3);
+    npcARTrace.setInteractive();
+    npcARTrace.on("pointerdown", () => {
+      if (this.interactionText3) {
+        this.openARTraceTool();
+      }
+    });
+    // Add interaction zone for AR Trace NPC
+    const interactionZone3 = this.add.zone(npcARTraceX, npcARTraceY, 100, 100);
+    this.physics.add.existing(interactionZone3, true);
+
     const interactionZone2 = this.add.zone(npc2X, npc2Y, 100, 100);
     this.physics.add.existing(interactionZone2, true);
 
-    // Add collision between player and interaction zone
+    // Add collision between player and AR Trace interaction zone
     this.physics.add.overlap(
       this.player,
       interactionZone,
@@ -494,6 +509,30 @@ export class MainScene extends Phaser.Scene {
             }
           );
           this.interactionText2.setOrigin(0.5);
+        }
+      },
+      undefined,
+      this
+    );
+
+    // Add collision between player and AR Trace interaction zone
+    this.physics.add.overlap(
+      this.player,
+      interactionZone3,
+      () => {
+        if (!this.interactionText3) {
+          this.interactionText3 = this.add.text(
+            npcARTraceX,
+            npcARTraceY - 100,
+            this.isMobile ? "Tap NPC to interact" : "Press E to interact",
+            {
+              color: "#ffffff",
+              fontSize: "16px",
+              backgroundColor: "#000000",
+              padding: { x: 10, y: 5 },
+            }
+          );
+          this.interactionText3.setOrigin(0.5);
         }
       },
       undefined,
@@ -608,7 +647,7 @@ export class MainScene extends Phaser.Scene {
     this.joystickThumb.setScrollFactor(0);
 
     // Create joystick container
-    this.joystick = this.add.container(150, this.cameras.main.height - 150);
+    this.joystick = this.add.container(100, this.cameras.main.height - 150);
     this.joystick.add([this.joystickBase, this.joystickThumb]);
     this.joystick.setScrollFactor(0);
 
@@ -881,6 +920,9 @@ export class MainScene extends Phaser.Scene {
     if (this.eKey.isDown && this.interactionText2) {
       this.openWebcamCapture();
     }
+    if (this.eKey.isDown && this.interactionText3) {
+      this.openARTraceTool();
+    }
 
     // Remove interaction text when player moves away
     if (this.interactionText && this.player) {
@@ -905,6 +947,18 @@ export class MainScene extends Phaser.Scene {
       if (distance > 150) {
         this.interactionText2.destroy();
         this.interactionText2 = undefined;
+      }
+    }
+    if (this.interactionText3 && this.player) {
+      const distance = Phaser.Math.Distance.Between(
+        this.player.x,
+        this.player.y,
+        this.interactionText3.x,
+        this.interactionText3.y
+      );
+      if (distance > 150) {
+        this.interactionText3.destroy();
+        this.interactionText3 = undefined;
       }
     }
   }
@@ -936,5 +990,22 @@ export class MainScene extends Phaser.Scene {
       window.removeEventListener("webcamClosed", resumeHandler);
     };
     window.addEventListener("webcamClosed", resumeHandler);
+  }
+
+  private openARTraceTool() {
+    // Pause the game
+    this.scene.pause();
+    // Dispatch a custom event to open the AR trace tool
+
+    const event = new CustomEvent("openARTraceTool");
+    openWebcamCapture;
+    window.dispatchEvent(event);
+
+    // Add event listener for AR trace tool close
+    const resumeHandler = () => {
+      this.scene.resume();
+      window.removeEventListener("arTraceToolClosed", resumeHandler);
+    };
+    window.addEventListener("arTraceToolClosed", resumeHandler);
   }
 }

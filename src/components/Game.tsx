@@ -6,6 +6,7 @@ import type { Game as PhaserGame } from "phaser";
 import { SketchCanvas } from "./SketchCanvas";
 import { Navbar } from "./Navbar";
 import WebcamContainer from "./WebcamContainer";
+import ARTraceToolContainer from "./ARTraceToolContainer";
 
 const GameComponent = () => {
   const gameRef = useRef<PhaserGame | null>(null);
@@ -59,6 +60,7 @@ const GameComponent = () => {
         isOpen={isSketchOpen}
         onClose={() => setIsSketchOpen(false)}
       />
+      <ARTraceToolContainer />
       <WebcamContainer />
     </>
   );
