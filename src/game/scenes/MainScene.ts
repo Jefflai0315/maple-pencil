@@ -996,9 +996,7 @@ export class MainScene extends Phaser.Scene {
     // Pause the game
     this.scene.pause();
     // Dispatch a custom event to open the AR trace tool
-
     const event = new CustomEvent("openARTraceTool");
-    openWebcamCapture;
     window.dispatchEvent(event);
 
     // Add event listener for AR trace tool close
