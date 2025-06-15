@@ -192,6 +192,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
+            onTouchMove={handlePinch}
           >
             <img
               ref={imageRef}
@@ -202,6 +203,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
                 maxHeight: "100%",
                 opacity: opacity,
                 pointerEvents: isFixed ? "none" : "auto",
+                transform: `scale(${scale}) rotate(${rotation}deg)`,
               }}
             />
           </Box>
