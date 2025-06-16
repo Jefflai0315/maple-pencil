@@ -763,10 +763,13 @@ export class MainScene extends Phaser.Scene {
   }
 
   private stopJoystick() {
-    this.joystickActive = false;
     this.joystickPosition = { x: 0, y: 0 };
     this.joystickThumb.setPosition(0, 0);
-    this.player.setVelocityX(0);
+    // Don't reset joystickActive here
+    // Only reset velocity if joystick is not active
+    if (!this.joystickActive) {
+      this.player.setVelocityX(0);
+    }
   }
 
   update(time: number, delta: number) {
@@ -862,7 +865,7 @@ export class MainScene extends Phaser.Scene {
     // When player is on ground and jump animation is playing, reset jumping flag
     if (isOnGround && this.isJumping && currentAnim === "jump") {
       this.isJumping = false;
-      // Reset horizontal velocity when landing
+      // Only reset velocity if joystick is not active
       if (!this.joystickActive) {
         this.player.setVelocityX(0);
       }
