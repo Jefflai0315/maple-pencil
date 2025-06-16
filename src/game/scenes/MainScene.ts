@@ -703,10 +703,14 @@ export class MainScene extends Phaser.Scene {
       if (currentTime - this.lastJumpTime >= this.jumpCooldownTime) {
         this.jumpButtonPressed = true;
         this.lastJumpTime = currentTime;
+        // Prevent joystick from being affected
+        this.input.stopPropagation();
       }
     });
     this.jumpButton.on("pointerup", () => {
       this.jumpButtonPressed = false;
+      // Prevent joystick from being affected
+      this.input.stopPropagation();
     });
   }
 

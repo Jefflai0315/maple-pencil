@@ -20,6 +20,10 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   const [rotation, setRotation] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [isControlMode, setIsControlMode] = useState(false);
+  const [controlStartPos, setControlStartPos] = useState({ x: 0, y: 0 });
+  const [controlStartScale, setControlStartScale] = useState(1);
+  const [controlStartRotation, setControlStartRotation] = useState(0);
 
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -28,8 +32,18 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
 
   useEffect(() => {
     console.log("ARTraceTool mounted");
+    // Prevent default touch behaviors
+    const preventDefault = (e: TouchEvent) => {
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+    document.addEventListener("touchmove", preventDefault, { passive: false });
+    // Activate camera on mount
+    handleCameraToggle();
     return () => {
       console.log("ARTraceTool unmounted");
+      document.removeEventListener("touchmove", preventDefault);
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
@@ -81,27 +95,23 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
 
   // Handle image manipulation
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (!isFixed) {
+    if (!isFixed && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
       setIsDragging(true);
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (rect) {
-        setDragOffset({
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
-        });
-      }
+      setDragOffset({
+        x: e.clientX - rect.left - position.x,
+        y: e.clientY - rect.top - position.y,
+      });
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging && !isFixed) {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (rect) {
-        setPosition({
-          x: e.clientX - rect.left - dragOffset.x,
-          y: e.clientY - rect.top - dragOffset.y,
-        });
-      }
+    if (isDragging && !isFixed && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setPosition({
+        x: e.clientX - rect.left - dragOffset.x,
+        y: e.clientY - rect.top - dragOffset.y,
+      });
     }
   };
 
@@ -109,29 +119,102 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
     setIsDragging(false);
   };
 
-  const handlePinch = (e: React.TouchEvent) => {
+  const handleTouchStart = (e: React.TouchEvent) => {
     if (isFixed) return;
+    if (e.touches.length === 1 && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setIsDragging(true);
+      const touch = e.touches[0];
+      setDragOffset({
+        x: touch.clientX - rect.left - position.x,
+        y: touch.clientY - rect.top - position.y,
+      });
+    }
+  };
 
-    if (e.touches.length === 2) {
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (isFixed) return;
+    e.preventDefault();
+    if (e.touches.length === 1 && isDragging && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const touch = e.touches[0];
+      setPosition({
+        x: touch.clientX - rect.left - dragOffset.x,
+        y: touch.clientY - rect.top - dragOffset.y,
+      });
+    } else if (e.touches.length === 2) {
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
 
-      const distance = Math.hypot(
+      // Calculate distance between touches
+      const currentDistance = Math.hypot(
         touch2.clientX - touch1.clientX,
         touch2.clientY - touch1.clientY
       );
 
-      // Update scale based on pinch distance
-      setScale(distance / 100);
-
-      // Calculate rotation
-      const angle = Math.atan2(
+      // Calculate angle between touches
+      const currentAngle = Math.atan2(
         touch2.clientY - touch1.clientY,
         touch2.clientX - touch1.clientX
       );
-      setRotation(angle * (180 / Math.PI));
+
+      // Update scale based on pinch distance
+      const newScale = Math.max(0.1, Math.min(5, currentDistance / 200));
+      setScale(newScale);
+
+      // Update rotation based on angle
+      const newRotation = currentAngle * (180 / Math.PI);
+      setRotation(newRotation);
     }
   };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+  };
+
+  const handleControlStart = (e: React.MouseEvent) => {
+    setIsControlMode(true);
+    setControlStartPos({ x: e.clientX, y: e.clientY });
+    setControlStartScale(scale);
+    setControlStartRotation(rotation);
+  };
+
+  const handleControlMove = (e: React.MouseEvent) => {
+    if (!isControlMode) return;
+
+    const deltaX = e.clientX - controlStartPos.x;
+    const deltaY = e.clientY - controlStartPos.y;
+
+    // Scale based on vertical movement
+    const scaleDelta = deltaY * 0.01;
+    const newScale = Math.max(0.1, Math.min(5, controlStartScale - scaleDelta));
+    setScale(newScale);
+
+    // Rotate based on horizontal movement
+    const rotationDelta = deltaX * 0.5;
+    setRotation(controlStartRotation + rotationDelta);
+  };
+
+  const handleControlEnd = () => {
+    setIsControlMode(false);
+  };
+
+  useEffect(() => {
+    if (isControlMode) {
+      window.addEventListener(
+        "mousemove",
+        handleControlMove as unknown as EventListener
+      );
+      window.addEventListener("mouseup", handleControlEnd);
+    }
+    return () => {
+      window.removeEventListener(
+        "mousemove",
+        handleControlMove as unknown as EventListener
+      );
+      window.removeEventListener("mouseup", handleControlEnd);
+    };
+  }, [isControlMode, controlStartPos, controlStartScale, controlStartRotation]);
 
   return (
     <Box
@@ -178,6 +261,30 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           <CloseIcon />
         </IconButton>
 
+        <Box
+          sx={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            zIndex: 1000,
+          }}
+        >
+          {isCameraActive && (
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          )}
+        </Box>
+
         {image && (
           <Box
             sx={{
@@ -187,12 +294,16 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
               cursor: isFixed ? "default" : "move",
               zIndex: 1001,
               border: isDragging ? "2px dashed #1976d2" : "none",
+              transform: `scale(${scale}) rotate(${rotation}deg)`,
+              transformOrigin: "center center",
             }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
-            onTouchMove={handlePinch}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
           >
             <img
               ref={imageRef}
@@ -203,23 +314,50 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
                 maxHeight: "100%",
                 opacity: opacity,
                 pointerEvents: isFixed ? "none" : "auto",
-                transform: `scale(${scale}) rotate(${rotation}deg)`,
+                userSelect: "none",
+                touchAction: "none",
+                WebkitUserSelect: "none",
+                WebkitTouchCallout: "none",
               }}
             />
+            {!isFixed && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  bottom: -20,
+                  right: -20,
+                  width: 40,
+                  height: 40,
+                  backgroundColor: "#1976d2",
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "move",
+                  zIndex: 1002,
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                  "@media (hover: hover)": {
+                    "&:hover": {
+                      backgroundColor: "#1565c0",
+                    },
+                  },
+                }}
+                onMouseDown={handleControlStart}
+              >
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="2"
+                >
+                  <path d="M12 2L12 22M2 12L22 12" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </Box>
+            )}
           </Box>
-        )}
-
-        {isCameraActive && (
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-            }}
-          />
         )}
 
         <Box

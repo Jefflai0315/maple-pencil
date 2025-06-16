@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Box, Button } from "@mui/material";
+import { Box } from "@mui/material";
 import ARTraceTool from "./ARTraceTool";
 
 const ARTraceToolContainer: React.FC = () => {
@@ -33,23 +33,8 @@ const ARTraceToolContainer: React.FC = () => {
     setIsOpen(false);
   };
 
-  // Test function to manually trigger the tool
-  const handleTestClick = () => {
-    console.log("Test button clicked");
-    setIsOpen(true);
-  };
-
-  console.log("Rendering ARTraceToolContainer, isOpen:", isOpen);
-
   return (
     <Box sx={{ position: "fixed", top: 10, right: 10, zIndex: 1000 }}>
-      <Button
-        variant="contained"
-        onClick={handleTestClick}
-        sx={{ backgroundColor: "#1976d2" }}
-      >
-        Test AR Tool
-      </Button>
       {isOpen && <ARTraceTool onClose={handleClose} />}
     </Box>
   );
