@@ -29,7 +29,8 @@ const ARTraceToolContainer: React.FC = () => {
   }, [isOpen]); // Added isOpen to dependencies to track state changes
 
   const handleClose = () => {
-    console.log("Closing AR Trace Tool");
+    //dispatch event to close the AR Trace Tool
+    window.dispatchEvent(new Event("arTraceToolClosed"));
     setIsOpen(false);
   };
 
