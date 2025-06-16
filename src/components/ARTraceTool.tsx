@@ -39,8 +39,32 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
       }
     };
     document.addEventListener("touchmove", preventDefault, { passive: false });
+
     // Activate camera on mount
-    handleCameraToggle();
+    const initializeCamera = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "environment",
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          streamRef.current = stream;
+          setIsCameraActive(true);
+        }
+      } catch (error) {
+        console.error("Error accessing camera:", error);
+        alert(
+          "Could not access camera. Please ensure camera permissions are granted."
+        );
+      }
+    };
+
+    initializeCamera();
+
     return () => {
       console.log("ARTraceTool unmounted");
       document.removeEventListener("touchmove", preventDefault);
@@ -73,7 +97,11 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
     if (!isCameraActive) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
+          video: {
+            facingMode: "environment",
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
         });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -82,7 +110,9 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         setIsCameraActive(true);
       } catch (error) {
         console.error("Error accessing camera:", error);
-        alert("Could not access camera");
+        alert(
+          "Could not access camera. Please ensure camera permissions are granted."
+        );
       }
     } else {
       if (streamRef.current) {
@@ -269,6 +299,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
             width: "100%",
             height: "100%",
             zIndex: 1000,
+            overflow: "hidden",
           }}
         >
           {isCameraActive && (
@@ -280,6 +311,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
+                transform: "scaleX(-1)", // Mirror the video
               }}
             />
           )}
