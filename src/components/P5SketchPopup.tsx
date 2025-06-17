@@ -23,7 +23,7 @@ function Page({ capturedImage, onClose }: PageProps) {
   const imgIndex = useRef(-1);
   const img = useRef<p5.Image | null>(null);
   const paint = useRef<Paint | null>(null);
-  const subStep = 800;
+  const subStep = 1000;
   const z = useRef(0);
   const isStop = useRef(false);
   const count = useRef(0);
@@ -128,20 +128,6 @@ function Page({ capturedImage, onClose }: PageProps) {
     p5.clear(0, 0, 0, 0);
   }
 
-  const mousePressed = (p5: p5) => {
-    if (!p5) return;
-    nextImage(p5);
-    isStop.current = false;
-    count.current = 0;
-  };
-
-  const touchStarted = (p5: p5) => {
-    if (!p5) return;
-    nextImage(p5);
-    isStop.current = false;
-    count.current = 0;
-  };
-
   const keyPressed = (p5: p5) => {
     if (!p5) return;
     if (p5.key === "s" || p5.key === "S") {
@@ -190,18 +176,18 @@ function Page({ capturedImage, onClose }: PageProps) {
       this.force = p5.createVector(0, 0);
 
       // Params
-      this.maxSpeed = 3.0;
-      this.perception = 5;
+      this.maxSpeed = 2.5;
+      this.perception = 8;
       this.bound = 20;
       this.boundForceFactor = 0.16;
       this.noiseScale = 150.0;
-      this.noiseInfluence = 1 / 100.0;
+      this.noiseInfluence = 1 / 80.0;
       this.dropRate = 0.004;
       this.dropAlpha = 10;
       this.drawAlpha = 40;
       this.drawWeight = 0.7;
       this.count = 0;
-      this.maxCount = 120;
+      this.maxCount = 80;
       this.z = 0;
       this.reset();
     }
@@ -217,9 +203,9 @@ function Page({ capturedImage, onClose }: PageProps) {
         const x = Math.floor(x1 + ((x2 - x1) * i) / step);
         const y = Math.floor(y1 + ((y2 - y1) * i) / step);
         const idx = (y * imgObj.width + x) * 4;
-        imgObj.pixels[idx] = Math.min(255, imgObj.pixels[idx] + 30);
-        imgObj.pixels[idx + 1] = Math.min(255, imgObj.pixels[idx + 1] + 30);
-        imgObj.pixels[idx + 2] = Math.min(255, imgObj.pixels[idx + 2] + 30);
+        imgObj.pixels[idx] = Math.min(255, imgObj.pixels[idx] + 5);
+        imgObj.pixels[idx + 1] = Math.min(255, imgObj.pixels[idx + 1] + 5);
+        imgObj.pixels[idx + 2] = Math.min(255, imgObj.pixels[idx + 2] + 5);
         // Alpha stays the same
       }
     }
@@ -341,13 +327,6 @@ function Page({ capturedImage, onClose }: PageProps) {
     }
   }
 
-  // Don't show the modal until imgDims is known
-  console.log(
-    "Sketch rendered!",
-    imgDims,
-    capturedImage,
-    window.location.pathname
-  );
   if (!imgDims) return null;
 
   // ----------- RENDER ------------- //
@@ -370,52 +349,40 @@ function Page({ capturedImage, onClose }: PageProps) {
           borderRadius: 16,
           boxShadow: "0 6px 32px rgba(0,0,0,0.15)",
           padding: 32,
-          minWidth: imgDims.width + 32,
-          minHeight: imgDims.height + 32,
           position: "relative",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
         }}
       >
-        {onClose && (
-          <button
-            style={{
-              position: "absolute",
-              top: 12,
-              right: 12,
-              border: "none",
-              background: "#eee",
-              borderRadius: "50%",
-              width: 32,
-              height: 32,
-              fontWeight: "bold",
-              cursor: "pointer",
-              fontSize: 20,
-              zIndex: 1000,
-            }}
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ×
-          </button>
-        )}
-        <div
+        <button
           style={{
-            width: imgDims.width,
-            height: imgDims.height,
-            maxWidth: "90vw",
-            maxHeight: "80dvh",
+            position: "absolute",
+            top: 12,
+            right: 12,
+            border: "none",
+            background: "#eee",
+            borderRadius: "50%",
+            width: 32,
+            height: 32,
+            fontWeight: "bold",
+            cursor: "pointer",
+            fontSize: 20,
+            zIndex: 1000,
           }}
+          onClick={onClose}
+          aria-label="Close"
         >
+          ×
+        </button>
+
+        <div className="sketch-container w-[80vw] h-[80dvh]">
           {imgDims.width && imgDims.height && (
             <Sketch
               preload={preload}
               setup={setup}
               draw={draw}
-              mousePressed={mousePressed}
               keyPressed={keyPressed}
-              touchStarted={touchStarted}
             />
           )}
         </div>

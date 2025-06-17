@@ -162,7 +162,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({
           )}
         </div>
         <div className="mt-4 flex flex-col space-y-2">
-          <button
+          {/* <button
             onClick={startCountdown}
             disabled={countdown !== null}
             className="w-full bg-blue-500 text-white px-4 py-3 rounded-lg text-lg font-semibold hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -173,7 +173,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({
             }}
           >
             {countdown === null ? "Start Countdown" : "Taking Photo..."}
-          </button>
+          </button> */}
           <button
             onClick={handleCancel}
             className="w-full bg-gray-500 text-white px-4 py-3 rounded-lg text-lg font-semibold hover:bg-gray-600"
