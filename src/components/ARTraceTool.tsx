@@ -25,6 +25,10 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   const [controlStartPos, setControlStartPos] = useState({ x: 0, y: 0 });
   const [controlStartScale, setControlStartScale] = useState(1);
   const [controlStartRotation, setControlStartRotation] = useState(0);
+  const [lastPinchDistance, setLastPinchDistance] = useState<number | null>(
+    null
+  );
+  const [lastPinchAngle, setLastPinchAngle] = useState<number | null>(null);
 
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -149,6 +153,22 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         x: touch.clientX - rect.left - position.x,
         y: touch.clientY - rect.top - position.y,
       });
+    } else if (e.touches.length === 2) {
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+
+      // Initialize pinch tracking
+      const initialDistance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      );
+      const initialAngle = Math.atan2(
+        touch2.clientY - touch1.clientY,
+        touch2.clientX - touch1.clientX
+      );
+
+      setLastPinchDistance(initialDistance);
+      setLastPinchAngle(initialAngle);
     }
   };
 
@@ -166,30 +186,40 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
 
-      // Calculate distance between touches
+      // Calculate current distance between touches
       const currentDistance = Math.hypot(
         touch2.clientX - touch1.clientX,
         touch2.clientY - touch1.clientY
       );
 
-      // Calculate angle between touches
+      // Calculate current angle between touches
       const currentAngle = Math.atan2(
         touch2.clientY - touch1.clientY,
         touch2.clientX - touch1.clientX
       );
 
       // Update scale based on pinch distance
-      const newScale = Math.max(0.1, Math.min(5, currentDistance / 200));
-      setScale(newScale);
+      if (lastPinchDistance !== null) {
+        const scaleDelta = currentDistance / lastPinchDistance;
+        const newScale = Math.max(0.1, Math.min(5, scale * scaleDelta));
+        setScale(newScale);
+      }
+      setLastPinchDistance(currentDistance);
 
-      // Update rotation based on angle
-      const newRotation = currentAngle * (180 / Math.PI);
-      setRotation(newRotation);
+      // Update rotation based on angle change
+      if (lastPinchAngle !== null) {
+        const angleDelta = currentAngle - lastPinchAngle;
+        const degreesDelta = angleDelta * (180 / Math.PI);
+        setRotation(rotation + degreesDelta);
+      }
+      setLastPinchAngle(currentAngle);
     }
   };
 
   const handleTouchEnd = () => {
     setIsDragging(false);
+    setLastPinchDistance(null);
+    setLastPinchAngle(null);
   };
 
   const handleControlStart = (e: React.MouseEvent) => {
@@ -256,7 +286,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         width: "100vw",
         height: "100vh",
         backgroundColor: "rgba(0, 0, 0, 0.5)",
-        zIndex: 1000,
+        zIndex: 99999,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -267,9 +297,10 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         ref={containerRef}
         sx={{
           position: "relative",
-          width: "80%",
-          height: "80%",
+          width: "96%",
+          height: "96%",
           backgroundColor: "white",
+          zIndex: 99999,
           borderRadius: "8px",
           overflow: "hidden",
           boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
@@ -281,7 +312,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
             position: "absolute",
             top: 8,
             right: 8,
-            zIndex: 1002,
+            zIndex: 100000,
             backgroundColor: "rgba(255, 255, 255, 0.8)",
             "&:hover": {
               backgroundColor: "rgba(255, 255, 255, 0.9)",
@@ -298,7 +329,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
             left: 0,
             width: "100%",
             height: "100%",
-            zIndex: 1000,
+            zIndex: 99999,
             overflow: "hidden",
             backgroundColor: "black",
           }}
@@ -311,6 +342,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
               width: "100%",
               height: "100%",
               objectFit: "cover",
+              zIndex: 10002,
               transform: isFrontCamera ? "scaleX(-1)" : "none", // Only mirror for back camera
             }}
           />
@@ -323,7 +355,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
               top: position.y,
               left: position.x,
               cursor: isFixed ? "default" : "move",
-              zIndex: 1001,
+              zIndex: 100003,
               border: isDragging ? "2px dashed #1976d2" : "none",
               transform: `scale(${scale}) rotate(${rotation}deg)`,
               transformOrigin: "center center",
@@ -349,6 +381,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
                 touchAction: "none",
                 WebkitUserSelect: "none",
                 WebkitTouchCallout: "none",
+                zIndex: 100003,
               }}
             />
             {!isFixed && (
@@ -365,7 +398,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
                   alignItems: "center",
                   justifyContent: "center",
                   cursor: "move",
-                  zIndex: 1002,
+                  zIndex: 100004,
                   boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
                   "@media (hover: hover)": {
                     "&:hover": {
@@ -402,7 +435,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
             display: "flex",
             gap: 2,
             alignItems: "center",
-            zIndex: 1001,
+            zIndex: 99999,
           }}
         >
           <input
