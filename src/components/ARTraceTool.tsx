@@ -15,6 +15,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   const [opacity, setOpacity] = useState<number>(0.5);
   const [isFixed, setIsFixed] = useState<boolean>(false);
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
+  const [isFrontCamera, setIsFrontCamera] = useState<boolean>(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [scale, setScale] = useState(1);
   const [rotation, setRotation] = useState(0);
@@ -40,39 +41,20 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
     };
     document.addEventListener("touchmove", preventDefault, { passive: false });
 
-    // Activate camera on mount
-    const initializeCamera = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "environment",
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-          },
-        });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          streamRef.current = stream;
-          setIsCameraActive(true);
-        }
-      } catch (error) {
-        console.error("Error accessing camera:", error);
-        alert(
-          "Could not access camera. Please ensure camera permissions are granted."
-        );
-      }
-    };
-
-    initializeCamera();
+    // Initialize camera with back camera by default
+    initializeCamera(false);
 
     return () => {
       console.log("ARTraceTool unmounted");
       document.removeEventListener("touchmove", preventDefault);
+      // Clean up camera stream when component unmounts
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
       }
+      setIsCameraActive(false);
     };
-  }, []);
+  }, []); // Empty dependency array since we only want this to run on mount/unmount
 
   // Handle image upload
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,36 +73,44 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
     }
   };
 
-  // Handle camera activation
-  const handleCameraToggle = async () => {
-    console.log("Toggling camera");
-    if (!isCameraActive) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "environment",
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-          },
-        });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          streamRef.current = stream;
-        }
+  // Update camera initialization to use the current camera mode
+  const initializeCamera = async (useFrontCamera: boolean = false) => {
+    try {
+      console.log("Initializing camera...", useFrontCamera ? "front" : "back");
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: useFrontCamera ? "user" : "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
+      console.log("Camera stream obtained:", stream);
+
+      if (videoRef.current) {
+        console.log("Setting video source...");
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
         setIsCameraActive(true);
-      } catch (error) {
-        console.error("Error accessing camera:", error);
-        alert(
-          "Could not access camera. Please ensure camera permissions are granted."
-        );
+        setIsFrontCamera(useFrontCamera);
+        console.log("Camera initialized successfully");
       }
-    } else {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-      }
-      setIsCameraActive(false);
+    } catch (error) {
+      console.error("Error accessing camera:", error);
+      alert(
+        "Could not access camera. Please ensure camera permissions are granted."
+      );
     }
+  };
+
+  // Add camera toggle function
+  const toggleCamera = async () => {
+    if (streamRef.current) {
+      // Stop current stream
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    // Initialize with opposite camera
+    await initializeCamera(!isFrontCamera);
   };
 
   // Handle image manipulation
@@ -246,6 +236,16 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
     };
   }, [isControlMode, controlStartPos, controlStartScale, controlStartRotation]);
 
+  // Update handleCameraToggle to use the new toggle function
+  const handleCameraToggle = async () => {
+    console.log("Toggling camera");
+    if (!isCameraActive) {
+      await initializeCamera(isFrontCamera);
+    } else {
+      await toggleCamera();
+    }
+  };
+
   return (
     <Box
       ref={containerRef}
@@ -300,21 +300,20 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
             height: "100%",
             zIndex: 1000,
             overflow: "hidden",
+            backgroundColor: "black",
           }}
         >
-          {isCameraActive && (
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                transform: "scaleX(-1)", // Mirror the video
-              }}
-            />
-          )}
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              transform: "scaleX(-1)", // Mirror the video
+            }}
+          />
         </Box>
 
         {image && (
