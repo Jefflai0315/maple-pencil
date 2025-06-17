@@ -311,7 +311,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
               width: "100%",
               height: "100%",
               objectFit: "cover",
-              transform: "scaleX(-1)", // Mirror the video
+              transform: isFrontCamera ? "scaleX(-1)" : "none", // Only mirror for back camera
             }}
           />
         </Box>

@@ -668,9 +668,7 @@ export class MainScene extends Phaser.Scene {
     });
 
     this.input.on("pointerup", () => {
-      if (this.joystickActive) {
-        this.stopJoystick();
-      }
+      this.stopJoystick();
     });
 
     // Create jump button
@@ -763,12 +761,14 @@ export class MainScene extends Phaser.Scene {
   }
 
   private stopJoystick() {
+    // Reset joystick position and thumb to center
     this.joystickPosition = { x: 0, y: 0 };
     this.joystickThumb.setPosition(0, 0);
-    // Don't reset joystickActive here
-    // Only reset velocity if joystick is not active
-    if (!this.joystickActive) {
-      this.player.setVelocityX(0);
+    this.joystickActive = false;
+    // Reset velocity and animation when joystick is released
+    this.player.setVelocityX(0);
+    if (this.player.body?.touching.down) {
+      this.player.anims.play("idle", true);
     }
   }
 
