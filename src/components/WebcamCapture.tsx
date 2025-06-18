@@ -32,6 +32,8 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({
   }, []);
 
   const captureImage = useCallback(() => {
+    // Stop the video stream immediately to prevent glitch
+
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -176,6 +178,9 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({
     if (!files) return;
     const file = files[0];
     if (file) {
+      // Stop the video stream immediately
+      stopStream();
+
       const reader = new FileReader();
       reader.onload = (e) => {
         const result = e.target?.result as string;

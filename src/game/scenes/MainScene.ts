@@ -73,7 +73,7 @@ export class MainScene extends Phaser.Scene {
 
     // Load NPC
     this.load.image("npc_sketch", "/NPC/Sketch_booth2.png");
-    this.load.image("npc_sketch2", "/NPC/Sketch_booth.png");
+    this.load.image("npc_sketch2", "/NPC/photobooth.png");
     this.load.image("npc_video", "/NPC/Video_booth.png");
     this.load.image("npc_camera", "/NPC/Camera.png");
 
@@ -429,10 +429,10 @@ export class MainScene extends Phaser.Scene {
       }
     });
 
-    const npc2X = 500; // Position NPC 500 pixels from the left
-    const npc2Y = groundY - 60; // Place NPC on the ground
+    const npc2X = 495; // Position NPC 500 pixels from the left
+    const npc2Y = groundY - 68; // Place NPC on the ground
     const npc2 = this.add.sprite(npc2X, npc2Y, "npc_sketch2");
-    npc2.setScale(1.2); // Adjust scale as needed
+    npc2.setScale(0.47); // Adjust scale as needed
     npc2.setInteractive(); // Make NPC interactive for touch
     npc2.on("pointerdown", () => {
       if (this.interactionText2) {
