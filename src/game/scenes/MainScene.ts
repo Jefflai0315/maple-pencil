@@ -12,6 +12,7 @@ export class MainScene extends Phaser.Scene {
   private worldWidth = 1500; // Increased world width
   private minimap!: Phaser.GameObjects.Graphics;
   private playerDot!: Phaser.GameObjects.Graphics;
+  private minimapMap!: Phaser.GameObjects.Graphics; // Graphics for the map layout
   private minimapWidth = 180;
   private minimapHeight = 100;
   private minimapScale = 0.12; // Scale factor for the minimap
@@ -624,6 +625,17 @@ export class MainScene extends Phaser.Scene {
       this.minimapHeight
     );
 
+    // Create minimap map layout
+    this.minimapMap = this.add.graphics();
+    this.minimapMap.setScrollFactor(0);
+
+    // Calculate minimap position
+    const minimapX = this.cameras.main.width - this.minimapWidth - 10;
+    const minimapY = 70;
+
+    // Draw the map layout
+    this.drawMinimapMap(minimapX, minimapY);
+
     // Create player dot
     this.playerDot = this.add.graphics();
     this.playerDot.fillStyle(0xff0000, 1);
@@ -632,6 +644,75 @@ export class MainScene extends Phaser.Scene {
     // Make minimap stay fixed on screen
     this.minimap.setScrollFactor(0);
     this.playerDot.setScrollFactor(0);
+  }
+
+  private drawMinimapMap(minimapX: number, minimapY: number) {
+    const groundY = this.cameras.main.height - 50; // Same as in create()
+    const tileWidth = 90;
+    const worldWidth = this.worldWidth;
+
+    // Calculate scale factors
+    const mapScaleX = this.minimapWidth / worldWidth;
+    const mapScaleY = this.minimapHeight / (this.cameras.main.height * 0.8); // Scale height appropriately
+
+    // Draw ground level (flat areas)
+    this.minimapMap.fillStyle(0x8b4513, 0.8); // Brown color for ground
+
+    // First flat area (2 sets of 3 tiles)
+    const firstFlatWidth = 6 * tileWidth * mapScaleX;
+    this.minimapMap.fillRect(
+      minimapX,
+      minimapY + this.minimapHeight - 20,
+      firstFlatWidth,
+      20
+    );
+
+    // Second flat area (5 sets of 3 tiles) - elevated
+    const slopeStartX = 6 * tileWidth + 30; // Same as in create()
+    const slopeEndX = slopeStartX + (90 / 1.5) * 1.5; // End of slope
+    const secondFlatStartX = slopeEndX;
+    const secondFlatWidth = (worldWidth - secondFlatStartX) * mapScaleX;
+    const elevatedY = minimapY + this.minimapHeight - 20 - 60 * mapScaleY; // 60 pixels higher
+
+    this.minimapMap.fillRect(
+      minimapX + secondFlatStartX * mapScaleX,
+      elevatedY,
+      secondFlatWidth,
+      20
+    );
+
+    // Draw slope
+    this.minimapMap.fillStyle(0x654321, 0.8); // Darker brown for slope
+
+    // Create a simple slope representation (triangle)
+    this.minimapMap.fillTriangle(
+      minimapX + slopeStartX * mapScaleX,
+      minimapY + this.minimapHeight - 20, // Bottom left
+      minimapX + slopeEndX * mapScaleX,
+      elevatedY, // Top right
+      minimapX + slopeStartX * mapScaleX,
+      elevatedY // Top left
+    );
+
+    // Draw NPC positions
+    this.minimapMap.fillStyle(0x00ff00, 0.8); // Green for NPCs
+
+    // NPC positions (approximate)
+    const npcPositions = [
+      { x: 300, y: groundY - 300 }, // First NPC
+      { x: 500, y: groundY - 300 }, // Second NPC
+      { x: 900, y: groundY - 360 }, // Video NPC (elevated)
+      { x: 1000, y: groundY - 360 }, // Camera NPC (elevated)
+      { x: 700, y: groundY - 360 }, // AR Trace NPC
+    ];
+
+    npcPositions.forEach((npc) => {
+      this.minimapMap.fillCircle(
+        minimapX + npc.x * mapScaleX,
+        minimapY + npc.y * mapScaleY,
+        2
+      );
+    });
   }
 
   private createTouchControls() {
@@ -868,7 +949,7 @@ export class MainScene extends Phaser.Scene {
       this.minimapWidth -
       10 +
       this.player.x * this.minimapScale;
-    const minimapY = 70 + this.player.y * this.minimapScale;
+    const minimapY = 46 + this.player.y * this.minimapScale;
     this.playerDot.setPosition(minimapX, minimapY);
 
     const isOnGround = this.player.body?.touching.down;
