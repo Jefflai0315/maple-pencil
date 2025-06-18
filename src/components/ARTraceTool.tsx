@@ -297,8 +297,8 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         ref={containerRef}
         sx={{
           position: "relative",
-          width: "96%",
-          height: "96%",
+          width: "96vw",
+          height: "94dvh",
           backgroundColor: "white",
           zIndex: 99999,
           borderRadius: "8px",

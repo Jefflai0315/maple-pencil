@@ -103,6 +103,7 @@ export const SketchCanvas = ({ isOpen, onClose }: SketchCanvasProps) => {
     };
   };
 
+  // Request new suggestion when user starts drawing
   const startDrawing = (
     e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
   ) => {
@@ -117,7 +118,7 @@ export const SketchCanvas = ({ isOpen, onClose }: SketchCanvasProps) => {
     e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
   ) => {
     if (!isDrawing || !canvasRef.current) return;
-    e.preventDefault();
+    // e.preventDefault();
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -189,7 +190,7 @@ export const SketchCanvas = ({ isOpen, onClose }: SketchCanvasProps) => {
 
   return (
     <div
-      className="fixed inset-0 bg-transparent flex items-center justify-center z-50"
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -219,8 +220,8 @@ export const SketchCanvas = ({ isOpen, onClose }: SketchCanvasProps) => {
           <div
             className="absolute left-[15%] w-[70%] overflow-hidden"
             style={{
-              top: `calc(50% -  ${5 * canvasScale}dvh)`,
-              height: `calc(47% - 17dvh)`,
+              top: `calc(50% -  ${8 * canvasScale}dvh)`,
+              height: `calc(47% - 18dvh)`,
               transform: "translateY(-50%)",
             }}
           >

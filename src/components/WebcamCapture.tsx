@@ -13,7 +13,23 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [videoReady, setVideoReady] = useState(false);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Helper function to stop the video stream
+  const stopStream = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => {
+        track.stop();
+        console.log("Stopped track:", track.kind);
+      });
+
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  }, []);
 
   const captureImage = useCallback(() => {
     if (videoRef.current && canvasRef.current) {
@@ -21,18 +37,74 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({
       const canvas = canvasRef.current;
       const context = canvas.getContext("2d");
 
-      if (context) {
+      if (context && video.videoWidth > 0 && video.videoHeight > 0) {
+        // Set canvas dimensions to match video
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
+
+        // Clear canvas first
+        context.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw the video frame to canvas
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = canvas.toDataURL("image/png");
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach((track) => track.stop());
+
+        // Stop the video stream immediately
+        stopStream();
+
+        // Convert canvas to blob and then to File
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const file = new File([blob], `capture-${Date.now()}.png`, {
+              type: "image/png",
+            });
+
+            // Process the file just like an uploaded file
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const result = e.target?.result as string;
+              if (result) {
+                onCapture(result);
+              }
+            };
+            reader.readAsDataURL(file);
+          }
+        }, "image/png");
+      } else {
+        console.error("Video not ready or invalid dimensions:", {
+          videoWidth: video.videoWidth,
+          videoHeight: video.videoHeight,
+          readyState: video.readyState,
+        });
+        // Fallback: try with default dimensions
+        if (context) {
+          canvas.width = 640;
+          canvas.height = 480;
+          context.clearRect(0, 0, canvas.width, canvas.height);
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          // Stop the video stream immediately
+          stopStream();
+
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const file = new File([blob], `capture-${Date.now()}.png`, {
+                type: "image/png",
+              });
+
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                const result = e.target?.result as string;
+                if (result) {
+                  onCapture(result);
+                }
+              };
+              reader.readAsDataURL(file);
+            }
+          }, "image/png");
         }
-        onCapture(imageData);
       }
     }
-  }, [streamRef, onCapture]);
+  }, [streamRef, onCapture, stopStream]);
 
   useEffect(() => {
     const initializeWebcam = async () => {
@@ -48,6 +120,11 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           streamRef.current = stream;
+
+          // Set up video ready handler
+          videoRef.current.onloadeddata = () => {
+            setVideoReady(true);
+          };
         }
       } catch (error) {
         console.error("Error accessing webcam:", error);
@@ -63,12 +140,9 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({
 
     return () => {
       // Cleanup: stop all tracks when component unmounts
-      if (videoRef.current && videoRef.current.srcObject) {
-        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-        tracks.forEach((track) => track.stop());
-      }
+      stopStream();
     };
-  }, [onClose]);
+  }, [onClose, stopStream]);
 
   const startCountdown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -91,9 +165,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({
   const handleCancel = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-    }
+    stopStream();
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
     }
@@ -105,12 +177,13 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({
     const file = files[0];
     if (file) {
       const reader = new FileReader();
-
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        if (result) {
+          onCapture(result);
+        }
+      };
       reader.readAsDataURL(file);
-      //convert the image to a blob
-      const blob = new Blob([file], { type: file.type });
-      const url = URL.createObjectURL(blob);
-      onCapture(url);
     }
   };
 
@@ -162,9 +235,9 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({
           )}
         </div>
         <div className="mt-4 flex flex-col space-y-2">
-          {/* <button
+          <button
             onClick={startCountdown}
-            disabled={countdown !== null}
+            disabled={countdown !== null || !videoReady}
             className="w-full bg-blue-500 text-white px-4 py-3 rounded-lg text-lg font-semibold hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               position: "relative",
@@ -172,8 +245,12 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({
               pointerEvents: "auto",
             }}
           >
-            {countdown === null ? "Start Countdown" : "Taking Photo..."}
-          </button> */}
+            {countdown === null
+              ? videoReady
+                ? "Start Countdown"
+                : "Loading Camera..."
+              : "Taking Photo..."}
+          </button>
           <button
             onClick={handleCancel}
             className="w-full bg-gray-500 text-white px-4 py-3 rounded-lg text-lg font-semibold hover:bg-gray-600"
