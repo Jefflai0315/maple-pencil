@@ -17,7 +17,7 @@ const WebcamContainer: React.FC = () => {
   const handleCapture = async (imageData: string) => {
     setProcessing(true);
     try {
-      const sketchDataUrl = await pencilSketchFromDataUrl(imageData, false);
+      const sketchDataUrl = await pencilSketchFromDataUrl(imageData);
       setCapturedImage(sketchDataUrl);
     } catch {
       setCapturedImage(imageData); // fallback to original if error
