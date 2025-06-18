@@ -35,6 +35,7 @@ export class MainScene extends Phaser.Scene {
   private joystickThumb!: Phaser.GameObjects.Graphics;
   private joystickActive: boolean = false;
   private joystickPosition: { x: number; y: number } = { x: 0, y: 0 };
+  private joystickPointerId: number | null = null; // Track which pointer started the joystick
   private jumpButton!: Phaser.GameObjects.Container;
   private isMobile: boolean = false;
   private jumpButtonPressed: boolean = false;
@@ -662,13 +663,15 @@ export class MainScene extends Phaser.Scene {
 
     // Add global pointer move and up events to handle joystick movement outside the base
     this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
-      if (this.joystickActive) {
+      if (this.joystickActive && this.joystickPointerId === pointer.id) {
         this.moveJoystick(pointer);
       }
     });
 
-    this.input.on("pointerup", () => {
-      this.stopJoystick();
+    this.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
+      if (this.joystickActive && this.joystickPointerId === pointer.id) {
+        this.stopJoystick();
+      }
     });
 
     // Create jump button
@@ -696,7 +699,12 @@ export class MainScene extends Phaser.Scene {
       new Phaser.Geom.Circle(0, 0, 40),
       Phaser.Geom.Circle.Contains
     );
-    this.jumpButton.on("pointerdown", () => {
+    this.jumpButton.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      // Don't handle jump if touch is in joystick area
+      if (this.isTouchInJoystickArea(pointer)) {
+        return;
+      }
+
       const currentTime = this.time.now;
       if (currentTime - this.lastJumpTime >= this.jumpCooldownTime) {
         this.jumpButtonPressed = true;
@@ -705,7 +713,12 @@ export class MainScene extends Phaser.Scene {
         this.input.stopPropagation();
       }
     });
-    this.jumpButton.on("pointerup", () => {
+    this.jumpButton.on("pointerup", (pointer: Phaser.Input.Pointer) => {
+      // Don't handle jump if touch is in joystick area
+      if (this.isTouchInJoystickArea(pointer)) {
+        return;
+      }
+
       this.jumpButtonPressed = false;
       // Prevent joystick from being affected
       this.input.stopPropagation();
@@ -713,13 +726,19 @@ export class MainScene extends Phaser.Scene {
   }
 
   private startJoystick(pointer: Phaser.Input.Pointer) {
+    // Don't start joystick if touch is in jump button area
+    if (this.isTouchInJumpArea(pointer)) {
+      this.jumpButtonPressed = true;
+      return;
+    }
     this.joystickActive = true;
+    this.joystickPointerId = pointer.id;
     this.lastPointerPosition = { x: pointer.x, y: pointer.y };
     this.moveJoystick(pointer);
   }
 
   private moveJoystick(pointer: Phaser.Input.Pointer) {
-    if (!this.joystickActive) return;
+    if (!this.joystickActive || this.isTouchInJumpArea(pointer)) return;
 
     const distance = Phaser.Math.Distance.Between(
       this.joystick.x,
@@ -765,10 +784,37 @@ export class MainScene extends Phaser.Scene {
     this.joystickPosition = { x: 0, y: 0 };
     this.joystickThumb.setPosition(0, 0);
     this.joystickActive = false;
+    this.joystickPointerId = null; // Reset the pointer ID
     // Reset velocity and animation when joystick is released
     this.player.setVelocityX(0);
     if (this.player.body?.touching.down) {
       this.player.anims.play("idle", true);
+    }
+  }
+
+  private isTouchInJumpArea(pointer: Phaser.Input.Pointer): boolean {
+    // Check if the touch is inside the jump button area
+    const jumpButtonBounds = this.jumpButton.getBounds(); // Get the bounds of the jump button
+    return Phaser.Geom.Rectangle.Contains(
+      jumpButtonBounds,
+      pointer.x,
+      pointer.y
+    );
+  }
+
+  private isTouchInJoystickArea(pointer: Phaser.Input.Pointer): boolean {
+    // Check if the touch is inside the joystick area
+    const joystickBounds = this.joystick.getBounds();
+    return Phaser.Geom.Rectangle.Contains(joystickBounds, pointer.x, pointer.y);
+  }
+
+  private handleJumpButtonTouch(pointer: Phaser.Input.Pointer) {
+    // When the jump button is pressed, ensure joystick does not interfere
+    if (this.isTouchInJumpArea(pointer)) {
+      this.jumpButtonPressed = true;
+      this.lastJumpTime = this.time.now;
+      // Prevent joystick from reacting while jump button is being pressed
+      this.joystickActive = false;
     }
   }
 
