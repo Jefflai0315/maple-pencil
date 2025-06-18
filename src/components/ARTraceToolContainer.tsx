@@ -35,7 +35,7 @@ const ARTraceToolContainer: React.FC = () => {
   };
 
   return (
-    <Box sx={{ position: "fixed", zIndex: 10000 }}>
+    <Box sx={{ position: "fixed", zIndex: 10000, top: 2 }}>
       {isOpen && <ARTraceTool onClose={handleClose} />}
     </Box>
   );

@@ -12,6 +12,123 @@ import {
 
 import { ArtEventContent, ArtEventService } from "../app/utils/interface";
 
+// Typing Text Component
+const TypingText = ({
+  text,
+  speed = 50,
+  className = "",
+}: {
+  text: string;
+  speed?: number;
+  className?: string;
+}) => {
+  const [displayedText, setDisplayedText] = useState("");
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isTyping, setIsTyping] = useState(true);
+  const [isComplete, setIsComplete] = useState(false);
+  const [lastTapTime, setLastTapTime] = useState(0);
+  const [tapCount, setTapCount] = useState(0);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Split text into words
+  const words = text.split(" ");
+
+  useEffect(() => {
+    if (!isTyping || isComplete) return;
+
+    const typeNextWord = () => {
+      if (currentIndex < words.length) {
+        setDisplayedText(
+          (prev) => prev + (prev ? " " : "") + words[currentIndex]
+        );
+        setCurrentIndex((prev) => prev + 1);
+      } else {
+        setIsComplete(true);
+        setIsTyping(false);
+      }
+    };
+
+    // Add a small delay before starting to type
+    const delay = currentIndex === 0 ? 500 : speed;
+    timeoutRef.current = setTimeout(typeNextWord, delay);
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [currentIndex, isTyping, isComplete, words, speed]);
+
+  const handleTap = () => {
+    const now = Date.now();
+    const timeDiff = now - lastTapTime;
+
+    if (timeDiff < 200) {
+      // Reduced from 300ms to 200ms for quicker double tap
+      // Double tap detected
+      setTapCount((prev) => prev + 1);
+      if (tapCount >= 1) {
+        // Show all text immediately
+        setDisplayedText(text);
+        setIsComplete(true);
+        setIsTyping(false);
+        setCurrentIndex(words.length);
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+        setTapCount(0);
+      }
+    } else {
+      // Single tap
+      setTapCount(1);
+      if (isTyping) {
+        // Finish current paragraph (type all remaining words quickly)
+        const remainingWords = words.slice(currentIndex);
+        setDisplayedText(
+          (prev) => prev + (prev ? " " : "") + remainingWords.join(" ")
+        );
+        setCurrentIndex(words.length);
+        setIsComplete(true);
+        setIsTyping(false);
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+      }
+    }
+
+    setLastTapTime(now);
+  };
+
+  // Reset tap count after a delay
+  useEffect(() => {
+    if (tapCount > 0) {
+      const resetTimer = setTimeout(() => {
+        setTapCount(0);
+      }, 200); // Reduced from 300ms to 200ms
+      return () => clearTimeout(resetTimer);
+    }
+  }, [tapCount]);
+
+  return (
+    <div
+      className={`cursor-pointer select-none transition-all duration-200 ${className} ${
+        isTyping ? "bg-blue-50/30 rounded px-1" : ""
+      }`}
+      onClick={handleTap}
+      style={{
+        minHeight: "1.5em",
+        touchAction: "auto",
+        userSelect: "none",
+        pointerEvents: "auto",
+      }}
+    >
+      {displayedText}
+      {isTyping && !isComplete && (
+        <span className="animate-pulse text-blue-500 font-bold">|</span>
+      )}
+    </div>
+  );
+};
+
 // Gallery Card Component
 const GalleryCard = ({
   title,
@@ -49,7 +166,11 @@ const GalleryCard = ({
   return (
     <div className="flex flex-col bg-white/5 backdrop-blur-sm rounded-lg p-2 md:p-6 hover:bg-white/10 transition-all duration-300">
       <h3 className="text-lg font-bold mb-2 text-yellow-400">{title}</h3>
-      <p className="text-base mb-6 text-gray-600">{description}</p>
+      <TypingText
+        text={description}
+        speed={40}
+        className="text-base mb-6 text-gray-600"
+      />
       {/* Add magnifying glass icon */}
       <div className="absolute bottom-0 right-0 bg-white/90 rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-100">
         <svg
@@ -368,13 +489,19 @@ const QuestPopup = ({
   section: string;
 }) => {
   const content = sectionContent[section as keyof typeof sectionContent];
+  const [selectedServiceIdx, setSelectedServiceIdx] = useState(0);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalIndex, setModalIndex] = useState(0);
+  const [selectedCategory, setSelectedCategory] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const popupRef = useRef<HTMLDivElement>(null);
-  const [selectedServiceIdx, setSelectedServiceIdx] = useState(0);
-  const [selectedCategory, setSelectedCategory] = useState(0);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalIndex, setModalIndex] = useState(0);
+
+  // Reset service index when section changes
+  useEffect(() => {
+    setSelectedServiceIdx(0);
+    console.log("Section changed to:", section);
+  }, [section]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (popupRef.current) {
@@ -493,11 +620,30 @@ const QuestPopup = ({
                 </div>
                 {/* Service Gallery */}
                 <div className="quest-level">
-                  <div className="quest-desc">
+                  <div
+                    className="quest-desc"
+                    style={{
+                      overflowY: "auto",
+                      WebkitOverflowScrolling: "touch",
+                      touchAction: "pan-y",
+                    }}
+                  >
                     <div className="flex flex-col gap-4 md:gap-8">
+                      {/* Service Description */}
+                      <div className="px-4">
+                        <TypingText
+                          key={`art-event-${section}-${selectedServiceIdx}`}
+                          text={
+                            content.services[selectedServiceIdx].description
+                          }
+                          speed={50}
+                          className="text-gray-700 leading-relaxed mb-4"
+                        />
+                      </div>
                       {/* Grid layout for categories */}
                       <div className="grid grid-cols-2 gap-4 md:gap-8 px-4">
                         <GalleryCard
+                          key={`quick-${section}`}
                           title="Quick Sketches"
                           description="Fast and expressive sketches perfect for capturing moments on the go."
                           images={comImages}
@@ -505,6 +651,7 @@ const QuestPopup = ({
                           onImageClick={handleImageClick}
                         />
                         <GalleryCard
+                          key={`wood-${section}`}
                           title="Wood Sketches"
                           description="Unique sketches on wood surfaces, creating rustic and natural artwork."
                           images={woodImages}
@@ -512,6 +659,7 @@ const QuestPopup = ({
                           onImageClick={handleImageClick}
                         />
                         <GalleryCard
+                          key={`detailed-${section}`}
                           title="Detailed Portraits"
                           description="Intricate and detailed portraits with careful attention to every feature."
                           images={detailedImages}
@@ -519,6 +667,7 @@ const QuestPopup = ({
                           onImageClick={handleImageClick}
                         />
                         <GalleryCard
+                          key={`big-${section}`}
                           title="Big Sketches"
                           description="Large-scale sketches that make a bold statement and capture grand moments."
                           images={bigImages}
@@ -537,10 +686,69 @@ const QuestPopup = ({
               <div className="quest-level">
                 <div className="quest-desc"></div>
               </div>
+            ) : section === "About" ? (
+              <div className="quest-level">
+                <div
+                  className="quest-desc"
+                  style={{
+                    overflowY: "auto",
+                    WebkitOverflowScrolling: "touch",
+                    touchAction: "pan-y",
+                  }}
+                >
+                  {hasDescription(content) ? (
+                    <TypingText
+                      key={`about-${section}`}
+                      text={content.description}
+                      speed={60}
+                      className="text-gray-700 leading-relaxed"
+                    />
+                  ) : (
+                    ""
+                  )}
+                </div>
+              </div>
+            ) : section === "Shop" ? (
+              <div className="quest-level">
+                <div
+                  className="quest-desc"
+                  style={{
+                    overflowY: "auto",
+                    WebkitOverflowScrolling: "touch",
+                    touchAction: "pan-y",
+                  }}
+                >
+                  {hasDescription(content) ? (
+                    <TypingText
+                      key={`shop-${section}`}
+                      text={content.description}
+                      speed={60}
+                      className="text-gray-700 leading-relaxed"
+                    />
+                  ) : (
+                    ""
+                  )}
+                </div>
+              </div>
             ) : (
               <div className="quest-level">
-                <div className="quest-desc">
-                  {hasDescription(content) ? content.description : ""}
+                <div
+                  className="quest-desc"
+                  style={{
+                    overflowY: "auto",
+                    WebkitOverflowScrolling: "touch",
+                    touchAction: "pan-y",
+                  }}
+                >
+                  {hasDescription(content) ? (
+                    <TypingText
+                      text={content.description}
+                      speed={60}
+                      className="text-gray-700 leading-relaxed"
+                    />
+                  ) : (
+                    ""
+                  )}
                 </div>
               </div>
             )}

@@ -174,6 +174,10 @@ html, body {
   padding: 0px 6px 6px 6px;
   gap: 2px;
   min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  height: 100%;
+  max-height: 90vh;
 }
 
 .quest-list {
@@ -289,6 +293,10 @@ html, body {
   line-height: 1.3;
   padding: 10px 6px;
   color: #422e00;
+}
+
+.quest-body, .quest-desc {
+  touch-action: pan-y;  /* Ensures vertical scrolling */
 }
 
 .quest-desc::-webkit-scrollbar {
