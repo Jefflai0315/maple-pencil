@@ -324,6 +324,8 @@ const ImageModal = ({
         {/* Previous Image */}
         {images.length > 1 && (
           <Image
+            width={350}
+            height={500}
             src={`/gallery/${category}/${
               images[(modalIndex - 1 + images.length) % images.length]
             }`}
@@ -350,6 +352,8 @@ const ImageModal = ({
 
         {/* Main Image */}
         <Image
+          width={700}
+          height={500}
           src={`/gallery/${category}/${currentImage}`}
           alt={getImageAlt(currentImage)}
           className={`rounded-lg shadow-2xl bg-white/10 backdrop-blur-sm transition-all duration-300
@@ -372,6 +376,8 @@ const ImageModal = ({
         {/* Next Image */}
         {images.length > 1 && (
           <Image
+            width={350}
+            height={500}
             src={`/gallery/${category}/${
               images[(modalIndex + 1) % images.length]
             }`}
