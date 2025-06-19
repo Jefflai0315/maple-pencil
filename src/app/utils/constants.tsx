@@ -39,7 +39,7 @@ export const sectionContent = {
   
   Let's keep creating small magic, one sketch at a time.`,
     npc: "/sprites/smile/0/jump_0.png",
-    level: "All Levels",
+    level: "",
     buttons: ["LEARN MORE", "JOIN DISCORD", "WATCH TRAILER", "SHARE"],
   },
   Shop: {
@@ -147,7 +147,7 @@ export const sectionContent = {
       // },
     ],
     npc: "/sprites/smile/0/jump_0.png",
-    level: "All Levels",
+    level: "",
     buttons: ["BOOK NOW", "VIEW GALLERY", "EVENT CALENDAR", "JOIN EVENT"],
   },
   // Contact: {

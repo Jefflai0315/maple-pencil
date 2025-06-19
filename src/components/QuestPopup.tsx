@@ -135,12 +135,14 @@ const GalleryCard = ({
   description,
   images,
   categoryIndex,
+  price,
   onImageClick,
 }: {
   title: string;
   description: string;
   images: string[];
   categoryIndex: number;
+  price: number;
   onImageClick: (index: number, category: number) => void;
 }) => {
   const rand = (seed: number) => {
@@ -164,31 +166,20 @@ const GalleryCard = ({
   };
 
   return (
-    <div className="flex flex-col bg-white/5 backdrop-blur-sm rounded-lg p-2 md:p-6 hover:bg-white/10 transition-all duration-300">
-      <h3 className="text-lg font-bold mb-2 text-yellow-400">{title}</h3>
-      <TypingText
-        text={description}
-        speed={40}
-        className="text-base mb-6 text-gray-600"
-      />
-      {/* Add magnifying glass icon */}
-      <div className="absolute bottom-0 right-0 bg-white/90 rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-100">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-5 w-5 text-gray-800"
-          viewBox="0 0 20 20"
-          fill="currentColor"
+    <div
+      className="flex flex-col bg-white/5 backdrop-blur-sm rounded-lg md:p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer hover:bg-white/10 hover:scale-102"
+      onClick={() => onImageClick(0, categoryIndex)}
+    >
+      <div className="flex flex-row gap-2">
+        <div
+          className="relative w-20 h-20 bg-gray-100 rounded-lg border border-gray-100 flex items-center justify-center"
+          style={{
+            boxShadow:
+              "inset 0 4px 8px rgba(0,0,0,0.15), inset 0 -2px 4px rgba(0,0,0,0.05)",
+          }}
         >
-          <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-        </svg>
-      </div>
-      <div className="relative flex items-center justify-center h-40 overflow-hidden group">
-        <div className="relative w-full h-full group-hover:scale-105 transition-all duration-300">
           {images.map((img, index) => {
             const rotation = (rand(index) - 0.5) * 12;
-            const xOffset = (rand(index + 10) - 0.5) * 16;
-            const yOffset = (rand(index + 20) - 0.5) * 8;
-
             return (
               <Image
                 width={100}
@@ -196,28 +187,37 @@ const GalleryCard = ({
                 key={img}
                 src={`/gallery/${getCategoryPath(title)}/${img}`}
                 alt={img.replace(/_/g, " ").replace(".jpg", "")}
-                className="absolute cursor-pointer rounded-lg shadow-lg transition-all duration-300 bg-white hover:z-50"
+                className="absolute rounded-lg shadow-lg transition-all duration-300 bg-white hover:z-50"
                 style={{
-                  left: `calc(50% + ${xOffset}px)`,
-                  top: `calc(50% + ${yOffset}px)`,
-                  transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+                  transform: `rotate(${rotation}deg)`,
                   zIndex: index,
-                  width: "100px",
-                  height: "130px",
+                  width: "50px",
+                  height: "60px",
                   objectFit: "cover",
-                  boxShadow:
-                    "0 4px 16px 0 rgba(0,0,0,0.13), 0 1.5px 0 0 #fff inset",
-                  filter: "brightness(1.2) contrast(1.1)",
                 }}
                 loading="lazy"
                 decoding="async"
-                onClick={() => onImageClick(index, categoryIndex)}
               />
             );
           })}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-lg" />
+        </div>
+        <div className="flex flex-col bg-gray-200 w-full p-2 rounded-sm">
+          <h3 className="text-lg font-bold">{title}</h3>
+          <p className="text-gray-600">{description}</p>
+          <div className="flex flex-row gap-1 md:gap-2 overflow-y-auto">
+            <Image
+              width={20}
+              height={8}
+              src={`/money.png`}
+              alt="money"
+              className=""
+            />
+            <p className="text-gray-600">{price}</p>
+          </div>
         </div>
       </div>
+
+      {/* Add magnifying glass icon */}
     </div>
   );
 };
@@ -437,7 +437,7 @@ const ImageModal = ({
 
 // Style Guide Component
 const StyleGuide = () => (
-  <div className="mt-8 px-4">
+  <div className="mt-4 px-4">
     <div className="bg-white/5 backdrop-blur-sm rounded-lg">
       <h3 className="text-lg font-bold mb-4 text-yellow-400">Style Guide</h3>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -614,7 +614,7 @@ const QuestPopup = ({
                     (service: ArtEventService, idx: number) => (
                       <button
                         key={service.name}
-                        className={`tab${
+                        className={`tab ${
                           selectedServiceIdx === idx ? " active" : ""
                         }`}
                         onClick={() => setSelectedServiceIdx(idx)}
@@ -625,9 +625,9 @@ const QuestPopup = ({
                   )}
                 </div>
                 {/* Service Gallery */}
-                <div className="quest-level">
+                <div className="quest-level flex-1">
                   <div
-                    className="quest-desc"
+                    className="h-full"
                     style={{
                       overflowY: "auto",
                       WebkitOverflowScrolling: "touch",
@@ -636,24 +636,16 @@ const QuestPopup = ({
                   >
                     <div className="flex flex-col gap-4 md:gap-8">
                       {/* Service Description */}
-                      <div className="px-4">
-                        <TypingText
-                          key={`art-event-${section}-${selectedServiceIdx}`}
-                          text={
-                            content.services[selectedServiceIdx].description
-                          }
-                          speed={50}
-                          className="text-gray-700 leading-relaxed mb-4"
-                        />
-                      </div>
+
                       {/* Grid layout for categories */}
-                      <div className="grid grid-cols-2 gap-4 md:gap-8 px-4">
+                      <div className="grid grid-cols-1 gap-1 md:gap-8 ">
                         <GalleryCard
                           key={`quick-${section}`}
                           title="Quick Sketches"
                           description="Fast and expressive sketches perfect for capturing moments on the go."
                           images={comImages}
                           categoryIndex={0}
+                          price={20}
                           onImageClick={handleImageClick}
                         />
                         <GalleryCard
@@ -662,6 +654,7 @@ const QuestPopup = ({
                           description="Unique sketches on wood surfaces, creating rustic and natural artwork."
                           images={woodImages}
                           categoryIndex={1}
+                          price={40}
                           onImageClick={handleImageClick}
                         />
                         <GalleryCard
@@ -670,6 +663,7 @@ const QuestPopup = ({
                           description="Intricate and detailed portraits with careful attention to every feature."
                           images={detailedImages}
                           categoryIndex={2}
+                          price={70}
                           onImageClick={handleImageClick}
                         />
                         <GalleryCard
@@ -678,6 +672,7 @@ const QuestPopup = ({
                           description="Large-scale sketches that make a bold statement and capture grand moments."
                           images={bigImages}
                           categoryIndex={3}
+                          price={150}
                           onImageClick={handleImageClick}
                         />
                       </div>
