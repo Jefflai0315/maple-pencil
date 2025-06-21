@@ -26,10 +26,10 @@
 }
 
 /* Black and White Theme - Apply grayscale filter to entire game */
- body {
-  filter: grayscale(100%) !important;
-  -webkit-filter: grayscale(100%) !important;
-}
+ /* body {
+  filter: grayscale(50%) !important;
+  -webkit-filter: grayscale(50%) !important;
+} */
 
 
 
