@@ -260,7 +260,7 @@ function App() {
               View My Work
             </button>
             <button 
-              className="sketch-btn text-xl px-8 py-4 flex items-center gap-2"
+              className="sketch-btn text-xl px-8 py-4 flex items-center gap-2 cursor-pointer"
               onClick={() => scrollToSection('contact')}
             >
               <Heart size={20} />
