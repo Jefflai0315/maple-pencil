@@ -36,7 +36,9 @@
 
 /* @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"); */
 
-html, body {
+/* Game-specific styles - only apply to game pages */
+.game-page html, 
+.game-page body {
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -44,7 +46,9 @@ html, body {
   height: 100%;
   position: fixed;
 }
-#game-container, canvas {
+
+.game-page #game-container, 
+.game-page canvas {
   display: block;
   width: 100% !important;
   height: 100% !important;
@@ -53,6 +57,14 @@ html, body {
   left: 0;
 }
 
+/* Regular page styles - allow scrolling */
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden; /* Prevent horizontal scroll but allow vertical */
+  width: 100%;
+  min-height: 100%;
+}
 
 /* Pixelated font */
 .pixel-font {

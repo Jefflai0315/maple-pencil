@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import emailjs from "@emailjs/browser";
 import Image from "next/image";
+import { Heart } from "lucide-react";
 
 // Helper function to convert File to base64
 const convertFileToBase64 = (file: File): Promise<string> => {
@@ -241,138 +242,105 @@ export const ContactForm = () => {
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto p-8 bg-gradient-to-b from-[#4a90e2] to-[#2c5282] rounded-lg border-4 border-[#ffd700] shadow-[0_0_20px_rgba(255,215,0,0.3)]">
-      <div className="contact-info mb-10">
-        <h2 className="text-3xl font-bold text-[#ffd700] mb-4 text-center font-['Press_Start_2P'] drop-shadow-[2px_2px_0px_rgba(0,0,0,0.5)]">
-          Commission a Custom Portrait
-        </h2>
-        <p className="text-[#ffffff] text-lg mb-6 text-center drop-shadow-[1px_1px_0px_rgba(0,0,0,0.5)]">
-          I&apos;d love to create a custom sketch for you. Please share some
-          details about what you have in mind.
-        </p>
-        <div className="flex flex-wrap justify-center gap-3">
-          {["Portrait", "Family", "Pet", "Couple", "Custom"].map((tag) => (
-            <div
-              key={tag}
-              className="px-4 py-2 bg-[#ff6b6b] hover:bg-[#ff8787] rounded-md text-sm text-white transition-colors duration-300 cursor-pointer border-2 border-[#ffd700] font-['Press_Start_2P'] text-xs drop-shadow-[2px_2px_0px_rgba(0,0,0,0.3)]"
-            >
-              {tag}
-            </div>
-          ))}
-        </div>
-      </div>
+    <div className="w-full">
+      <h3 className="font-handwritten text-2xl font-semibold text-charcoal mb-6">
+        Send a Message
+      </h3>
 
-      <form onSubmit={handleSubmit} className="space-y-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="form-group">
-            <label
-              htmlFor="name"
-              className="block text-lg font-medium text-[#ffd700] mb-3 font-['Press_Start_2P'] text-sm drop-shadow-[2px_2px_0px_rgba(0,0,0,0.5)]"
-            >
-              Your Name
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="font-sketch text-charcoal-medium mb-2 block">
+              Name
             </label>
             <input
               type="text"
-              id="name"
               name="name"
               value={formData.name}
               onChange={handleInputChange}
               required
-              className="w-full px-4 py-3 bg-white/90 border-2 border-[#ffd700] rounded-md focus:outline-none focus:border-[#ffd700] text-[#2c5282] text-lg placeholder-gray-400 transition-colors duration-300"
-              placeholder="John Doe"
+              placeholder="Your name"
+              className="sketch-input w-full"
             />
           </div>
-          <div className="form-group">
-            <label
-              htmlFor="email"
-              className="block text-lg font-medium text-[#ffd700] mb-3 font-['Press_Start_2P'] text-sm drop-shadow-[2px_2px_0px_rgba(0,0,0,0.5)]"
-            >
-              Email Address
+          <div>
+            <label className="font-sketch text-charcoal-medium mb-2 block">
+              Email
             </label>
             <input
               type="email"
-              id="email"
               name="email"
               value={formData.email}
               onChange={handleInputChange}
               required
-              className="w-full px-4 py-3 bg-white/90 border-2 border-[#ffd700] rounded-md focus:outline-none focus:border-[#ffd700] text-[#2c5282] text-lg placeholder-gray-400 transition-colors duration-300"
-              placeholder="john@example.com"
+              placeholder="your.email@example.com"
+              className="sketch-input w-full"
             />
           </div>
         </div>
 
-        <div className="form-group">
-          <label
-            htmlFor="mobile"
-            className="block text-lg font-medium text-[#ffd700] mb-3 font-['Press_Start_2P'] text-sm drop-shadow-[2px_2px_0px_rgba(0,0,0,0.5)]"
-          >
+        <div>
+          <label className="font-sketch text-charcoal-medium mb-2 block">
             Mobile Number
           </label>
           <input
             type="tel"
-            id="mobile"
             name="mobile"
             value={formData.mobile}
             onChange={handleInputChange}
-            required
-            className="w-full px-4 py-3 bg-white/90 border-2 border-[#ffd700] rounded-md focus:outline-none focus:border-[#ffd700] text-[#2c5282] text-lg placeholder-gray-400 transition-colors duration-300"
             placeholder="+65 9888 8888"
+            className="sketch-input w-full"
           />
         </div>
 
-        <div className="form-group">
-          <label
-            htmlFor="message"
-            className="block text-lg font-medium text-[#ffd700] mb-3 font-['Press_Start_2P'] text-sm drop-shadow-[2px_2px_0px_rgba(0,0,0,0.5)]"
-          >
+        <div>
+          <label className="font-sketch text-charcoal-medium mb-2 block">
             What would you like sketched?
           </label>
           <textarea
-            id="message"
             name="message"
             value={formData.message}
             onChange={handleInputChange}
             required
             rows={4}
-            className="w-full px-4 py-3 bg-white/90 border-2 border-[#ffd700] rounded-md focus:outline-none focus:border-[#ffd700] text-[#2c5282] text-lg placeholder-gray-400 resize-none transition-colors duration-300"
             placeholder="Please describe what you'd like me to sketch..."
+            className="sketch-input w-full"
           />
         </div>
 
-        <div className="form-group bg-white/90 p-4 rounded-md border-2 border-[#ffd700]">
-          <label className="block text-lg font-medium text-[#ffd700] mb-3 font-['Press_Start_2P'] text-sm drop-shadow-[2px_2px_0px_rgba(0,0,0,0.5)]">
+        <div className="form-section bg-paper-white p-4 rounded-md border-2 border-charcoal-light">
+          <label className="font-sketch text-charcoal-medium mb-3 block">
             Do you have a reference photo?
           </label>
           <div className="flex gap-6">
-            <label className="flex items-center gap-3 text-[#2c5282] text-lg cursor-pointer">
+            <label className="flex items-center gap-3 text-charcoal-medium cursor-pointer">
               <input
                 type="radio"
                 name="reference"
                 value="yes"
                 checked={formData.reference === "yes"}
                 onChange={handleInputChange}
-                className="w-5 h-5 text-[#ffd700] focus:ring-[#ffd700] cursor-pointer"
+                className="w-4 h-4 text-charcoal-medium focus:ring-charcoal-medium cursor-pointer"
               />
-              <span>Yes</span>
+              <span className="font-body">Yes</span>
             </label>
-            <label className="flex items-center gap-3 text-[#2c5282] text-lg cursor-pointer">
+            <label className="flex items-center gap-3 text-charcoal-medium cursor-pointer">
               <input
                 type="radio"
                 name="reference"
                 value="no"
                 checked={formData.reference === "no"}
                 onChange={handleInputChange}
-                className="w-5 h-5 text-[#ffd700] focus:ring-[#ffd700] cursor-pointer"
+                className="w-4 h-4 text-charcoal-medium focus:ring-charcoal-medium cursor-pointer"
               />
-              <span>No</span>
+              <span className="font-body">No</span>
             </label>
           </div>
         </div>
 
         {formData.reference === "yes" && (
-          <div className="form-group bg-white/90 p-4 rounded-md border-2 border-[#ffd700]">
-            <label className="block text-lg font-medium text-[#ffd700] mb-3 font-['Press_Start_2P'] text-sm drop-shadow-[2px_2px_0px_rgba(0,0,0,0.5)]">
+          <div className="form-section bg-paper-white p-4 rounded-md border-2 border-charcoal-light">
+            <label className="font-sketch text-charcoal-medium mb-3 block">
               Upload Reference Photos
             </label>
             <div className="space-y-4">
@@ -387,7 +355,7 @@ export const ContactForm = () => {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center px-6 py-3 bg-[#ff6b6b] hover:bg-[#ff8787] rounded-md text-white text-lg transition-colors duration-300 border-2 border-[#ffd700] font-['Press_Start_2P'] text-sm drop-shadow-[2px_2px_0px_rgba(0,0,0,0.3)]"
+                className="sketch-btn"
               >
                 Select Photos
               </button>
@@ -398,7 +366,7 @@ export const ContactForm = () => {
                 {uploadedPhotos.map((photo, index) => (
                   <div
                     key={index}
-                    className="relative group bg-white rounded-md p-2 border-2 border-[#ffd700]"
+                    className="relative group bg-paper-white rounded-md p-2 border-2 border-charcoal-light transform rotate-1 hover:rotate-0 transition-transform"
                   >
                     <Image
                       src={photo.preview}
@@ -414,7 +382,7 @@ export const ContactForm = () => {
                     >
                       ×
                     </button>
-                    <p className="text-sm text-[#2c5282] mt-2 truncate">
+                    <p className="text-sm text-charcoal-medium mt-2 truncate font-body">
                       {photo.name}
                     </p>
                   </div>
@@ -428,23 +396,22 @@ export const ContactForm = () => {
           <div
             className={`text-center text-lg p-4 rounded-md border-2 ${
               formStatus.success
-                ? "bg-green-500/20 text-green-400 border-green-400"
-                : "bg-red-500/20 text-red-400 border-red-400"
+                ? "bg-green-500/20 text-green-600 border-green-400"
+                : "bg-red-500/20 text-red-600 border-red-400"
             }`}
           >
             {formStatus.message}
           </div>
         )}
 
-        <div className="flex justify-center">
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="px-8 py-3 bg-[#ff6b6b] hover:bg-[#ff8787] text-white font-bold rounded-md transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-lg font-['Press_Start_2P'] text-sm border-2 border-[#ffd700] drop-shadow-[2px_2px_0px_rgba(0,0,0,0.3)]"
-          >
-            {isSubmitting ? "Sending..." : "Send Request"}
-          </button>
-        </div>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="sketch-btn w-full text-lg py-3 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Heart size={20} />
+          {isSubmitting ? "Sending..." : "Send Message"}
+        </button>
       </form>
     </div>
   );

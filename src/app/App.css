@@ -1,0 +1,599 @@
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Kalam:wght@300;400;700&family=Caveat:wght@400;500;600;700&display=swap');
+
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Organic Sketch Portfolio Styles */
+
+/* Custom CSS Variables for Organic Theme */
+:root {
+  /* Paper Colors */
+  --paper-white: #FEFCF7;
+  --paper-cream: #F8F6F0;
+  --paper-light: #F5F3ED;
+  
+  /* Charcoal Colors */
+  --charcoal-dark: #2C2C2C;
+  --charcoal-medium: #4A4A4A;
+  --charcoal-light: #6B6B6B;
+  
+  /* Accent Colors */
+  --graphite-blue: #B8C5D1;
+  --sketch-gray: #E8E6E0;
+  
+  /* Shadows */
+  --paper-shadow: 0 4px 12px rgba(44, 44, 44, 0.1);
+  --sketch-shadow: 0 2px 8px rgba(44, 44, 44, 0.15);
+}
+
+/* Typography */
+.font-display {
+  font-family: 'Playfair Display', serif;
+}
+
+.font-body {
+  font-family: 'Inter', sans-serif;
+}
+
+.font-handwritten {
+  font-family: 'Caveat', cursive;
+}
+
+.font-sketch {
+  font-family: 'Kalam', cursive;
+}
+
+/* Organic Paper Background */
+.organic-paper {
+  background: var(--paper-white);
+  position: relative;
+  overflow: hidden;
+}
+
+.organic-paper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(circle at 20% 30%, rgba(44, 44, 44, 0.02) 1px, transparent 1px),
+    radial-gradient(circle at 80% 70%, rgba(44, 44, 44, 0.015) 1px, transparent 1px),
+    radial-gradient(circle at 40% 80%, rgba(44, 44, 44, 0.01) 1px, transparent 1px);
+  background-size: 30px 30px, 45px 45px, 60px 60px;
+  pointer-events: none;
+}
+
+/* Hand-drawn wavy dividers */
+.wavy-divider {
+  position: relative;
+  height: 60px;
+  overflow: hidden;
+}
+
+.wavy-divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -5%;
+  right: -5%;
+  height: 3px;
+  background: var(--charcoal-light);
+  transform: translateY(-50%);
+  clip-path: polygon(
+    0% 50%, 2% 45%, 4% 55%, 6% 40%, 8% 60%, 10% 45%, 12% 55%, 14% 40%, 16% 60%, 18% 45%,
+    20% 55%, 22% 40%, 24% 60%, 26% 45%, 28% 55%, 30% 40%, 32% 60%, 34% 45%, 36% 55%, 38% 40%,
+    40% 60%, 42% 45%, 44% 55%, 46% 40%, 48% 60%, 50% 45%, 52% 55%, 54% 40%, 56% 60%, 58% 45%,
+    60% 55%, 62% 40%, 64% 60%, 66% 45%, 68% 55%, 70% 40%, 72% 60%, 74% 45%, 76% 55%, 78% 40%,
+    80% 60%, 82% 45%, 84% 55%, 86% 40%, 88% 60%, 90% 45%, 92% 55%, 94% 40%, 96% 60%, 98% 45%, 100% 50%
+  );
+  opacity: 0.6;
+}
+
+/* Sketchy containers */
+.sketch-container {
+  position: relative;
+  padding: 2rem;
+  margin: 1rem 0;
+  background: var(--paper-white);
+}
+
+.sketch-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 2px solid var(--charcoal-medium);
+  border-radius: 15px 25px 20px 30px / 25px 15px 30px 20px;
+  opacity: 0.7;
+  transform: rotate(-0.5deg);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sketch-container::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  border: 1px solid var(--charcoal-light);
+  border-radius: 20px 30px 15px 25px / 30px 20px 25px 15px;
+  opacity: 0.4;
+  transform: rotate(0.3deg);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Organic service cards */
+.organic-card {
+  position: relative;
+  padding: 2rem;
+  margin: 1rem;
+  background: var(--paper-cream);
+  transform: rotate(-1deg);
+  transition: all 0.3s ease;
+}
+
+.organic-card:nth-child(even) {
+  transform: rotate(1deg);
+}
+
+.organic-card:hover {
+  transform: rotate(0deg) translateY(-5px);
+  z-index: 10;
+}
+
+.organic-card::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  background: var(--charcoal-medium);
+  border-radius: 20px 15px 25px 18px / 15px 25px 18px 20px;
+  z-index: -1;
+  opacity: 0.8;
+}
+
+.organic-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--paper-cream);
+  border-radius: 18px 22px 16px 24px / 22px 16px 24px 18px;
+  z-index: -1;
+}
+
+/* Hand-drawn buttons */
+.sketch-btn {
+  position: relative;
+  padding: 12px 24px;
+  background: transparent;
+  border: none;
+  font-family: 'Caveat', cursive;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--charcoal-dark);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  transform: rotate(-1deg);
+}
+
+.sketch-btn:hover {
+  transform: rotate(0deg) translateY(-2px);
+  color: var(--charcoal-dark);
+}
+
+.sketch-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 2px solid var(--charcoal-medium);
+  border-radius: 25px 15px 20px 30px / 15px 30px 25px 20px;
+  background: var(--paper-white);
+  z-index: -1;
+  transition: all 0.3s ease;
+}
+
+.sketch-btn:hover::before {
+  border-color: var(--charcoal-dark);
+  transform: scale(1.05);
+}
+
+/* Organic navigation */
+.organic-nav {
+  position: relative;
+  background: rgba(254, 252, 247, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 1rem 0;
+}
+
+.organic-nav::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 5%;
+  right: 5%;
+  height: 2px;
+  background: var(--charcoal-light);
+  clip-path: polygon(
+    0% 50%, 3% 30%, 6% 70%, 9% 20%, 12% 80%, 15% 30%, 18% 70%, 21% 20%, 24% 80%, 27% 30%,
+    30% 70%, 33% 20%, 36% 80%, 39% 30%, 42% 70%, 45% 20%, 48% 80%, 51% 30%, 54% 70%, 57% 20%,
+    60% 80%, 63% 30%, 66% 70%, 69% 20%, 72% 80%, 75% 30%, 78% 70%, 81% 20%, 84% 80%, 87% 30%,
+    90% 70%, 93% 20%, 96% 80%, 99% 30%, 100% 50%
+  );
+  opacity: 0.6;
+}
+
+/* Sketchy portfolio grid */
+.organic-portfolio {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  padding: 2rem 0;
+}
+
+.portfolio-sketch {
+  position: relative;
+  background: var(--paper-white);
+  transform: rotate(-2deg);
+  transition: all 0.4s ease;
+  overflow: hidden;
+}
+
+.portfolio-sketch:nth-child(2n) {
+  transform: rotate(1.5deg);
+}
+
+.portfolio-sketch:nth-child(3n) {
+  transform: rotate(-1deg);
+}
+
+.portfolio-sketch:hover {
+  transform: rotate(0deg) scale(1.02);
+  z-index: 10;
+}
+
+.portfolio-sketch::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  right: -5px;
+  bottom: -5px;
+  background: var(--charcoal-medium);
+  border-radius: 30px;
+  z-index: -1;
+  opacity: 0.3;
+}
+
+.portfolio-sketch img {
+  width: 100%;
+  height: 500px;
+  object-fit: cover;
+  border-radius: 10px 20px 15px 25px / 20px 10px 25px 15px;
+  filter: sepia(5%) contrast(1.05);
+}
+
+/* Organic text elements */
+.sketch-heading {
+  position: relative;
+  font-family: 'Caveat', cursive;
+  font-weight: 700;
+  color: var(--charcoal-dark);
+  margin-bottom: 1rem;
+}
+
+.sketch-heading::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--charcoal-light);
+  clip-path: polygon(
+    0% 50%, 5% 20%, 10% 80%, 15% 30%, 20% 70%, 25% 40%, 30% 60%, 35% 20%, 40% 80%, 45% 30%,
+    50% 70%, 55% 40%, 60% 60%, 65% 20%, 70% 80%, 75% 30%, 80% 70%, 85% 40%, 90% 60%, 95% 30%, 100% 50%
+  );
+  opacity: 0.6;
+}
+
+/* Organic form elements */
+.form-section {
+  position: relative;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  background: var(--paper-white);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(44, 44, 44, 0.1);
+}
+
+/* Ensure form elements are accessible inside sketch-container */
+.sketch-container form,
+.sketch-container input,
+.sketch-container textarea,
+.sketch-container select,
+.sketch-container button,
+.sketch-container label {
+  position: relative;
+  z-index: 1;
+}
+
+.sketch-input {
+  position: relative;
+  background: var(--paper-white);
+  border: 2px solid var(--charcoal-light);
+  border-radius: 15px 8px 12px 20px / 8px 20px 15px 12px;
+  padding: 12px 16px;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.3s ease;
+}
+
+.sketch-input:focus {
+  outline: none;
+  border-color: var(--charcoal-medium);
+  transform: rotate(-0.5deg);
+}
+
+/* Floating elements */
+.float-sketch {
+  animation: float-sketch 6s ease-in-out infinite;
+}
+
+@keyframes float-sketch {
+  0%, 100% { transform: translateY(0px) rotate(-1deg); }
+  50% { transform: translateY(-10px) rotate(1deg); }
+}
+
+/* Pencil stroke animations */
+.pencil-stroke-animate {
+  position: relative;
+  overflow: hidden;
+}
+
+.pencil-stroke-animate::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(44, 44, 44, 0.1), transparent);
+  animation: pencil-stroke 3s ease-in-out infinite;
+}
+
+@keyframes pencil-stroke {
+  0% { left: -100%; }
+  50% { left: 100%; }
+  100% { left: 100%; }
+}
+
+/* Organic testimonials */
+.testimonial-bubble {
+  position: relative;
+  background: var(--paper-cream);
+  padding: 1.5rem;
+  margin: 1rem;
+  border-radius: 20px 30px 25px 15px / 30px 20px 15px 25px;
+  transform: rotate(-1deg);
+  transition: all 0.3s ease;
+}
+
+.testimonial-bubble:nth-child(even) {
+  transform: rotate(1deg);
+}
+
+.testimonial-bubble::before {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 30px;
+  width: 20px;
+  height: 20px;
+  background: var(--paper-cream);
+  border-radius: 50% 0 50% 50%;
+  transform: rotate(45deg);
+}
+
+.testimonial-bubble::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border: 1px solid var(--charcoal-light);
+  border-radius: 22px 32px 27px 17px / 32px 22px 17px 27px;
+  opacity: 0.5;
+  z-index: -1;
+}
+
+/* Responsive organic design */
+@media (max-width: 768px) {
+  .organic-portfolio {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .organic-card {
+    margin: 0.5rem;
+    padding: 1.5rem;
+  }
+  
+  .sketch-container {
+    padding: 1.5rem;
+  }
+  
+  .sketch-btn {
+    padding: 10px 20px;
+    font-size: 16px;
+  }
+}
+
+/* Text styles */
+.text-charcoal {
+  color: var(--charcoal-dark);
+}
+
+.text-charcoal-medium {
+  color: var(--charcoal-medium);
+}
+
+.text-charcoal-light {
+  color: var(--charcoal-light);
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--paper-light);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--charcoal-light);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--charcoal-medium);
+}
+

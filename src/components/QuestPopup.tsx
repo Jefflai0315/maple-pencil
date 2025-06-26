@@ -167,7 +167,7 @@ const GalleryCard = ({
 
   return (
     <div
-      className="flex flex-col bg-white/5 backdrop-blur-sm rounded-lg md:p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer hover:bg-white/10 hover:scale-102"
+      className="flex flex-col bg-white/5 backdrop-blur-sm rounded-lg pr-2 hover:bg-white/10 transition-all duration-300 cursor-pointer hover:bg-white/10 hover:scale-102"
       onClick={() => onImageClick(0, categoryIndex)}
     >
       <div className="flex flex-row gap-2">
@@ -435,35 +435,6 @@ const ImageModal = ({
   );
 };
 
-// Style Guide Component
-const StyleGuide = () => (
-  <div className="mt-4 px-4">
-    <div className="bg-white/5 backdrop-blur-sm rounded-lg">
-      <h3 className="text-lg font-bold mb-4 text-yellow-400">Style Guide</h3>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-        <div>
-          <h4 className="font-bold text-yellow-400 mb-2">Quick Sketches</h4>
-          <p className="text-gray-600">Perfect for events and live sketching</p>
-        </div>
-        <div>
-          <h4 className="font-bold text-yellow-400 mb-2">Wood Sketches</h4>
-          <p className="text-gray-600">Unique texture and natural feel</p>
-        </div>
-        <div>
-          <h4 className="font-bold text-yellow-400 mb-2">Detailed Portraits</h4>
-          <p className="text-gray-600">
-            High attention to detail and precision
-          </p>
-        </div>
-        <div>
-          <h4 className="font-bold text-yellow-400 mb-2">Big Sketches</h4>
-          <p className="text-gray-600">Bold statements and grand displays</p>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
 // Type guards
 const isArtEventContent = (c: unknown): c is ArtEventContent => {
   return (
@@ -634,11 +605,11 @@ const QuestPopup = ({
                       touchAction: "pan-y",
                     }}
                   >
-                    <div className="flex flex-col gap-4 md:gap-8">
+                    <div className="flex flex-col gap-4 md:gap-2">
                       {/* Service Description */}
 
                       {/* Grid layout for categories */}
-                      <div className="grid grid-cols-1 gap-1 md:gap-8 ">
+                      <div className="grid grid-cols-1 gap-1 md:gap-2 ">
                         <GalleryCard
                           key={`quick-${section}`}
                           title="Quick Sketches"
@@ -676,9 +647,9 @@ const QuestPopup = ({
                           onImageClick={handleImageClick}
                         />
                       </div>
-
-                      <StyleGuide />
-                      <ContactForm />
+                      <div className="my-4 px-4">
+                        <ContactForm />
+                      </div>
                     </div>
                   </div>
                 </div>
