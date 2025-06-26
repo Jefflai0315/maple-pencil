@@ -22,6 +22,8 @@ import { ContactForm } from '../components/ContactForm'
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [activeSection, setActiveSection] = useState('home')
+  const [isNavVisible, setIsNavVisible] = useState(true)
+  const [lastScrollY, setLastScrollY] = useState(0)
 
   // Sample portfolio data
   const portfolioItems = [
@@ -121,12 +123,24 @@ function App() {
     }
   }
 
-  // Handle scroll for active section
+  // Handle scroll for active section and nav visibility
   useEffect(() => {
     const handleScroll = () => {
+      const currentScrollY = window.scrollY
       const sections = ['home', 'about', 'services', 'portfolio', 'contact']
-      const scrollPosition = window.scrollY + 100
+      const scrollPosition = currentScrollY + 100
 
+      // Handle navigation visibility
+      if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        // Scrolling down and not at the top
+        setIsNavVisible(false)
+      } else {
+        // Scrolling up or at the top
+        setIsNavVisible(true)
+      }
+      setLastScrollY(currentScrollY)
+
+      // Handle active section
       for (const section of sections) {
         const element = document.getElementById(section)
         if (element) {
@@ -143,13 +157,15 @@ function App() {
 
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  }, [lastScrollY])
 
   return (
     <div className="min-h-screen organic-paper">
       {/* Navigation */}
-      <nav className="organic-nav fixed top-0 left-0 right-0 z-50 px-4 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+      <nav className={`organic-nav px-4 py-4 transition-transform duration-300 ${
+        isNavVisible ? 'translate-y-0' : '-translate-y-full'
+      }`}>
+        <div className="max-w-6xl mx-auto px-2 flex items-center justify-between">
           <div className="font-handwritten text-3xl font-bold text-charcoal">
             Playing with Pencil
           </div>
@@ -195,8 +211,8 @@ function App() {
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 right-0 bg-paper-white border-t-2 border-sketch-gray">
-            <div className="flex flex-col space-y-4 p-4">
+          <div className="md:hidden absolute  top-full left-0 right-0 bg-paper-white border-t-2 border-sketch-gray">
+            <div className="flex flex-col space-y-4 p-4 bg-white rounded-lg border-b-2 border-charcoal-light">
               {['home', 'about', 'services', 'portfolio', 'contact'].map((section) => (
                 <button
                   key={section}
@@ -220,9 +236,9 @@ function App() {
       </nav>
 
       {/* Hero Section */}
-      <section id="home" className="min-h-screen flex items-center justify-center px-4">
+      <section id="home" className="min-h-screen flex items-center justify-center px-4 mt-20">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="mb-8 float-sketch">
+          <div className="mb-8 float-sketch mt-10">
             <h1 className="font-display text-6xl md:text-8xl font-bold text-charcoal mb-4 transform -rotate-1">
               Jeff Lai
             </h1>
@@ -260,8 +276,8 @@ function App() {
           </div>
 
           {/* Stats in organic containers */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-2xl mx-auto">
-            <div className="sketch-container text-center transform rotate-1">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-8 max-w-2xl mx-auto">
+            <div className="sketch-container text-center transform rotate-1 p-1">
               <div className="font-display text-4xl font-bold text-charcoal">100K+</div>
               <div className="font-sketch text-charcoal-medium">Followers</div>
             </div>

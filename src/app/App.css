@@ -332,10 +332,15 @@
 
 /* Organic navigation */
 .organic-nav {
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
   background: rgba(254, 252, 247, 0.95);
   backdrop-filter: blur(10px);
   padding: 1rem 0;
+  z-index: 9999;
+  border-bottom: 1px solid rgba(44, 44, 44, 0.1);
 }
 
 .organic-nav::after {
