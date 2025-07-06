@@ -48,6 +48,46 @@ export class MainScene extends Phaser.Scene {
     super({ key: "MainScene" });
   }
 
+  private handleNPCPopupParameters() {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const npcPopup = urlParams.get("npc");
+
+      if (npcPopup) {
+        // Open NPC popup after a short delay to ensure scene is fully initialized
+        this.time.delayedCall(1000, () => {
+          this.openNPCPopup(npcPopup);
+        });
+      }
+    }
+  }
+
+  private openNPCPopup(npcType: string) {
+    switch (npcType.toLowerCase()) {
+      case "sketch":
+      case "sketch_canvas":
+        this.openSketchCanvas();
+        break;
+      case "webcam":
+      case "photo":
+      case "photobooth":
+        this.openWebcamCapture();
+        break;
+      case "artrace":
+      case "ar":
+      case "ar_trace":
+        this.openARTraceTool();
+        break;
+      default:
+        console.warn(`Unknown NPC popup type: ${npcType}`);
+    }
+  }
+
+  // Public method to open NPC popups programmatically
+  public openNPCPopupFromExternal(npcType: string) {
+    this.openNPCPopup(npcType);
+  }
+
   preload() {
     console.log("Loading game assets...");
 
@@ -554,6 +594,34 @@ export class MainScene extends Phaser.Scene {
 
     if (this.isMobile) {
       this.createTouchControls();
+    }
+
+    // Expose NPC popup methods globally
+    this.exposeNPCPopupMethods();
+
+    // Handle URL parameters for NPC popups
+    this.handleNPCPopupParameters();
+  }
+
+  private exposeNPCPopupMethods() {
+    if (typeof window !== "undefined") {
+      // Extend Window interface for global access
+      interface ExtendedWindow extends Window {
+        gameScene?: MainScene;
+        openNPCPopup?: (npcType: string) => void;
+      }
+
+      const extendedWindow = window as ExtendedWindow;
+
+      // Expose the scene instance globally for external access
+      extendedWindow.gameScene = this;
+
+      // Expose NPC popup methods
+      extendedWindow.openNPCPopup = (npcType: string) => {
+        this.openNPCPopup(npcType);
+      };
+
+      console.log("NPC popup methods exposed globally");
     }
   }
 

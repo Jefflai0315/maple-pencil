@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import QuestPopup from "./QuestPopup";
 
 export const Navbar = () => {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
   const [selectedSection, setSelectedSection] = useState("About");
 
   // Read URL parameter on component mount
@@ -12,7 +12,7 @@ export const Navbar = () => {
       const section = urlParams.get("section");
 
       // Map URL parameters to navbar sections
-      let initialSection = "About"; // default
+      let initialSection = ""; // default
 
       if (section) {
         switch (section.toLowerCase()) {
@@ -33,6 +33,11 @@ export const Navbar = () => {
       }
 
       setSelectedSection(initialSection);
+
+      // Only show popup if the section is "About"
+      if (initialSection === "About") {
+        setIsOpen(true);
+      }
     }
   }, []);
 
