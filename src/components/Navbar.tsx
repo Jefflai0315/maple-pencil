@@ -1,9 +1,40 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import QuestPopup from "./QuestPopup";
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(true);
   const [selectedSection, setSelectedSection] = useState("About");
+
+  // Read URL parameter on component mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const section = urlParams.get("section");
+
+      // Map URL parameters to navbar sections
+      let initialSection = "About"; // default
+
+      if (section) {
+        switch (section.toLowerCase()) {
+          case "shop":
+            initialSection = "Shop";
+            break;
+          case "about":
+            initialSection = "About";
+            break;
+          case "art":
+          case "event":
+          case "art&event":
+            initialSection = "Art & Event";
+            break;
+          default:
+            initialSection = "About";
+        }
+      }
+
+      setSelectedSection(initialSection);
+    }
+  }, []);
 
   const handleClick = (item: string) => {
     if (item === selectedSection) {
@@ -13,6 +44,29 @@ export const Navbar = () => {
       // If clicking a different tab, switch to it and keep popup open
       setSelectedSection(item);
       setIsOpen(true);
+    }
+
+    // Update URL parameter when section changes
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      let sectionParam = "about"; // default
+
+      switch (item) {
+        case "Shop":
+          sectionParam = "shop";
+          break;
+        case "About":
+          sectionParam = "about";
+          break;
+        case "Art & Event":
+          sectionParam = "art&event";
+          break;
+        default:
+          sectionParam = "about";
+      }
+
+      url.searchParams.set("section", sectionParam);
+      window.history.pushState({}, "", url.toString());
     }
   };
 
