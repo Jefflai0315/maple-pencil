@@ -685,7 +685,7 @@ function App() {
                   </div>
                   <div className="flex items-center space-x-3">
                     <Mail size={20} className="text-charcoal-medium" />
-                    <span className="font-body text-charcoal-medium">hello@playingwithpencil.art</span>
+                    <span className="font-body text-charcoal-medium">playingwithpencil@gmail.com</span>
                   </div>
                   <div className="flex items-center space-x-3">
                     <Instagram size={20} className="text-charcoal-medium" />
@@ -747,7 +747,7 @@ function App() {
               <Instagram size={24} />
             </a>
             <a 
-              href="mailto:hello@playingwithpencil.art"
+              href="mailto:playingwithpencil@gmail.com"
               className="text-charcoal-medium hover:text-charcoal transition-colors transform hover:rotate-12"
             >
               <Mail size={24} />
