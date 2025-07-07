@@ -95,21 +95,111 @@ function App() {
     }
   ]
 
-  const testimonials = [
+  const brands = [
     {
-      name: "Sarah M.",
-      text: "Captured my personality perfectly in just 15 minutes!",
-      rating: 5
+      name: "Wells Singapore",
+      logo: "/brands/Wells-Singapore-Logo-PNG.webp",
+      category: "Banking"
     },
     {
-      name: "David L.",
-      text: "Amazing artist! Made our wedding even more special.",
-      rating: 5
+      name: "SUTD",
+      logo: "/brands/SUTD-Logo.png",
+      category: "Education"
     },
     {
-      name: "Priya K.",
-      text: "The wood sketch is now the centerpiece of our living room.",
-      rating: 5
+      name: "Temasek Polytechnic",
+      logo: "/brands/TPlogo.png",
+      category: "Education"
+    },
+    {
+      name: "Singapore Polytechnic",
+      logo: "/brands/Singapore_Polytechnic_logo.png",
+      category: "Education"
+    },
+    {
+      name: "McDonald's",
+      logo: "/brands/McDonaldspng.png",
+      category: "Food & Beverage"
+    },
+    {
+      name: "Moleskine",
+      logo: "/brands/Moleskine.png",
+      category: "Lifestyle"
+    },
+    {
+      name: "Sharp",
+      logo: "/brands/Sharp.png",
+      category: "Technology"
+    },
+    {
+      name: "ActiveSG",
+      logo: "/brands/ActiveSG.png",
+      category: "Sports"
+    },
+    {
+      name: "UOB",
+      logo: "/brands/UOB_POY.jpg",
+      category: "Banking"
+    },
+    {
+      name: "DBS PayLah!",
+      logo: "/brands/DBSPayLah.png",
+      category: "Fintech"
+    },
+    {
+      name: "IKEA",
+      logo: "/brands/IKEA.png",
+      category: "Retail"
+    },
+    {
+      name: "Scoot",
+      logo: "/brands/Scoot.png",
+      category: "Travel"
+    }
+  ]
+
+  const features = [
+    {
+      name: "Kiss92",
+      logo: "/brands/features/Kiss92_2.jpg",
+      category: "Radio",
+      description: "Featured on Singapore's #1 English radio station"
+    },
+    {
+      name: "88.3JIA",
+      logo: "/brands/features/88.3JIA.png",
+      category: "Radio",
+      description: "Interviewed on Singapore's Chinese radio station"
+    },
+    {
+      name: "Capital 95.8FM",
+      logo: "/brands/features/Capital_95.8FM.png",
+      category: "Radio",
+      description: "Featured on Singapore's Chinese radio network"
+    },
+    {
+      name: "CNA Lifestyle",
+      logo: "/brands/features/CNA_lifestyle.png",
+      category: "Digital Media",
+      description: "Featured on Channel NewsAsia's lifestyle section"
+    },
+    {
+      name: "Lianhe Zaobao",
+      logo: "/brands/features/Lian-He-Zao-Bao-Logo.webp",
+      category: "Print Media",
+      description: "Featured in Singapore's leading Chinese newspaper"
+    },
+    {
+      name: "987FM",
+      logo: "/brands/features/987FM.png",
+      category: "Radio",
+      description: "Interviewed on Singapore's English radio station"
+    },
+    {
+      name: "The Straits Times",
+      logo: "/brands/features/the-straits-times-logo.avif",
+      category: "Print Media",
+      description: "Featured in Singapore's leading English newspaper"
     }
   ]
 
@@ -511,25 +601,54 @@ function App() {
         </div>
       </section>
 
-      {/* Testimonials */}
+      {/* Brands */}
       <section className="py-20 px-4">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <h2 className="sketch-heading text-3xl md:text-4xl font-bold text-charcoal text-center mb-12">
-            What People Say
+            Trusted by Leading Brands
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <div key={index} className="testimonial-bubble">
-                <div className="flex justify-center mb-4">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star key={i} size={20} className="text-yellow-500 fill-current transform rotate-12" />
-                  ))}
+       
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-8">
+            {brands.map((brand, index) => (
+              <div key={index} className="brand-item">
+                <div className="brand-logo-container">
+                  <img 
+                    src={brand.logo} 
+                    alt={brand.name}
+                    className="brand-logo grayscale hover:grayscale-0 transition-all duration-300"
+                  />
                 </div>
-                <p className="font-body text-charcoal-medium mb-4 italic">
-                  "{testimonial.text}"
+                <p className="font-sketch text-sm text-charcoal-medium text-center mt-2">
+                  {brand.name}
                 </p>
-                <p className="font-handwritten font-semibold text-charcoal text-lg">
-                  — {testimonial.name}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Wavy Divider */}
+      <div className="wavy-divider"></div>
+
+      {/* Featured Section */}
+      <section className="py-20 px-4">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="sketch-heading text-3xl md:text-4xl font-bold text-charcoal text-center mb-12">
+            Featured In
+          </h2>
+      
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-8">
+            {features.map((feature, index) => (
+              <div key={index} className="brand-item">
+                <div className="brand-logo-container">
+                  <img 
+                    src={feature.logo} 
+                    alt={feature.name}
+                    className="brand-logo grayscale hover:grayscale-0 transition-all duration-300"
+                  />
+                </div>
+                <p className="font-sketch text-sm text-charcoal-medium text-center mt-2">
+                  {feature.name}
                 </p>
               </div>
             ))}
