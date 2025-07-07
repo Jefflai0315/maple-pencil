@@ -287,48 +287,24 @@ a:hover {
   z-index: 0;
 }
 
-/* Organic service cards */
+/* Organic cards */
 .organic-card {
   position: relative;
+  background: var(--paper-white);
   padding: 2rem;
-  margin: 1rem;
-  background: var(--paper-cream);
-  transform: rotate(-1deg);
+  border-radius: 20px 30px 25px 15px / 30px 20px 15px 25px;
+  /* transform: rotate(-0.5deg); */
   transition: all 0.3s ease;
+  overflow: hidden;
 }
 
 .organic-card:nth-child(even) {
-  transform: rotate(1deg);
+  /* transform: rotate(0.3deg); */
 }
 
 .organic-card:hover {
-  transform: rotate(0deg) translateY(-5px);
-  z-index: 10;
-}
-
-.organic-card::before {
-  content: '';
-  position: absolute;
-  top: -3px;
-  left: -3px;
-  right: -3px;
-  bottom: -3px;
-  background: var(--charcoal-medium);
-  border-radius: 20px 15px 25px 18px / 15px 25px 18px 20px;
-  z-index: -1;
-  opacity: 0.8;
-}
-
-.organic-card::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--paper-cream);
-  border-radius: 18px 22px 16px 24px / 22px 16px 24px 18px;
-  z-index: -1;
+  /* transform: rotate(0deg) translateY(-5px); */
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
 /* Hand-drawn buttons */
@@ -513,12 +489,12 @@ a:hover {
 
 /* Floating elements */
 .float-sketch {
-  animation: float-sketch 6s ease-in-out infinite;
+  /* animation: float-sketch 8s ease-in-out infinite; */
 }
 
 @keyframes float-sketch {
   0%, 100% { transform: translateY(0px) rotate(-1deg); }
-  50% { transform: translateY(-10px) rotate(1deg); }
+  50% { transform: translateY(-5px) rotate(0.5deg); }
 }
 
 /* Pencil stroke animations */
@@ -534,8 +510,8 @@ a:hover {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(44, 44, 44, 0.1), transparent);
-  animation: pencil-stroke 3s ease-in-out infinite;
+  background: linear-gradient(90deg, transparent, rgba(44, 44, 44, 0.05), transparent);
+  /* animation: pencil-stroke 6s ease-in-out infinite; */
 }
 
 @keyframes pencil-stroke {

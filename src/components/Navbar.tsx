@@ -15,7 +15,10 @@ export const Navbar = () => {
       let initialSection = ""; // default
 
       if (section) {
-        switch (section.toLowerCase()) {
+        // Decode URL parameters properly
+        const decodedSection = decodeURIComponent(section);
+
+        switch (decodedSection.toLowerCase()) {
           case "shop":
             initialSection = "Shop";
             break;
@@ -25,6 +28,7 @@ export const Navbar = () => {
           case "art":
           case "event":
           case "art&event":
+          case "art%26event": // URL encoded version
             initialSection = "Art & Event";
             break;
           default:
@@ -34,8 +38,8 @@ export const Navbar = () => {
 
       setSelectedSection(initialSection);
 
-      // Only show popup if the section is "About"
-      if (initialSection === "About") {
+      // Show popup for any section when navigating via URL
+      if (initialSection) {
         setIsOpen(true);
       }
     }
@@ -64,7 +68,7 @@ export const Navbar = () => {
           sectionParam = "about";
           break;
         case "Art & Event":
-          sectionParam = "art&event";
+          sectionParam = "art%26event"; // URL encode the & character
           break;
         default:
           sectionParam = "about";
