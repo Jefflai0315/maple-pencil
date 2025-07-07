@@ -1,4 +1,5 @@
 import * as Phaser from "phaser";
+import { LoadingScene } from "./scenes/LoadingScene";
 import { MainScene } from "./scenes/MainScene";
 
 export const config: Phaser.Types.Core.GameConfig = {
@@ -12,7 +13,7 @@ export const config: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [MainScene],
+  scene: [LoadingScene, MainScene],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,

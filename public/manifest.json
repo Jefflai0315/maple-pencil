@@ -1,0 +1,26 @@
+{
+    "name": "Jeff Lai - Playing with pencil and art",
+    "short_name": "Jeff Lai",
+    "description": "Playing with pencil and art",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#000000",
+    "icons": [
+        {
+            "src": "/jeff-face.png",
+            "sizes": "110x110",
+            "type": "image/png"
+        },
+        {
+            "src": "/jeff-182x182.png",
+            "sizes": "182x182",
+            "type": "image/png"
+        },
+        {
+            "src": "/jeff.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}
