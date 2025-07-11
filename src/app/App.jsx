@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 import { 
   Instagram, 
@@ -20,6 +22,7 @@ import {
 import { ContactForm } from '../components/ContactForm'
 
 function App() {
+  const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [activeSection, setActiveSection] = useState('home')
   const [isNavVisible, setIsNavVisible] = useState(true)
@@ -275,13 +278,13 @@ function App() {
                 {section}
               </button>
             ))}
-            <a 
+            <Link 
               href="/world"
               className="font-sketch text-lg text-charcoal-medium hover:text-charcoal transition-colors flex items-center gap-2"
             >
               <Gamepad2 size={18} />
               World
-            </a>
+            </Link>
             <button 
               className="sketch-btn"
               onClick={() => scrollToSection('contact')}
@@ -312,14 +315,14 @@ function App() {
                   {section}
                 </button>
               ))}
-              <a 
+              <Link 
                 href="/world"
                 className="font-sketch text-lg text-left text-charcoal-medium hover:text-charcoal flex items-center gap-2"
                 onClick={() => setIsMenuOpen(false)}
               >
                 <Gamepad2 size={18} />
                 World
-              </a>
+              </Link>
             </div>
           </div>
         )}
@@ -356,13 +359,13 @@ function App() {
               <Heart size={20} />
               Book a Session
             </button>
-            <a 
+            <Link 
               href="/world"
               className="sketch-btn text-xl px-8 py-4 flex items-center gap-2"
             >
               <Gamepad2 size={20} />
               Enter the World
-            </a>
+            </Link>
           </div>
 
           {/* Stats in organic containers */}
