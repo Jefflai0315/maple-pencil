@@ -6,7 +6,7 @@ const withPWA = require("next-pwa")({
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
   fallbacks: {
-    document: "/offline",
+    document: "/offline", // Show offline page when a page is not cached
   },
   runtimeCaching: [
     {
