@@ -6,21 +6,29 @@
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#000000",
+    "orientation": "portrait-primary",
+    "scope": "/",
+    "categories": ["art", "portfolio", "creative"],
+    "lang": "en",
+    "prefer_related_applications": false,
     "icons": [
         {
             "src": "/jeff-face.png",
             "sizes": "110x110",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "maskable any"
         },
         {
             "src": "/jeff-182x182.png",
             "sizes": "182x182",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "maskable any"
         },
         {
             "src": "/jeff.png",
             "sizes": "512x512",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "maskable any"
         }
     ]
 }
