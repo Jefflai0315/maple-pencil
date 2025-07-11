@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import ErrorBoundary from "../../components/ErrorBoundary";
 
 const Game = dynamic(() => import("../../components/Game"), {
   ssr: false,
@@ -8,8 +9,10 @@ const Game = dynamic(() => import("../../components/Game"), {
 
 export default function WorldPage() {
   return (
-    <main className="w-screen h-screen game-page">
-      <Game />
-    </main>
+    <ErrorBoundary>
+      <main className="w-screen h-screen game-page">
+        <Game />
+      </main>
+    </ErrorBoundary>
   );
 }
