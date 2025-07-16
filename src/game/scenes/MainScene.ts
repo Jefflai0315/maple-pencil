@@ -165,20 +165,8 @@ export class MainScene extends Phaser.Scene {
   create() {
     console.log("Creating game scene...");
 
-    // Initialize background music with error handling
-    try {
-      // Wait for the audio to be fully loaded
-      if (this.load.isLoading()) {
-        console.log("Waiting for assets to finish loading...");
-        this.load.once("complete", () => {
-          this.initializeAudio();
-        });
-      } else {
-        this.initializeAudio();
-      }
-    } catch (error) {
-      console.error("Error in create:", error);
-    }
+    // Initialize background music immediately
+    this.initializeAudio();
 
     // Add sky tile (non-scrolling)
     const sky = this.add.tileSprite(
@@ -422,11 +410,11 @@ export class MainScene extends Phaser.Scene {
       console.error("Error creating animations:", error);
     }
 
-    // Add debug text
-    this.add.text(10, 70, "Use arrow keys to move\nSpace to jump", {
-      color: "#000000",
-      fontSize: "16px",
-    });
+    // // Add debug text
+    // this.add.text(10, 70, "Use arrow keys to move\nSpace to jump", {
+    //   color: "#000000",
+    //   fontSize: "16px",
+    // });
 
     // Create a container for audio controls at bottom left
     const audioControls = this.add.container(20, this.cameras.main.height - 60);
@@ -601,6 +589,8 @@ export class MainScene extends Phaser.Scene {
 
     // Handle URL parameters for NPC popups
     this.handleNPCPopupParameters();
+
+    console.log("MainScene: create() method completed successfully");
   }
 
   private exposeNPCPopupMethods() {
@@ -609,6 +599,10 @@ export class MainScene extends Phaser.Scene {
       interface ExtendedWindow extends Window {
         gameScene?: MainScene;
         openNPCPopup?: (npcType: string) => void;
+        openSketchCanvas?: () => void;
+        openWebcamCapture?: () => void;
+        openARTraceTool?: () => void;
+        openVideoBooth?: () => void;
       }
 
       const extendedWindow = window as ExtendedWindow;
@@ -620,6 +614,12 @@ export class MainScene extends Phaser.Scene {
       extendedWindow.openNPCPopup = (npcType: string) => {
         this.openNPCPopup(npcType);
       };
+
+      // Expose individual NPC methods
+      extendedWindow.openSketchCanvas = () => this.openSketchCanvas();
+      extendedWindow.openWebcamCapture = () => this.openWebcamCapture();
+      extendedWindow.openARTraceTool = () => this.openARTraceTool();
+      extendedWindow.openVideoBooth = () => this.openVideoBooth();
 
       console.log("NPC popup methods exposed globally");
     }
@@ -1207,5 +1207,20 @@ export class MainScene extends Phaser.Scene {
       window.removeEventListener("arTraceToolClosed", resumeHandler);
     };
     window.addEventListener("arTraceToolClosed", resumeHandler);
+  }
+
+  private openVideoBooth() {
+    // Pause the game
+    this.scene.pause();
+    // Dispatch a custom event to open the video booth
+    const event = new CustomEvent("openVideoBooth");
+    window.dispatchEvent(event);
+
+    // Add event listener for video booth close
+    const resumeHandler = () => {
+      this.scene.resume();
+      window.removeEventListener("videoBoothClosed", resumeHandler);
+    };
+    window.addEventListener("videoBoothClosed", resumeHandler);
   }
 }

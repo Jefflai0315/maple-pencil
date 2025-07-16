@@ -227,6 +227,8 @@ export class LoadingScene extends Phaser.Scene {
       } else {
         // Loading complete, transition to main scene
         this.time.delayedCall(500, () => {
+          console.log("LoadingScene: Starting MainScene transition...");
+          console.log("LoadingScene: Current scene key:", this.scene.key);
           this.scene.start("MainScene");
         });
       }
