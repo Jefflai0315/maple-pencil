@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import dynamic from "next/dynamic";
 import type { Game as PhaserGame } from "phaser";
 import { SketchCanvas } from "./SketchCanvas";
 import { Navbar } from "./Navbar";
@@ -88,7 +87,4 @@ const GameComponent = () => {
   );
 };
 
-// Disable SSR for this component
-export default dynamic(() => Promise.resolve(GameComponent), {
-  ssr: false,
-});
+export default GameComponent;

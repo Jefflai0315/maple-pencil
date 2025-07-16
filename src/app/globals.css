@@ -499,22 +499,15 @@ html, body {
 }
 
 
-.navbar-tab button {
-  background: #d4c8a7;
-  border: 3px solid black;
-  box-shadow: 3px 3px 0 #7a6b4d;
-  padding: 8px 14px;
-  font-size: 12px;
-  color: #4b422f;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background 0.2s;
+/* Navbar sketch buttons - smaller size for navbar context */
+.navbar-tab .sketch-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  transform: rotate(-0.5deg);
 }
 
-.navbar-tab button:hover {
-  background: #fff6d8;
-  color: #2d240c;
-  box-shadow: none;
+.navbar-tab .sketch-btn:hover {
+  transform: rotate(0deg) translateY(-1px);
 }
 
 /* Loading screen animation delays */
@@ -544,6 +537,27 @@ html, body {
 
 .animate-slideIn {
   animation: slideIn 0.4s ease-out forwards;
+}
+
+/* Map container styles */
+.minimap-placeholder {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Ensure the map container doesn't interfere with game interactions */
+.sketch-container {
+  pointer-events: auto;
+}
+
+.sketch-container canvas {
+  pointer-events: none;
 }
 
 

@@ -44,6 +44,19 @@ export class MainScene extends Phaser.Scene {
   private lastJumpTime: number = 0;
   private jumpCooldownTime: number = 200; // 300ms cooldown between jumps
 
+  // Minimap container properties
+  private minimapContainer!: Phaser.GameObjects.Container;
+  private minimapTitleBar!: Phaser.GameObjects.Container;
+  private minimapContent!: Phaser.GameObjects.Container;
+  private minimapBackground!: Phaser.GameObjects.Graphics;
+  private minimapTitle!: Phaser.GameObjects.Text;
+  private minimapLocation!: Phaser.GameObjects.Text;
+  private minimapToggleButton!: Phaser.GameObjects.Text;
+  private isMinimapOpen: boolean = true;
+  private minimapContainerWidth = 220;
+  private minimapContainerHeight = 140;
+  private titleBarHeight = 40;
+
   constructor() {
     super({ key: "MainScene" });
   }
@@ -89,8 +102,6 @@ export class MainScene extends Phaser.Scene {
   }
 
   preload() {
-    console.log("Loading game assets...");
-
     // Add loading error handler
     this.load.on("loaderror", (file: { src: string }) => {
       console.error("Error loading file:", file.src);
@@ -165,194 +176,442 @@ export class MainScene extends Phaser.Scene {
   create() {
     console.log("Creating game scene...");
 
-    // Initialize background music immediately
-    this.initializeAudio();
-
-    // Add sky tile (non-scrolling)
-    const sky = this.add.tileSprite(
-      0,
-      0,
-      this.cameras.main.width,
-      this.cameras.main.height,
-      "sky"
-    );
-    sky.setOrigin(0, 0);
-    sky.setScrollFactor(0);
-    sky.setScale(2);
-
-    // Create background layers with parallax effect
-    const layer1 = this.add.sprite(0, 0, "bg_layer1");
-    const layer2 = this.add.sprite(0, 0, "bg_layer2");
-    const layer3 = this.add.sprite(0, 0, "bg_layer3");
-    const layer4 = this.add.sprite(0, 0, "bg_layer4");
-    const layerOrigin = [
-      [0, -1.7], // CBD
-      [-1, -1.5], // HDB
-      [-6.5, -4.3], //merlion
-      [0, -1.5], // CBD buidling
-    ];
-
-    // Set the origin of all layers to top-left
-    [layer1, layer2, layer3, layer4].forEach((layer, index) => {
-      layer.setOrigin(layerOrigin[index][0], layerOrigin[index][1]);
-      layer.setScrollFactor(0);
-      // Set display size to match game height while maintaining aspect ratio
-      // layer.setDisplaySize(
-      //   layer.width * (this.cameras.main.height / layer.height),
-      //   this.cameras.main.height
-      // );
-    });
-
-    // Store layers for update
-    this.backgroundLayers = [layer1, layer2, layer3, layer4];
-
-    // Set world bounds
-    this.physics.world.setBounds(
-      0,
-      0,
-      this.worldWidth,
-      this.cameras.main.height
-    );
-
-    // Add a background color to make sure the scene is visible
-    this.cameras.main.setBackgroundColor("#87CEEB"); // Sky blue background
-
-    // Calculate player spawn position
-    const groundY = this.cameras.main.height - 50; // Changed from -140 to -80 to make ground lower
-    const spawnX = 100; // Start from left side
-    const spawnY = groundY - 70;
-    console.log("Player spawn position:", spawnX, spawnY);
-
-    // Create player
     try {
-      this.player = this.physics.add.sprite(spawnX, spawnY, "stand0");
-      this.player.setCollideWorldBounds(true);
-      this.player.setGravityY(300);
-      this.player.flipX = true; // Set player to face right by default
-      this.faceLeft = false; // Set faceLeft to false by default
-      console.log("Player created at position:", this.player.x, this.player.y);
-    } catch (error) {
-      console.error("Error creating player:", error);
-    }
+      // Initialize background music immediately
+      this.initializeAudio();
 
-    // --- Create invisible physics ground for collision ---
-    const groundHeight = 100; // 40(top) + 60(middle) + 40(bottom) or 100+40 for slope
-    const groundWidth = 20 * 90; // 2x3 flat + 1 slope + 2x3 flat = 13 tiles wide
-    const ground = this.add.rectangle(
-      groundWidth / 2,
-      groundY + groundHeight / 2,
-      groundWidth,
-      groundHeight - 10,
-      0x000000
-      // invisible
-    );
-    this.physics.add.existing(ground, true); // static body
-    this.physics.add.collider(this.player, ground);
+      // Add sky tile (non-scrolling)
+      const sky = this.add.tileSprite(
+        0,
+        0,
+        this.cameras.main.width,
+        this.cameras.main.height,
+        "sky"
+      );
+      sky.setOrigin(0, 0);
+      sky.setScrollFactor(0);
+      sky.setScale(2);
 
-    // Slope
-    const slopeStartX = 6 * 90 + 30; // wherever your slope starts
-    const slopeStepHeight = 1;
-    const stepWidth = 1.5;
-    const stepCount = 90 / stepWidth;
+      // Create background layers with parallax effect
+      const layer1 = this.add.sprite(0, 0, "bg_layer1");
+      const layer2 = this.add.sprite(0, 0, "bg_layer2");
+      const layer3 = this.add.sprite(0, 0, "bg_layer3");
+      const layer4 = this.add.sprite(0, 0, "bg_layer4");
+      const layerOrigin = [
+        [0, -1.7], // CBD
+        [-1, -1.5], // HDB
+        [-6.5, -4.3], //merlion
+        [0, -1.5], // CBD buidling
+      ];
 
-    for (let i = 0; i < stepCount; i++) {
-      const x = slopeStartX + i * stepWidth;
-      const y = groundY - (i + 1) * slopeStepHeight;
-      const step = this.add.rectangle(
-        x + 45,
-        y,
-        90,
+      // Set the origin of all layers to top-left
+      [layer1, layer2, layer3, layer4].forEach((layer, index) => {
+        layer.setOrigin(layerOrigin[index][0], layerOrigin[index][1]);
+        layer.setScrollFactor(0);
+        // Set display size to match game height while maintaining aspect ratio
+        // layer.setDisplaySize(
+        //   layer.width * (this.cameras.main.height / layer.height),
+        //   this.cameras.main.height
+        // );
+      });
+
+      // Store layers for update
+      this.backgroundLayers = [layer1, layer2, layer3, layer4];
+
+      // Set world bounds
+      this.physics.world.setBounds(
+        0,
+        0,
+        this.worldWidth,
+        this.cameras.main.height
+      );
+
+      // Add a background color to make sure the scene is visible
+      this.cameras.main.setBackgroundColor("#87CEEB"); // Sky blue background
+
+      // Calculate player spawn position
+      const groundY = this.cameras.main.height - 50; // Changed from -140 to -80 to make ground lower
+      const spawnX = 100; // Start from left side
+      const spawnY = groundY - 70;
+
+      // Create player
+      try {
+        this.player = this.physics.add.sprite(spawnX, spawnY, "stand0");
+        this.player.setCollideWorldBounds(true);
+        this.player.setGravityY(300);
+        this.player.flipX = true; // Set player to face right by default
+        this.faceLeft = false; // Set faceLeft to false by default
+      } catch (error) {
+        console.error("Error creating player:", error);
+      }
+
+      // --- Create invisible physics ground for collision ---
+      const groundHeight = 100; // 40(top) + 60(middle) + 40(bottom) or 100+40 for slope
+      const groundWidth = 20 * 90; // 2x3 flat + 1 slope + 2x3 flat = 13 tiles wide
+      const ground = this.add.rectangle(
+        groundWidth / 2,
+        groundY + groundHeight / 2,
+        groundWidth,
+        groundHeight - 10,
+        0x000000
+        // invisible
+      );
+      this.physics.add.existing(ground, true); // static body
+      this.physics.add.collider(this.player, ground);
+
+      // Slope
+      const slopeStartX = 6 * 90 + 30; // wherever your slope starts
+      const slopeStepHeight = 1;
+      const stepWidth = 1.5;
+      const stepCount = 90 / stepWidth;
+
+      for (let i = 0; i < stepCount; i++) {
+        const x = slopeStartX + i * stepWidth;
+        const y = groundY - (i + 1) * slopeStepHeight;
+        const step = this.add.rectangle(
+          x + 45,
+          y,
+          90,
+          slopeStepHeight - 10,
+          0x00ff00,
+          0
+        ); // invisible
+        this.physics.add.existing(step, true);
+        this.physics.add.collider(this.player, step);
+      }
+
+      // Top of slope
+      const topSlopeWidth = 90 * 20;
+      const topSlope = this.add.rectangle(
+        slopeStartX + stepCount * stepWidth + topSlopeWidth / 2,
+        groundY - stepCount * slopeStepHeight,
+        topSlopeWidth,
         slopeStepHeight - 10,
-        0x00ff00,
+        0x000000,
         0
-      ); // invisible
-      this.physics.add.existing(step, true);
-      this.physics.add.collider(this.player, step);
-    }
+        // invisible
+      );
+      this.physics.add.existing(topSlope, true);
+      this.physics.add.collider(this.player, topSlope);
 
-    // Top of slope
-    const topSlopeWidth = 90 * 20;
-    const topSlope = this.add.rectangle(
-      slopeStartX + stepCount * stepWidth + topSlopeWidth / 2,
-      groundY - stepCount * slopeStepHeight,
-      topSlopeWidth,
-      slopeStepHeight - 10,
-      0x000000,
-      0
-      // invisible
-    );
-    this.physics.add.existing(topSlope, true);
-    this.physics.add.collider(this.player, topSlope);
+      // --- Overlay decorative tiles (no physics) ---
+      let x = 0;
+      const tileWidth = 90;
+      // Helper to place a flat set
+      const placeFlatSet = (setNum: number, yOffset: number) => {
+        this.add.image(
+          x + tileWidth / 2,
+          groundY + 20 + yOffset,
+          `DRT_top${setNum}`
+        );
+        this.add.image(
+          x + tileWidth / 2,
+          groundY + 60 + yOffset,
+          `DRT_middle${setNum}`
+        );
+        this.add.image(
+          x + tileWidth / 2,
+          groundY + 110 + yOffset,
+          `DRT_bottom${setNum}`
+        );
+        x += tileWidth;
+      };
+      // Helper to place a slope set
+      const placeSlope = (yOffset: number) => {
+        this.add.image(
+          x + tileWidth / 2,
+          groundY + 25 + yOffset,
+          "DRT_slope_top"
+        );
+        this.add.image(
+          x + tileWidth / 2,
+          groundY + 120 + yOffset,
+          "DRT_slope_bottom"
+        );
+        x += tileWidth;
+      };
 
-    // --- Overlay decorative tiles (no physics) ---
-    let x = 0;
-    const tileWidth = 90;
-    // Helper to place a flat set
-    const placeFlatSet = (setNum: number, yOffset: number) => {
-      this.add.image(
-        x + tileWidth / 2,
-        groundY + 20 + yOffset,
-        `DRT_top${setNum}`
-      );
-      this.add.image(
-        x + tileWidth / 2,
-        groundY + 60 + yOffset,
-        `DRT_middle${setNum}`
-      );
-      this.add.image(
-        x + tileWidth / 2,
-        groundY + 110 + yOffset,
-        `DRT_bottom${setNum}`
-      );
-      x += tileWidth;
-    };
-    // Helper to place a slope set
-    const placeSlope = (yOffset: number) => {
-      this.add.image(
-        x + tileWidth / 2,
-        groundY + 25 + yOffset,
-        "DRT_slope_top"
-      );
-      this.add.image(
-        x + tileWidth / 2,
-        groundY + 120 + yOffset,
-        "DRT_slope_bottom"
-      );
-      x += tileWidth;
-    };
-
-    // 2 x 3 sets of flat ground
-    for (let repeat = 0; repeat < 2; repeat++) {
-      for (let set = 1; set <= 3; set++) {
-        placeFlatSet(set, 0);
+      // 2 x 3 sets of flat ground
+      for (let repeat = 0; repeat < 2; repeat++) {
+        for (let set = 1; set <= 3; set++) {
+          placeFlatSet(set, 0);
+        }
       }
-    }
-    // 1 slope set
-    placeSlope(-38);
-    // 5 x 3 sets of flat ground
-    for (let repeat = 0; repeat < 5; repeat++) {
-      for (let set = 1; set <= 3; set++) {
-        placeFlatSet(set, -60);
+      // 1 slope set
+      placeSlope(-38);
+      // 5 x 3 sets of flat ground
+      for (let repeat = 0; repeat < 5; repeat++) {
+        for (let set = 1; set <= 3; set++) {
+          placeFlatSet(set, -60);
+        }
       }
+
+      // Set up camera to follow player
+      this.cameras.main.startFollow(this.player, true);
+      this.cameras.main.setFollowOffset(0, 0);
+      this.cameras.main.setBounds(
+        0,
+        0,
+        this.worldWidth,
+        this.cameras.main.height
+      );
+
+      // Create minimap
+      try {
+        this.createMinimap();
+      } catch (error) {
+        console.error("Error creating minimap:", error);
+      }
+
+      // // Add collision between player and platforms
+      // this.physics.add.collider(this.player, this.platforms);
+
+      // Keyboard controls are initialized outside the try block
+
+      // Create player animations
+      try {
+        this.anims.create({
+          key: "walk",
+          frames: [
+            { key: "walk0" },
+            { key: "walk1" },
+            { key: "walk2" },
+            { key: "walk3" },
+            { key: "walk4" },
+            { key: "walk3" },
+            { key: "walk2" },
+            { key: "walk1" },
+          ],
+          frameRate: 10,
+          repeat: -1,
+        });
+
+        this.anims.create({
+          key: "idle",
+          frames: [
+            { key: "stand0" },
+            { key: "stand1" },
+            { key: "stand2" },
+            { key: "stand3" },
+            { key: "stand2" },
+            { key: "stand1" },
+            { key: "stand0" },
+          ],
+          frameRate: 4,
+          repeat: -1,
+        });
+
+        this.anims.create({
+          key: "jump",
+          frames: [{ key: "jump0" }, { key: "jump1" }],
+          frameRate: 2,
+          repeat: -1,
+        });
+        console.log("Animations created");
+      } catch (error) {
+        console.error("Error creating animations:", error);
+      }
+
+      // // Add debug text
+      // this.add.text(10, 70, "Use arrow keys to move\nSpace to jump", {
+      //   color: "#000000",
+      //   fontSize: "16px",
+      // });
+
+      // Create a container for audio controls at bottom left
+      const audioControls = this.add.container(
+        20,
+        this.cameras.main.height - 60
+      );
+      audioControls.setScrollFactor(0);
+
+      // Create background for audio controls
+      const audioBg = this.add.rectangle(0, 0, 160, 40, 0x000000, 0.3);
+      audioBg.setStrokeStyle(1, 0xffffff, 0.5);
+      audioControls.add(audioBg);
+
+      // Add volume control button
+      const volumeButton = this.add.text(50, -10, "🔇", {
+        color: "#ffffff",
+        fontSize: "24px",
+      });
+      volumeButton.setScrollFactor(0);
+      volumeButton.setInteractive();
+      volumeButton.on("pointerdown", () => {
+        if (this.backgroundMusic instanceof Phaser.Sound.WebAudioSound) {
+          const currentVol = this.backgroundMusic.volume;
+          let newVol = 0;
+          if (currentVol === 0) newVol = 0.25;
+          else newVol = 0;
+
+          this.backgroundMusic.setVolume(newVol);
+          volumeButton.setText(currentVol === 0 ? `🔊` : `🔇`);
+        }
+      });
+      audioControls.add(volumeButton);
+
+      // Add NPC
+      const npcX = 300; // Position NPC 500 pixels from the left
+      const npcY = groundY - 60; // Place NPC on the ground
+      const npc = this.add.sprite(npcX, npcY, "npc_sketch");
+      npc.setScale(1.7); // Adjust scale as needed
+      npc.setInteractive(); // Make NPC interactive for touch
+      npc.on("pointerdown", () => {
+        if (this.interactionText) {
+          this.openSketchCanvas();
+        }
+      });
+
+      const npc2X = 495; // Position NPC 500 pixels from the left
+      const npc2Y = groundY - 68; // Place NPC on the ground
+      const npc2 = this.add.sprite(npc2X, npc2Y, "npc_sketch2");
+      npc2.setScale(0.47); // Adjust scale as needed
+      npc2.setInteractive(); // Make NPC interactive for touch
+      npc2.on("pointerdown", () => {
+        if (this.interactionText2) {
+          this.openWebcamCapture();
+        }
+      });
+      const npcVideoX = npcX + 600;
+      const npcVideoY = npcY - 54;
+      const npcVideo = this.add.sprite(npcVideoX, npcVideoY, "npc_video");
+      npcVideo.setScale(0.33); // Adjust scale as needed
+      const npcCameraX = npcX + 700;
+      const npcCameraY = npcY - 50;
+      const npcCamera = this.add.sprite(npcCameraX, npcCameraY, "npc_camera");
+      npcCamera.setScale(0.25); // Adjust scale as needed
+
+      // Add interaction zone
+      const interactionZone = this.add.zone(npcX, npcY, 100, 100);
+      this.physics.add.existing(interactionZone, true);
+
+      const npcARTraceX = npcX + 400;
+      const npcARTraceY = npcY - 60;
+      const npcARTrace = this.add.sprite(
+        npcARTraceX,
+        npcARTraceY,
+        "npc_camera"
+      );
+      npcARTrace.setScale(0.3);
+      npcARTrace.setInteractive();
+      npcARTrace.on("pointerdown", () => {
+        if (this.interactionText3) {
+          this.openARTraceTool();
+        }
+      });
+      // Add interaction zone for AR Trace NPC
+      const interactionZone3 = this.add.zone(
+        npcARTraceX,
+        npcARTraceY,
+        100,
+        100
+      );
+      this.physics.add.existing(interactionZone3, true);
+
+      const interactionZone2 = this.add.zone(npc2X, npc2Y, 100, 100);
+      this.physics.add.existing(interactionZone2, true);
+
+      // Add collision between player and AR Trace interaction zone
+      this.physics.add.overlap(
+        this.player,
+        interactionZone,
+        () => {
+          // Show interaction prompt when player is near
+          if (!this.interactionText) {
+            this.interactionText = this.add.text(
+              npcX,
+              npcY - 100,
+              this.isMobile ? "Tap NPC to interact" : "Press E to interact",
+              {
+                color: "#ffffff",
+                fontSize: "16px",
+                backgroundColor: "#000000",
+                padding: { x: 10, y: 5 },
+              }
+            );
+            this.interactionText.setOrigin(0.5);
+          }
+        },
+        undefined,
+        this
+      );
+
+      this.physics.add.overlap(
+        this.player,
+        interactionZone2,
+        () => {
+          if (!this.interactionText2) {
+            this.interactionText2 = this.add.text(
+              npc2X,
+              npc2Y - 100,
+              this.isMobile ? "Tap NPC to interact" : "Press E to interact",
+              {
+                color: "#ffffff",
+                fontSize: "16px",
+                backgroundColor: "#000000",
+                padding: { x: 10, y: 5 },
+              }
+            );
+            this.interactionText2.setOrigin(0.5);
+          }
+        },
+        undefined,
+        this
+      );
+
+      // Add collision between player and AR Trace interaction zone
+      this.physics.add.overlap(
+        this.player,
+        interactionZone3,
+        () => {
+          if (!this.interactionText3) {
+            this.interactionText3 = this.add.text(
+              npcARTraceX,
+              npcARTraceY - 100,
+              this.isMobile ? "Tap NPC to interact" : "Press E to interact",
+              {
+                color: "#ffffff",
+                fontSize: "16px",
+                backgroundColor: "#000000",
+                padding: { x: 10, y: 5 },
+              }
+            );
+            this.interactionText3.setOrigin(0.5);
+          }
+        },
+        undefined,
+        this
+      );
+
+      // Add E key for interaction
+      if (this.input.keyboard) {
+        this.eKey = this.input.keyboard.addKey(
+          Phaser.Input.Keyboard.KeyCodes.E
+        );
+      }
+
+      // Check if device is mobile
+      this.isMobile =
+        this.sys.game.device.os.android ||
+        this.sys.game.device.os.iOS ||
+        this.sys.game.device.os.windowsPhone;
+
+      if (this.isMobile) {
+        this.createTouchControls();
+      }
+
+      // Expose NPC popup methods globally
+      this.exposeNPCPopupMethods();
+
+      // Handle URL parameters for NPC popups
+      this.handleNPCPopupParameters();
+
+      console.log("MainScene: create() method completed successfully");
+    } catch (error) {
+      console.error("Error in create method:", error);
     }
 
-    // Set up camera to follow player
-    this.cameras.main.startFollow(this.player, true);
-    this.cameras.main.setFollowOffset(0, 0);
-    this.cameras.main.setBounds(
-      0,
-      0,
-      this.worldWidth,
-      this.cameras.main.height
-    );
-
-    // Create minimap
-    this.createMinimap();
-
-    // // Add collision between player and platforms
-    // this.physics.add.collider(this.player, this.platforms);
-
-    // Set up cursor keys and space key
+    // Initialize keyboard controls outside try block to ensure they always run
     if (this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
       this.spaceKey = this.input.keyboard.addKey(
@@ -365,232 +624,6 @@ export class MainScene extends Phaser.Scene {
     } else {
       console.error("Keyboard input not available!");
     }
-
-    // Create player animations
-    try {
-      this.anims.create({
-        key: "walk",
-        frames: [
-          { key: "walk0" },
-          { key: "walk1" },
-          { key: "walk2" },
-          { key: "walk3" },
-          { key: "walk4" },
-          { key: "walk3" },
-          { key: "walk2" },
-          { key: "walk1" },
-        ],
-        frameRate: 10,
-        repeat: -1,
-      });
-
-      this.anims.create({
-        key: "idle",
-        frames: [
-          { key: "stand0" },
-          { key: "stand1" },
-          { key: "stand2" },
-          { key: "stand3" },
-          { key: "stand2" },
-          { key: "stand1" },
-          { key: "stand0" },
-        ],
-        frameRate: 4,
-        repeat: -1,
-      });
-
-      this.anims.create({
-        key: "jump",
-        frames: [{ key: "jump0" }, { key: "jump1" }],
-        frameRate: 2,
-        repeat: -1,
-      });
-      console.log("Animations created");
-    } catch (error) {
-      console.error("Error creating animations:", error);
-    }
-
-    // // Add debug text
-    // this.add.text(10, 70, "Use arrow keys to move\nSpace to jump", {
-    //   color: "#000000",
-    //   fontSize: "16px",
-    // });
-
-    // Create a container for audio controls at bottom left
-    const audioControls = this.add.container(20, this.cameras.main.height - 60);
-    audioControls.setScrollFactor(0);
-
-    // Create background for audio controls
-    const audioBg = this.add.rectangle(0, 0, 160, 40, 0x000000, 0.3);
-    audioBg.setStrokeStyle(1, 0xffffff, 0.5);
-    audioControls.add(audioBg);
-
-    // Add volume control button
-    const volumeButton = this.add.text(50, -10, "🔇", {
-      color: "#ffffff",
-      fontSize: "24px",
-    });
-    volumeButton.setScrollFactor(0);
-    volumeButton.setInteractive();
-    volumeButton.on("pointerdown", () => {
-      if (this.backgroundMusic instanceof Phaser.Sound.WebAudioSound) {
-        const currentVol = this.backgroundMusic.volume;
-        let newVol = 0;
-        if (currentVol === 0) newVol = 0.25;
-        else newVol = 0;
-
-        this.backgroundMusic.setVolume(newVol);
-        volumeButton.setText(currentVol === 0 ? `🔊` : `🔇`);
-      }
-    });
-    audioControls.add(volumeButton);
-
-    // Add NPC
-    const npcX = 300; // Position NPC 500 pixels from the left
-    const npcY = groundY - 60; // Place NPC on the ground
-    const npc = this.add.sprite(npcX, npcY, "npc_sketch");
-    npc.setScale(1.7); // Adjust scale as needed
-    npc.setInteractive(); // Make NPC interactive for touch
-    npc.on("pointerdown", () => {
-      if (this.interactionText) {
-        this.openSketchCanvas();
-      }
-    });
-
-    const npc2X = 495; // Position NPC 500 pixels from the left
-    const npc2Y = groundY - 68; // Place NPC on the ground
-    const npc2 = this.add.sprite(npc2X, npc2Y, "npc_sketch2");
-    npc2.setScale(0.47); // Adjust scale as needed
-    npc2.setInteractive(); // Make NPC interactive for touch
-    npc2.on("pointerdown", () => {
-      if (this.interactionText2) {
-        this.openWebcamCapture();
-      }
-    });
-    const npcVideoX = npcX + 600;
-    const npcVideoY = npcY - 54;
-    const npcVideo = this.add.sprite(npcVideoX, npcVideoY, "npc_video");
-    npcVideo.setScale(0.33); // Adjust scale as needed
-    const npcCameraX = npcX + 700;
-    const npcCameraY = npcY - 50;
-    const npcCamera = this.add.sprite(npcCameraX, npcCameraY, "npc_camera");
-    npcCamera.setScale(0.25); // Adjust scale as needed
-
-    // Add interaction zone
-    const interactionZone = this.add.zone(npcX, npcY, 100, 100);
-    this.physics.add.existing(interactionZone, true);
-
-    const npcARTraceX = npcX + 400;
-    const npcARTraceY = npcY - 60;
-    const npcARTrace = this.add.sprite(npcARTraceX, npcARTraceY, "npc_camera");
-    npcARTrace.setScale(0.3);
-    npcARTrace.setInteractive();
-    npcARTrace.on("pointerdown", () => {
-      if (this.interactionText3) {
-        this.openARTraceTool();
-      }
-    });
-    // Add interaction zone for AR Trace NPC
-    const interactionZone3 = this.add.zone(npcARTraceX, npcARTraceY, 100, 100);
-    this.physics.add.existing(interactionZone3, true);
-
-    const interactionZone2 = this.add.zone(npc2X, npc2Y, 100, 100);
-    this.physics.add.existing(interactionZone2, true);
-
-    // Add collision between player and AR Trace interaction zone
-    this.physics.add.overlap(
-      this.player,
-      interactionZone,
-      () => {
-        // Show interaction prompt when player is near
-        if (!this.interactionText) {
-          this.interactionText = this.add.text(
-            npcX,
-            npcY - 100,
-            this.isMobile ? "Tap NPC to interact" : "Press E to interact",
-            {
-              color: "#ffffff",
-              fontSize: "16px",
-              backgroundColor: "#000000",
-              padding: { x: 10, y: 5 },
-            }
-          );
-          this.interactionText.setOrigin(0.5);
-        }
-      },
-      undefined,
-      this
-    );
-
-    this.physics.add.overlap(
-      this.player,
-      interactionZone2,
-      () => {
-        if (!this.interactionText2) {
-          this.interactionText2 = this.add.text(
-            npc2X,
-            npc2Y - 100,
-            this.isMobile ? "Tap NPC to interact" : "Press E to interact",
-            {
-              color: "#ffffff",
-              fontSize: "16px",
-              backgroundColor: "#000000",
-              padding: { x: 10, y: 5 },
-            }
-          );
-          this.interactionText2.setOrigin(0.5);
-        }
-      },
-      undefined,
-      this
-    );
-
-    // Add collision between player and AR Trace interaction zone
-    this.physics.add.overlap(
-      this.player,
-      interactionZone3,
-      () => {
-        if (!this.interactionText3) {
-          this.interactionText3 = this.add.text(
-            npcARTraceX,
-            npcARTraceY - 100,
-            this.isMobile ? "Tap NPC to interact" : "Press E to interact",
-            {
-              color: "#ffffff",
-              fontSize: "16px",
-              backgroundColor: "#000000",
-              padding: { x: 10, y: 5 },
-            }
-          );
-          this.interactionText3.setOrigin(0.5);
-        }
-      },
-      undefined,
-      this
-    );
-
-    // Add E key for interaction
-    if (this.input.keyboard) {
-      this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
-    }
-
-    // Check if device is mobile
-    this.isMobile =
-      this.sys.game.device.os.android ||
-      this.sys.game.device.os.iOS ||
-      this.sys.game.device.os.windowsPhone;
-
-    if (this.isMobile) {
-      this.createTouchControls();
-    }
-
-    // Expose NPC popup methods globally
-    this.exposeNPCPopupMethods();
-
-    // Handle URL parameters for NPC popups
-    this.handleNPCPopupParameters();
-
-    console.log("MainScene: create() method completed successfully");
   }
 
   private exposeNPCPopupMethods() {
@@ -683,35 +716,260 @@ export class MainScene extends Phaser.Scene {
   }
 
   private createMinimap() {
-    // Create minimap background
-    this.minimap = this.add.graphics();
-    this.minimap.fillStyle(0x000000, 0.5);
-    this.minimap.fillRect(
-      this.cameras.main.width - this.minimapWidth - 10,
-      70,
-      this.minimapWidth,
-      this.minimapHeight
+    console.log("Creating minimap...");
+
+    try {
+      // Create minimap container first
+      this.createMinimapContainer();
+
+      // Create minimap background - positioned below the title area
+      this.minimap = this.add.graphics();
+      this.minimap.fillStyle(0x000000, 0.3);
+      this.minimap.fillRect(0, 0, this.minimapWidth, this.minimapHeight);
+
+      // Create minimap map layout
+      this.minimapMap = this.add.graphics();
+      this.minimapMap.setScrollFactor(0);
+      console.log("MinimapMap graphics created:", this.minimapMap);
+
+      // Calculate minimap position (relative to content container)
+      const minimapX = 0;
+      const minimapY = 0;
+
+      // Draw the map layout
+      this.drawMinimapMap(minimapX, minimapY);
+
+      // Create player dot
+      this.playerDot = this.add.graphics();
+      this.playerDot.fillStyle(0xff0000, 1);
+      this.playerDot.fillCircle(0, 0, 3);
+
+      // Make minimap stay fixed on screen
+      this.minimap.setScrollFactor(0);
+      this.playerDot.setScrollFactor(0);
+
+      // Add minimap elements to content container
+      this.minimapContent.add([this.minimap, this.minimapMap, this.playerDot]);
+      console.log(
+        "Minimap elements added to content container. Content list:",
+        this.minimapContent.list
+      );
+
+      console.log("Minimap created successfully");
+      console.log("Minimap elements added to container:", {
+        minimap: this.minimap,
+        minimapMap: this.minimapMap,
+        playerDot: this.playerDot,
+      });
+    } catch (error) {
+      console.error("Error in createMinimap:", error);
+    }
+  }
+
+  private createMinimapContainer() {
+    const containerX =
+      this.cameras.main.width - this.minimapContainerWidth - 25;
+    const containerY = 100;
+
+    console.log("Creating minimap container at:", containerX, containerY);
+
+    // Create main container
+    this.minimapContainer = this.add.container(containerX, containerY);
+    this.minimapContainer.setScrollFactor(0);
+    this.minimapContainer.setDepth(1000); // Ensure it's on top
+
+    // Create title bar container
+    this.minimapTitleBar = this.add.container(0, 0);
+    this.minimapTitleBar.setScrollFactor(0);
+
+    // Create content container (for minimap)
+    this.minimapContent = this.add.container(0, this.titleBarHeight);
+    this.minimapContent.setScrollFactor(0);
+
+    // Create sketchy background for title bar
+    const titleBarBg = this.add.graphics();
+    this.drawSketchyContainer(
+      titleBarBg,
+      0,
+      0,
+      this.minimapContainerWidth,
+      this.titleBarHeight
     );
 
-    // Create minimap map layout
-    this.minimapMap = this.add.graphics();
-    this.minimapMap.setScrollFactor(0);
+    // Create sketchy background for content area
+    this.minimapBackground = this.add.graphics();
+    this.drawSketchyContainer(
+      this.minimapBackground,
+      0,
+      0,
+      this.minimapContainerWidth,
+      this.minimapContainerHeight - this.titleBarHeight
+    );
 
-    // Calculate minimap position
-    const minimapX = this.cameras.main.width - this.minimapWidth - 10;
-    const minimapY = 70;
+    // Add test rectangle to content area
+    const testRect = this.add.graphics();
+    testRect.fillRect(
+      0,
+      0,
+      this.minimapContainerWidth,
+      this.minimapContainerHeight - this.titleBarHeight
+    );
 
-    // Draw the map layout
-    this.drawMinimapMap(minimapX, minimapY);
+    // Create title
+    this.minimapTitle = this.add.text(10, 8, "Mini Map", {
+      fontSize: "14px",
+      color: "#ffffff",
+      fontFamily: "Arial, Helvetica, sans-serif",
+      fontStyle: "bold",
+    });
 
-    // Create player dot
-    this.playerDot = this.add.graphics();
-    this.playerDot.fillStyle(0xff0000, 1);
-    this.playerDot.fillCircle(0, 0, 3);
+    // Create location text
+    this.minimapLocation = this.add.text(10, 25, "Singapore", {
+      fontSize: "12px",
+      color: "#ffffff",
+      fontFamily: "Arial, Helvetica, sans-serif",
+    });
 
-    // Make minimap stay fixed on screen
-    this.minimap.setScrollFactor(0);
-    this.playerDot.setScrollFactor(0);
+    // Create toggle button
+    this.minimapToggleButton = this.add.text(
+      this.minimapContainerWidth - 25,
+      8,
+      "−",
+      {
+        fontSize: "16px",
+        color: "#ffffff",
+        fontFamily: "Arial, Helvetica, sans-serif",
+        fontStyle: "bold",
+      }
+    );
+    this.minimapToggleButton.setInteractive();
+    this.minimapToggleButton.on("pointerdown", () => {
+      this.toggleMinimap();
+    });
+
+    // Create drag area (title bar)
+    const dragArea = this.add.graphics();
+    dragArea.fillStyle(0x000000, 0.1); // Very transparent fill for drag area
+    dragArea.fillRect(0, 0, this.minimapContainerWidth, this.titleBarHeight);
+    dragArea.setInteractive(
+      new Phaser.Geom.Rectangle(
+        0,
+        0,
+        this.minimapContainerWidth,
+        this.titleBarHeight
+      ),
+      Phaser.Geom.Rectangle.Contains
+    );
+
+    // Add elements to title bar
+    this.minimapTitleBar.add([
+      titleBarBg,
+      dragArea,
+      this.minimapTitle,
+      this.minimapLocation,
+      this.minimapToggleButton,
+    ]);
+
+    // Add a debug rectangle to make the title bar properly interactive
+    const debugRect = this.add.graphics();
+    debugRect.fillStyle(0xff0000, 0.1); // Very transparent red
+    debugRect.fillRect(0, 0, this.minimapContainerWidth, this.titleBarHeight);
+    this.minimapTitleBar.add(debugRect);
+
+    // Add elements to content container
+    this.minimapContent.add([this.minimapBackground, testRect]);
+
+    // Add title bar and content to main container
+    this.minimapContainer.add([this.minimapTitleBar, this.minimapContent]);
+
+    // Make the entire container draggable (like before)
+    this.minimapContainer.setInteractive(
+      new Phaser.Geom.Rectangle(
+        0,
+        0,
+        this.minimapContainerWidth,
+        this.minimapContainerHeight
+      ),
+      Phaser.Geom.Rectangle.Contains
+    );
+    console.log("Container made interactive");
+
+    // Set draggable after a short delay to ensure input system is ready
+    this.time.delayedCall(100, () => {
+      if (this.input) {
+        this.input.setDraggable(this.minimapContainer);
+      }
+    });
+
+    // Handle drag events
+    this.input.on(
+      "drag",
+      (
+        pointer: Phaser.Input.Pointer,
+        gameObject: Phaser.GameObjects.GameObject,
+        dragX: number,
+        dragY: number
+      ) => {
+        if (gameObject === this.minimapContainer) {
+          // Check if the drag started in the title bar area
+
+          // Constrain to screen bounds
+          const maxX = this.cameras.main.width - this.minimapContainerWidth;
+          const maxY =
+            this.cameras.main.height -
+            (this.isMinimapOpen
+              ? this.minimapContainerHeight
+              : this.titleBarHeight);
+
+          const constrainedX = Phaser.Math.Clamp(dragX, 0, maxX);
+          const constrainedY = Phaser.Math.Clamp(dragY, 0, maxY);
+
+          this.minimapContainer.setPosition(constrainedX, constrainedY);
+        }
+      }
+    );
+  }
+
+  private drawSketchyContainer(
+    graphics: Phaser.GameObjects.Graphics,
+    x: number,
+    y: number,
+    width: number,
+    height: number
+  ) {
+    // Draw transparent background with sketchy border
+    graphics.fillStyle(0xfefcf7, 0.3); // Transparent paper white background
+    graphics.fillRoundedRect(x, y, width, height, 8);
+
+    // Draw sketchy border
+    graphics.lineStyle(2, 0x4a4a4a, 0.8);
+    graphics.strokeRoundedRect(x, y, width, height, 8);
+
+    // Add some sketchy details
+    graphics.lineStyle(1, 0x6b6b6b, 0.4);
+    graphics.strokeRoundedRect(x + 2, y + 2, width - 4, height - 4, 6);
+  }
+
+  private toggleMinimap() {
+    this.isMinimapOpen = !this.isMinimapOpen;
+
+    if (this.isMinimapOpen) {
+      // Show content container
+      this.minimapContent.setVisible(true);
+      this.minimapToggleButton.setText("−");
+      if (this.minimap) this.minimap.setVisible(true);
+      if (this.minimapMap) this.minimapMap.setVisible(true);
+      if (this.playerDot) this.playerDot.setVisible(true);
+      if (this.minimapLocation) this.minimapLocation.setVisible(true);
+    } else {
+      // Hide content container (keep title bar visible)
+      this.minimapContent.setVisible(false);
+      this.minimapToggleButton.setText("+");
+      if (this.minimap) this.minimap.setVisible(false);
+      if (this.minimapMap) this.minimapMap.setVisible(false);
+      if (this.playerDot) this.playerDot.setVisible(false);
+      if (this.minimapLocation) this.minimapLocation.setVisible(false);
+    }
   }
 
   private drawMinimapMap(minimapX: number, minimapY: number) {
@@ -721,7 +979,7 @@ export class MainScene extends Phaser.Scene {
 
     // Calculate scale factors
     const mapScaleX = this.minimapWidth / worldWidth;
-    const mapScaleY = this.minimapHeight / (this.cameras.main.height * 0.8); // Scale height appropriately
+    const mapScaleY = this.minimapHeight / (this.cameras.main.height * 0.8);
 
     // Draw ground level (flat areas)
     this.minimapMap.fillStyle(0x8b4513, 0.8); // Brown color for ground
@@ -976,14 +1234,6 @@ export class MainScene extends Phaser.Scene {
       return;
     }
 
-    // Debug keyboard state
-    if (this.cursors.left.isDown || this.cursors.right.isDown) {
-      console.log("Arrow keys pressed:", {
-        left: this.cursors.left.isDown,
-        right: this.cursors.right.isDown,
-      });
-    }
-
     // Update parallax scrolling
     if (this.player && this.player.body) {
       // Calculate new positions based on player movement
@@ -1011,14 +1261,12 @@ export class MainScene extends Phaser.Scene {
       }
     }
 
-    // Update player dot position on minimap
-    const minimapX =
-      this.cameras.main.width -
-      this.minimapWidth -
-      10 +
-      this.player.x * this.minimapScale;
-    const minimapY = 46 + this.player.y * this.minimapScale;
-    this.playerDot.setPosition(minimapX, minimapY);
+    // Update player dot position on minimap (relative to content container)
+    if (this.isMinimapOpen && this.playerDot) {
+      const minimapX = this.player.x * this.minimapScale;
+      const minimapY = this.player.y * this.minimapScale;
+      this.playerDot.setPosition(minimapX, minimapY);
+    }
 
     const isOnGround = this.player.body?.touching.down;
     const currentAnim = this.player.anims.currentAnim?.key;
@@ -1034,7 +1282,7 @@ export class MainScene extends Phaser.Scene {
       this.isJumping = true;
       this.hasDoubleJumped = false; // Reset double jump when landing
       this.jumpButtonPressed = false; // Reset button state after jump
-      console.log("jump");
+
       return;
     }
 
@@ -1051,7 +1299,6 @@ export class MainScene extends Phaser.Scene {
         this.player.setVelocityX(this.faceLeft ? -250 : 250);
         this.hasDoubleJumped = true;
         this.jumpButtonPressed = false; // Reset button state after double jump
-        console.log("double jump");
       }
       this.player.anims.play("jump", true);
       return;
