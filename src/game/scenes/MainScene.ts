@@ -56,6 +56,8 @@ export class MainScene extends Phaser.Scene {
   private minimapContainerWidth = 220;
   private minimapContainerHeight = 140;
   private titleBarHeight = 40;
+  private minimapDragOffsetX: number = 0;
+  private minimapDragOffsetY: number = 0;
 
   constructor() {
     super({ key: "MainScene" });
@@ -847,11 +849,26 @@ export class MainScene extends Phaser.Scene {
       this.toggleMinimap();
     });
 
-    // Create drag area (title bar)
-    const dragArea = this.add.graphics();
-    dragArea.fillStyle(0x000000, 0.1); // Very transparent fill for drag area
-    dragArea.fillRect(0, 0, this.minimapContainerWidth, this.titleBarHeight);
-    dragArea.setInteractive(
+    // Add elements to title bar
+    this.minimapTitleBar.add([
+      titleBarBg,
+      this.minimapTitle,
+      this.minimapLocation,
+      this.minimapToggleButton,
+    ]);
+
+    // Add elements to content container
+    this.minimapContent.add([this.minimapBackground, testRect]);
+
+    // Add title bar and content to main container
+    this.minimapContainer.add([this.minimapTitleBar, this.minimapContent]);
+
+    // --- DRAG HANDLE FOR TITLE BAR ---
+    // Add a transparent drag handle to the title bar
+    const dragHandle = this.add.graphics();
+    dragHandle.fillStyle(0xffffff, 0.001); // almost invisible
+    dragHandle.fillRect(0, 0, this.minimapContainerWidth, this.titleBarHeight);
+    dragHandle.setInteractive(
       new Phaser.Geom.Rectangle(
         0,
         0,
@@ -860,71 +877,43 @@ export class MainScene extends Phaser.Scene {
       ),
       Phaser.Geom.Rectangle.Contains
     );
+    // Add drag handle BELOW the toggle button so the button is clickable
+    this.minimapTitleBar.addAt(dragHandle, 0);
 
-    // Add elements to title bar
-    this.minimapTitleBar.add([
-      titleBarBg,
-      dragArea,
-      this.minimapTitle,
-      this.minimapLocation,
-      this.minimapToggleButton,
-    ]);
-
-    // Add a debug rectangle to make the title bar properly interactive
-    const debugRect = this.add.graphics();
-    debugRect.fillStyle(0xff0000, 0.1); // Very transparent red
-    debugRect.fillRect(0, 0, this.minimapContainerWidth, this.titleBarHeight);
-    this.minimapTitleBar.add(debugRect);
-
-    // Add elements to content container
-    this.minimapContent.add([this.minimapBackground, testRect]);
-
-    // Add title bar and content to main container
-    this.minimapContainer.add([this.minimapTitleBar, this.minimapContent]);
-
-    // Make the entire container draggable (like before)
-    this.minimapContainer.setInteractive(
-      new Phaser.Geom.Rectangle(
-        0,
-        0,
-        this.minimapContainerWidth,
-        this.minimapContainerHeight
-      ),
-      Phaser.Geom.Rectangle.Contains
-    );
-    console.log("Container made interactive");
-
-    // Set draggable after a short delay to ensure input system is ready
-    this.time.delayedCall(100, () => {
-      if (this.input) {
-        this.input.setDraggable(this.minimapContainer);
-      }
+    // Track drag offset
+    this.minimapDragOffsetX = 0;
+    this.minimapDragOffsetY = 0;
+    dragHandle.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      this.minimapDragOffsetX = pointer.x - this.minimapContainer.x;
+      this.minimapDragOffsetY = pointer.y - this.minimapContainer.y;
     });
 
-    // Handle drag events
+    // Set the drag handle as draggable and move the container on drag
+    this.input.setDraggable(dragHandle);
     this.input.on(
       "drag",
       (
         pointer: Phaser.Input.Pointer,
-        gameObject: Phaser.GameObjects.GameObject,
-        dragX: number,
-        dragY: number
+        gameObject: Phaser.GameObjects.GameObject
       ) => {
-        if (gameObject === this.minimapContainer) {
-          // Check if the drag started in the title bar area
-
-          // Constrain to screen bounds
+        if (gameObject === dragHandle) {
           const maxX = this.cameras.main.width - this.minimapContainerWidth;
           const maxY =
             this.cameras.main.height -
             (this.isMinimapOpen
               ? this.minimapContainerHeight
               : this.titleBarHeight);
-
-          const constrainedX = Phaser.Math.Clamp(dragX, 0, maxX);
-          const constrainedY = Phaser.Math.Clamp(dragY, 0, maxY);
-
-          this.minimapContainer.setPosition(constrainedX, constrainedY);
+          const newX = Phaser.Math.Clamp(
+            pointer.x - this.minimapDragOffsetX,
+            0,
+            maxX
+          );
+          const newY = Phaser.Math.Clamp(
+            pointer.y - this.minimapDragOffsetY,
+            0,
+            maxY
+          );
+          this.minimapContainer.setPosition(newX, newY);
         }
       }
     );
