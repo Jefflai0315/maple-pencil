@@ -18,13 +18,13 @@ export const metadata: Metadata = {
   description: "Playing with pencil and art",
   icons: {
     icon: [
-      { url: "/favicon.ico", sizes: "any" },
+      { url: "/jeff-face.png", sizes: "any" },
       { url: "/jeff-face.png", sizes: "110x110", type: "image/png" },
       { url: "/jeff-182x182.png", sizes: "182x182", type: "image/png" },
       { url: "/jeff.png", sizes: "512x512", type: "image/png" },
     ],
     apple: [{ url: "/jeff-182x182.png", sizes: "182x182", type: "image/png" }],
-    shortcut: "/favicon.ico",
+    shortcut: "/jeff-face.png",
   },
   manifest: "/manifest.json",
   appleWebApp: {
@@ -52,7 +52,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+        />
         <meta name="theme-color" content="#000000" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -62,8 +65,8 @@ export default function RootLayout({
         <meta name="msapplication-config" content="/browserconfig.xml" />
         <meta name="msapplication-TileColor" content="#000000" />
         <meta name="msapplication-tap-highlight" content="no" />
-        
-        <link rel="icon" href="/favicon.ico" sizes="any" />
+
+        <link rel="icon" href="/jeff-face.png" sizes="any" />
         <link
           rel="icon"
           href="/jeff-face.png"

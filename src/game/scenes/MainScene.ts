@@ -58,6 +58,13 @@ export class MainScene extends Phaser.Scene {
   private titleBarHeight = 40;
   private minimapDragOffsetX: number = 0;
   private minimapDragOffsetY: number = 0;
+  // Remove VIRTUAL_HEIGHT, keep VIRTUAL_WIDTH for world width
+  // private static readonly VIRTUAL_HEIGHT = 720;
+  private static readonly WORLD_WIDTH = 1500;
+  private static readonly WORLD_HEIGHT = 720;
+  private backgroundParallax: number[] = [];
+  private backgroundBaseX: number[] = []; // Store base X for each background layer
+  private isMinimapDragging: boolean = false; // Track if minimap is being dragged
 
   constructor() {
     super({ key: "MainScene" });
@@ -194,71 +201,75 @@ export class MainScene extends Phaser.Scene {
       sky.setScrollFactor(0);
       sky.setScale(2);
 
-      // Create background layers with parallax effect
-      const layer1 = this.add.sprite(0, 0, "bg_layer1");
-      const layer2 = this.add.sprite(0, 0, "bg_layer2");
-      const layer3 = this.add.sprite(0, 0, "bg_layer3");
-      const layer4 = this.add.sprite(0, 0, "bg_layer4");
-      const layerOrigin = [
-        [0, -1.7], // CBD
-        [-1, -1.5], // HDB
-        [-6.5, -4.3], //merlion
-        [0, -1.5], // CBD buidling
-      ];
-
-      // Set the origin of all layers to top-left
-      [layer1, layer2, layer3, layer4].forEach((layer, index) => {
-        layer.setOrigin(layerOrigin[index][0], layerOrigin[index][1]);
-        layer.setScrollFactor(0);
-        // Set display size to match game height while maintaining aspect ratio
-        // layer.setDisplaySize(
-        //   layer.width * (this.cameras.main.height / layer.height),
-        //   this.cameras.main.height
-        // );
-      });
-
-      // Store layers for update
-      this.backgroundLayers = [layer1, layer2, layer3, layer4];
-
-      // Set world bounds
+      // --- Set a large world width for horizontal scrolling ---
       this.physics.world.setBounds(
         0,
         0,
         this.worldWidth,
         this.cameras.main.height
       );
+      this.cameras.main.setBounds(
+        0,
+        0,
+        this.worldWidth,
+        this.cameras.main.height
+      );
 
-      // Add a background color to make sure the scene is visible
-      this.cameras.main.setBackgroundColor("#87CEEB"); // Sky blue background
-
-      // Calculate player spawn position
-      const groundY = this.cameras.main.height - 50; // Changed from -140 to -80 to make ground lower
-      const spawnX = 100; // Start from left side
-      const spawnY = groundY - 70;
-
-      // Create player
-      try {
-        this.player = this.physics.add.sprite(spawnX, spawnY, "stand0");
-        this.player.setCollideWorldBounds(true);
-        this.player.setGravityY(300);
-        this.player.flipX = true; // Set player to face right by default
-        this.faceLeft = false; // Set faceLeft to false by default
-      } catch (error) {
-        console.error("Error creating player:", error);
-      }
-
-      // --- Create invisible physics ground for collision ---
-      const groundHeight = 100; // 40(top) + 60(middle) + 40(bottom) or 100+40 for slope
-      const groundWidth = 20 * 90; // 2x3 flat + 1 slope + 2x3 flat = 13 tiles wide
+      // --- Responsive Ground ---
+      const groundY = this.cameras.main.height - 50; // 50px from the bottom
+      const groundWidth = this.worldWidth; // Full world width
+      const groundHeight = 100;
       const ground = this.add.rectangle(
         groundWidth / 2,
         groundY + groundHeight / 2,
         groundWidth,
         groundHeight - 10,
         0x000000
-        // invisible
       );
-      this.physics.add.existing(ground, true); // static body
+      this.physics.add.existing(ground, true);
+
+      // --- Responsive Background Layers: parallax, always at % of world width ---
+      // Create a temporary background sprite to get its height
+      const tempBg = this.add.sprite(0, 0, "bg_layer1");
+      const backgroundHeight = tempBg.height;
+      tempBg.destroy(); // Remove the temp sprite
+      // Position backgrounds so their bottom sits on top of the ground
+      const bgY = groundY - backgroundHeight;
+      // Store base X for each background (10%, 20%, 40%, 80% of world width)
+      this.backgroundBaseX = [
+        this.worldWidth * 0.3,
+        this.worldWidth * 0.75,
+        this.worldWidth * 0.5,
+        this.worldWidth * 0.05,
+      ];
+      this.backgroundLayers = [
+        this.add
+          .sprite(this.backgroundBaseX[0], bgY, "bg_layer1")
+          .setOrigin(0.5, -0.05)
+          .setScrollFactor(0, 0),
+        this.add
+          .sprite(this.backgroundBaseX[1], bgY, "bg_layer2")
+          .setOrigin(0.5, 0)
+          .setScrollFactor(0, 0),
+        this.add
+          .sprite(this.backgroundBaseX[2], bgY, "bg_layer3")
+          .setOrigin(0.5, -0.8)
+          .setScrollFactor(0, 0),
+        this.add
+          .sprite(this.backgroundBaseX[3], bgY, "bg_layer4")
+          .setOrigin(0.5, 0)
+          .setScrollFactor(0, 0),
+      ];
+      this.backgroundParallax = [0.2, 0.4, 0.6, 0.8];
+
+      // --- Player Spawn ---
+      const spawnX = this.worldWidth * 0.1; // 10% from left of world
+      const spawnY = groundY - 70;
+      this.player = this.physics.add.sprite(spawnX, spawnY, "stand0");
+      this.player.setCollideWorldBounds(true);
+      this.player.setGravityY(300);
+      this.player.flipX = true;
+      this.faceLeft = false;
       this.physics.add.collider(this.player, ground);
 
       // Slope
@@ -421,16 +432,15 @@ export class MainScene extends Phaser.Scene {
       // });
 
       // Create a container for audio controls at bottom left
-      const audioControls = this.add.container(
-        20,
-        this.cameras.main.height - 60
-      );
+      const audioControls = this.add.container(20, MainScene.WORLD_HEIGHT - 60);
       audioControls.setScrollFactor(0);
 
       // Create background for audio controls
       const audioBg = this.add.rectangle(0, 0, 160, 40, 0x000000, 0.3);
       audioBg.setStrokeStyle(1, 0xffffff, 0.5);
       audioControls.add(audioBg);
+      //make it higher layer?
+      audioControls.setDepth(100);
 
       // Add volume control button
       const volumeButton = this.add.text(50, -10, "🔇", {
@@ -727,7 +737,7 @@ export class MainScene extends Phaser.Scene {
       // Create minimap background - positioned below the title area
       this.minimap = this.add.graphics();
       this.minimap.fillStyle(0x000000, 0.3);
-      this.minimap.fillRect(0, 0, this.minimapWidth, this.minimapHeight);
+      this.minimap.fillRect(20, 0, this.minimapWidth, this.minimapHeight);
 
       // Create minimap map layout
       this.minimapMap = this.add.graphics();
@@ -735,7 +745,7 @@ export class MainScene extends Phaser.Scene {
       console.log("MinimapMap graphics created:", this.minimapMap);
 
       // Calculate minimap position (relative to content container)
-      const minimapX = 0;
+      const minimapX = 20;
       const minimapY = 0;
 
       // Draw the map layout
@@ -744,7 +754,7 @@ export class MainScene extends Phaser.Scene {
       // Create player dot
       this.playerDot = this.add.graphics();
       this.playerDot.fillStyle(0xff0000, 1);
-      this.playerDot.fillCircle(0, 0, 3);
+      this.playerDot.fillCircle(20, 0, 3);
 
       // Make minimap stay fixed on screen
       this.minimap.setScrollFactor(0);
@@ -769,6 +779,7 @@ export class MainScene extends Phaser.Scene {
   }
 
   private createMinimapContainer() {
+    // Always position minimap at top right of visible screen (unless dragging)
     const containerX =
       this.cameras.main.width - this.minimapContainerWidth - 25;
     const containerY = 100;
@@ -886,6 +897,13 @@ export class MainScene extends Phaser.Scene {
     dragHandle.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       this.minimapDragOffsetX = pointer.x - this.minimapContainer.x;
       this.minimapDragOffsetY = pointer.y - this.minimapContainer.y;
+      this.isMinimapDragging = true; // Start dragging
+    });
+    dragHandle.on("pointerup", () => {
+      this.isMinimapDragging = false; // Stop dragging
+    });
+    dragHandle.on("pointerupoutside", () => {
+      this.isMinimapDragging = false; // Stop dragging
     });
 
     // Set the drag handle as draggable and move the container on drag
@@ -897,7 +915,7 @@ export class MainScene extends Phaser.Scene {
         gameObject: Phaser.GameObjects.GameObject
       ) => {
         if (gameObject === dragHandle) {
-          const maxX = this.cameras.main.width - this.minimapContainerWidth;
+          const maxX = MainScene.WORLD_WIDTH - this.minimapContainerWidth;
           const maxY =
             this.cameras.main.height -
             (this.isMinimapOpen
@@ -962,24 +980,27 @@ export class MainScene extends Phaser.Scene {
   }
 
   private drawMinimapMap(minimapX: number, minimapY: number) {
-    const groundY = this.cameras.main.height - 50; // Same as in create()
+    // Use actual worldWidth and groundY for accurate minimap representation
+    const groundY = this.cameras.main.height - 50; // Use same as in create()
     const tileWidth = 90;
     const worldWidth = this.worldWidth;
 
     // Calculate scale factors
     const mapScaleX = this.minimapWidth / worldWidth;
-    const mapScaleY = this.minimapHeight / (this.cameras.main.height * 0.8);
+    // For Y, use the vertical range from 0 to groundY (not WORLD_HEIGHT)
+    const mapScaleY = this.minimapHeight / groundY;
 
     // Draw ground level (flat areas)
+    this.minimapMap.clear();
     this.minimapMap.fillStyle(0x8b4513, 0.8); // Brown color for ground
 
     // First flat area (2 sets of 3 tiles)
     const firstFlatWidth = 6 * tileWidth * mapScaleX;
     this.minimapMap.fillRect(
-      minimapX,
-      minimapY + this.minimapHeight - 20,
+      minimapX + 5,
+      minimapY + this.minimapHeight - 5,
       firstFlatWidth,
-      20
+      5
     );
 
     // Second flat area (5 sets of 3 tiles) - elevated
@@ -987,41 +1008,36 @@ export class MainScene extends Phaser.Scene {
     const slopeEndX = slopeStartX + (90 / 1.5) * 1.5; // End of slope
     const secondFlatStartX = slopeEndX;
     const secondFlatWidth = (worldWidth - secondFlatStartX) * mapScaleX;
-    const elevatedY = minimapY + this.minimapHeight - 20 - 60 * mapScaleY; // 60 pixels higher
+    const elevatedY = minimapY + this.minimapHeight - 5 - 60 * mapScaleY; // 60 pixels higher
 
     this.minimapMap.fillRect(
       minimapX + secondFlatStartX * mapScaleX,
       elevatedY,
       secondFlatWidth,
-      20
+      5
     );
 
     // Draw slope
     this.minimapMap.fillStyle(0x654321, 0.8); // Darker brown for slope
-
-    // Create a simple slope representation (triangle)
     this.minimapMap.fillTriangle(
-      minimapX + slopeStartX * mapScaleX,
-      minimapY + this.minimapHeight - 20, // Bottom left
       minimapX + slopeEndX * mapScaleX,
-      elevatedY, // Top right
+      elevatedY,
       minimapX + slopeStartX * mapScaleX,
-      elevatedY // Top left
+      minimapY + this.minimapHeight - 5,
+      minimapX + slopeEndX * mapScaleX,
+      minimapY + this.minimapHeight - 5
     );
 
-    // Draw NPC positions
+    // Draw NPC positions (use actual scene X/Y, scaled)
     this.minimapMap.fillStyle(0x00ff00, 0.8); // Green for NPCs
-
-    // NPC positions (approximate)
-    const npcPositions = [
-      { x: 300, y: groundY - 300 }, // First NPC
-      { x: 500, y: groundY - 300 }, // Second NPC
-      { x: 900, y: groundY - 360 }, // Video NPC (elevated)
-      { x: 1000, y: groundY - 360 }, // Camera NPC (elevated)
-      { x: 700, y: groundY - 360 }, // AR Trace NPC
+    const npcScenePositions = [
+      { x: this.worldWidth * 0.2, y: groundY - 68 }, // Example NPC 1
+      { x: this.worldWidth * 0.33, y: groundY - 68 }, // Example NPC 2
+      { x: this.worldWidth * 0.6, y: groundY - 114 }, // Video NPC
+      { x: this.worldWidth * 0.7, y: groundY - 110 }, // Camera NPC
+      { x: this.worldWidth * 0.5, y: groundY - 110 }, // AR Trace NPC
     ];
-
-    npcPositions.forEach((npc) => {
+    npcScenePositions.forEach((npc) => {
       this.minimapMap.fillCircle(
         minimapX + npc.x * mapScaleX,
         minimapY + npc.y * mapScaleY,
@@ -1044,7 +1060,7 @@ export class MainScene extends Phaser.Scene {
     this.joystickThumb.setScrollFactor(0);
 
     // Create joystick container
-    this.joystick = this.add.container(100, this.cameras.main.height - 150);
+    this.joystick = this.add.container(100, MainScene.WORLD_HEIGHT - 150);
     this.joystick.add([this.joystickBase, this.joystickThumb]);
     this.joystick.setScrollFactor(0);
 
@@ -1083,6 +1099,7 @@ export class MainScene extends Phaser.Scene {
     jumpButtonText.setOrigin(0.5);
     jumpButtonText.setScrollFactor(0);
 
+    // --- Jump Button: always at bottom right of visible screen ---
     this.jumpButton = this.add.container(
       this.cameras.main.width - 100,
       this.cameras.main.height - 100
@@ -1223,32 +1240,24 @@ export class MainScene extends Phaser.Scene {
       return;
     }
 
-    // Update parallax scrolling
-    if (this.player && this.player.body) {
-      // Calculate new positions based on player movement
-      const playerDeltaX =
-        this.player.x -
-        (this.player.x - (this.player.body.velocity.x * delta) / 1000);
-
-      // Update each layer's position with different speeds
-      if (playerDeltaX !== 0) {
-        // TODO: clamp, user at the boundary, the background should not move
-        this.backgroundLayers.forEach((layer, index) => {
-          const speed = 0.1 * (index * 0.1 + 1); // 0.1, 0.2, 0.3, 0.4
-          this.layerPositions[index] -= playerDeltaX * speed;
-
-          // // Keep layers within bounds
-          // const maxOffset = layer.width * layer.scaleX - this.cameras.main.width;
-          // this.layerPositions[index] = Phaser.Math.Clamp(
-          //   this.layerPositions[index],
-          //   -maxOffset,
-          //   0
-          // );
-
-          layer.x = this.layerPositions[index];
-        });
-      }
+    // Update parallax backgrounds (no jump, always at % of world width)
+    if (
+      this.backgroundLayers &&
+      this.backgroundParallax &&
+      this.backgroundBaseX
+    ) {
+      this.backgroundLayers.forEach((layer, i) => {
+        layer.x =
+          this.backgroundBaseX[i] -
+          this.cameras.main.scrollX * this.backgroundParallax[i];
+      });
     }
+    // Keep jump button at correct screen position
+    if (this.jumpButton) {
+      this.jumpButton.x = this.cameras.main.width - 100;
+      this.jumpButton.y = this.cameras.main.height - 100;
+    }
+    // (Removed minimapContainer auto-reset so it stays where user drags it)
 
     // Update player dot position on minimap (relative to content container)
     if (this.isMinimapOpen && this.playerDot) {
