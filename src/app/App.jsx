@@ -17,7 +17,8 @@ import {
   X,
   ExternalLink,
   Pencil,
-  Gamepad2
+  Gamepad2,
+  Upload
 } from 'lucide-react'
 import { ContactForm } from '../components/ContactForm'
 
@@ -285,6 +286,20 @@ function App() {
               <Gamepad2 size={18} />
               World
             </Link>
+            <Link 
+              href="/upload"
+              className="font-sketch text-lg text-charcoal-medium hover:text-charcoal transition-colors flex items-center gap-2"
+            >
+              <Upload size={18} />
+              Upload
+            </Link>
+            <Link 
+              href="/mural"
+              className="font-sketch text-lg text-charcoal-medium hover:text-charcoal transition-colors flex items-center gap-2"
+            >
+              <Palette size={18} />
+              Mural
+            </Link>
             <button 
               className="sketch-btn"
               onClick={() => scrollToSection('contact')}
@@ -322,6 +337,22 @@ function App() {
               >
                 <Gamepad2 size={18} />
                 World
+              </Link>
+              <Link 
+                href="/upload"
+                className="font-sketch text-lg text-left text-charcoal-medium hover:text-charcoal flex items-center gap-2"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <Upload size={18} />
+                Upload
+              </Link>
+              <Link 
+                href="/mural"
+                className="font-sketch text-lg text-left text-charcoal-medium hover:text-charcoal flex items-center gap-2"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <Palette size={18} />
+                Mural
               </Link>
             </div>
           </div>
