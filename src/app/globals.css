@@ -560,5 +560,19 @@ html, body {
   pointer-events: none;
 }
 
+@font-face {
+  font-family: 'Acallon';
+  src: url('/fonts/AvallonAllCaps.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
 
+@font-face {
+  font-family: 'LePetitCochon';
+  src: url('/fonts/Petit Cochon.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
 

@@ -12,6 +12,7 @@ import {
   IconEye,
 } from "@tabler/icons-react";
 import Link from "next/link";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 
 interface PreviewData {
   imageUrl: string;
@@ -46,6 +47,7 @@ export default function UploadPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const growthbook = useGrowthBook();
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -147,15 +149,32 @@ export default function UploadPage() {
   };
 
   const generateVideo = async (): Promise<string> => {
-    // Simulate video generation API call
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // For demo, we'll create a simple animation effect
-        // In real implementation, send image to video generation API
-        // For now, we'll use a placeholder that represents the video
-        resolve("video-placeholder"); // This will trigger our custom video simulation
-      }, 3000);
-    });
+    // Use GrowthBook feature flag to select provider
+    try {
+      const { generateVideoFromImageWithProvider } = await import(
+        "../utils/videoGeneration"
+      );
+      const provider =
+        growthbook?.feature("image_to_video")?.value || "wavespeedai";
+      const task = await generateVideoFromImageWithProvider(
+        provider,
+        previewUrl,
+        userDetails,
+        "Create a quick artistic video with smooth camera movements",
+        (status, progress) => {
+          console.log(`Video generation: ${status} (${progress}%)`);
+          setUploadProgress(progress || 0);
+        }
+      );
+      if (task?.downloadUrl) {
+        return task.downloadUrl;
+      } else {
+        throw new Error("No download URL received");
+      }
+    } catch (error) {
+      console.error("Video generation failed:", error);
+      throw error;
+    }
   };
 
   const handleGenerateVideo = async () => {
@@ -196,9 +215,25 @@ export default function UploadPage() {
       setPreviewData(preview);
       setUploadStatus("confirming");
       setShowPreview(true);
-    } catch {
+    } catch (error) {
+      console.error("Video generation failed:", error);
       setUploadStatus("error");
-      setErrorMessage("Video generation failed. Please try again.");
+
+      // Check for specific error types
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      if (
+        errorMessage.includes("insufficient balance") ||
+        errorMessage.includes("402")
+      ) {
+        setErrorMessage(
+          "Insufficient MiniMax account balance. Using uploaded photo as fallback."
+        );
+      } else {
+        setErrorMessage(
+          "Video generation failed. Using uploaded photo as fallback."
+        );
+      }
     } finally {
       setIsGeneratingVideo(false);
     }
@@ -212,6 +247,9 @@ export default function UploadPage() {
     setUploadProgress(0);
 
     try {
+      // Store user name in localStorage for video status tracking
+      localStorage.setItem("mural-user-name", previewData.userDetails.name);
+
       // Create form data for upload
       const formData = new FormData();
 
@@ -496,12 +534,20 @@ export default function UploadPage() {
 
             {/* Action Buttons */}
             <div className="flex justify-between items-center">
-              <Link
-                href="/mural"
-                className="text-blue-600 hover:text-blue-700 font-medium"
-              >
-                View Mural Wall →
-              </Link>
+              <div className="flex space-x-4">
+                <Link
+                  href="/mural"
+                  className="text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  View Mural Wall →
+                </Link>
+                <Link
+                  href="/video-status"
+                  className="text-green-600 hover:text-green-700 font-medium"
+                >
+                  Video Status →
+                </Link>
+              </div>
 
               <button
                 type="submit"
@@ -547,17 +593,35 @@ export default function UploadPage() {
                   />
                 </div>
 
-                {/* Video Preview - Simulated Animation */}
+                {/* Video Preview - Real or Simulated */}
                 <div>
                   <h4 className="font-medium text-gray-700 mb-2">
-                    Generated Video (Simulated)
+                    Generated Video
                   </h4>
                   <div className="relative w-full h-48 bg-gray-100 rounded-lg shadow-md overflow-hidden">
-                    <img
-                      src={previewData.imageUrl}
-                      alt="Video Preview"
-                      className="w-full h-full object-cover animate-pulse"
-                    />
+                    {previewData.videoUrl &&
+                    (previewData.videoUrl.startsWith(
+                      "https://res.cloudinary.com"
+                    ) ||
+                      previewData.videoUrl.startsWith(
+                        "https://d1q70pf5vjeyhc.cloudfront.net"
+                      )) ? (
+                      <video
+                        src={previewData.videoUrl}
+                        controls
+                        autoPlay
+                        muted
+                        className="w-full h-full object-cover"
+                        style={{ borderRadius: 8, background: "#000" }}
+                      />
+                    ) : (
+                      // Fallback: Simulated animation
+                      <img
+                        src={previewData.imageUrl}
+                        alt="Video Preview"
+                        className="w-full h-full object-cover animate-pulse"
+                      />
+                    )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end">
                       <div className="p-4 text-white">
                         <div className="flex items-center space-x-2">
@@ -573,9 +637,17 @@ export default function UploadPage() {
                       DEMO
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    In production, this would show the actual generated video
-                  </p>
+                  {(!previewData.videoUrl ||
+                    (!previewData.videoUrl.startsWith(
+                      "https://res.cloudinary.com"
+                    ) &&
+                      !previewData.videoUrl.startsWith(
+                        "https://d1q70pf5vjeyhc.cloudfront.net"
+                      ))) && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      Simulated video generation effect
+                    </p>
+                  )}
                 </div>
               </div>
 
