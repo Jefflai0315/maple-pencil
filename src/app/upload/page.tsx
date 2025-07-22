@@ -326,14 +326,14 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
-      <div className="max-w-4xl mx-auto px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-4 md:py-8">
+      <div className="max-w-4xl mx-auto px-2 md:px-4">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+        <div className="text-center mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-4xl font-bold text-gray-900 mb-4">
             Share Your Art
           </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-base md:text-lg text-gray-600 max-w-2xl mx-auto">
             Upload or capture a photo to be part of our community mural. Your
             image will be transformed into a video and placed in our digital art
             wall.
@@ -341,13 +341,13 @@ export default function UploadPage() {
         </div>
 
         {/* Upload Form */}
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-white rounded-lg md:rounded-2xl shadow-xl p-4 md:p-8">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               handleGenerateVideo();
             }}
-            className="space-y-6"
+            className="space-y-4 md:space-y-6"
           >
             {/* Image Input Section */}
             <div className="space-y-4">
@@ -356,10 +356,10 @@ export default function UploadPage() {
               </label>
 
               {/* Upload or Capture Options */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 md:mb-6">
                 {/* Upload Option */}
                 <div
-                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+                  className={`border-2 border-dashed rounded-lg p-4 md:p-6 text-center transition-colors cursor-pointer ${
                     isDragOver
                       ? "border-blue-400 bg-blue-50"
                       : "border-gray-300 hover:border-gray-400"
@@ -369,21 +369,21 @@ export default function UploadPage() {
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <IconUpload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                  <p className="font-medium text-gray-900">Upload Photo</p>
-                  <p className="text-sm text-gray-500">
+                  <IconUpload className="mx-auto h-6 w-6 md:h-8 md:w-8 text-gray-400 mb-2" />
+                  <p className="font-medium text-gray-900 text-sm md:text-base">Upload Photo</p>
+                  <p className="text-xs md:text-sm text-gray-500">
                     Drag & drop or click to browse
                   </p>
                 </div>
 
                 {/* Capture Option */}
                 <div
-                  className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-gray-400 transition-colors"
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-4 md:p-6 text-center cursor-pointer hover:border-gray-400 transition-colors"
                   onClick={() => setShowCamera(true)}
                 >
-                  <IconCamera className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                  <p className="font-medium text-gray-900">Take Photo</p>
-                  <p className="text-sm text-gray-500">Use your camera</p>
+                  <IconCamera className="mx-auto h-6 w-6 md:h-8 md:w-8 text-gray-400 mb-2" />
+                  <p className="font-medium text-gray-900 text-sm md:text-base">Take Photo</p>
+                  <p className="text-xs md:text-sm text-gray-500">Use your camera</p>
                 </div>
               </div>
 
@@ -394,21 +394,21 @@ export default function UploadPage() {
                     ref={videoRef}
                     autoPlay
                     playsInline
-                    className="w-full max-w-md mx-auto rounded-lg"
+                    className="w-full max-w-sm md:max-w-md mx-auto rounded-lg"
                   />
                   <canvas ref={canvasRef} className="hidden" />
-                  <div className="flex justify-center space-x-4">
+                  <div className="flex flex-col sm:flex-row justify-center space-y-2 sm:space-y-0 sm:space-x-4">
                     <button
                       type="button"
                       onClick={startCamera}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      className="px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm md:text-base"
                     >
                       Start Camera
                     </button>
                     <button
                       type="button"
                       onClick={capturePhoto}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                      className="px-3 md:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm md:text-base"
                     >
                       Capture
                     </button>
@@ -418,7 +418,7 @@ export default function UploadPage() {
                         setShowCamera(false);
                         stopCamera();
                       }}
-                      className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                      className="px-3 md:px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm md:text-base"
                     >
                       Cancel
                     </button>
@@ -433,17 +433,17 @@ export default function UploadPage() {
                     <img
                       src={previewUrl}
                       alt="Preview"
-                      className="max-h-64 rounded-lg shadow-md"
+                      className="max-h-48 md:max-h-64 rounded-lg shadow-md max-w-full"
                     />
                     <button
                       type="button"
                       onClick={removeFile}
                       className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
                     >
-                      <IconX className="h-4 w-4" />
+                      <IconX className="h-3 w-3 md:h-4 md:w-4" />
                     </button>
                   </div>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-xs md:text-sm text-gray-600">
                     {selectedFile
                       ? `${selectedFile.name} (${(
                           selectedFile.size /
@@ -466,7 +466,7 @@ export default function UploadPage() {
               {errorMessage && (
                 <div className="flex items-center space-x-2 text-red-600">
                   <IconAlertCircle className="h-4 w-4" />
-                  <span className="text-sm">{errorMessage}</span>
+                  <span className="text-xs md:text-sm">{errorMessage}</span>
                 </div>
               )}
             </div>
@@ -486,7 +486,7 @@ export default function UploadPage() {
                       name: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm md:text-base"
                   placeholder="Enter your name"
                 />
               </div>
@@ -504,7 +504,7 @@ export default function UploadPage() {
                       description: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm md:text-base"
                   placeholder="Tell us about your art"
                 />
               </div>
@@ -513,7 +513,7 @@ export default function UploadPage() {
             {/* Progress Bar */}
             {uploadStatus !== "idle" && (
               <div className="space-y-2">
-                <div className="flex justify-between text-sm text-gray-600">
+                <div className="flex justify-between text-xs md:text-sm text-gray-600">
                   <span>
                     {uploadStatus === "uploading" && "Uploading to mural..."}
                     {uploadStatus === "generating" && "Generating video..."}
@@ -533,17 +533,17 @@ export default function UploadPage() {
             )}
 
             {/* Action Buttons */}
-            <div className="flex justify-between items-center">
-              <div className="flex space-x-4">
+            <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
                 <Link
                   href="/mural"
-                  className="text-blue-600 hover:text-blue-700 font-medium"
+                  className="text-blue-600 hover:text-blue-700 font-medium text-sm md:text-base text-center"
                 >
                   View Mural Wall →
                 </Link>
                 <Link
                   href="/video-status"
-                  className="text-green-600 hover:text-green-700 font-medium"
+                  className="text-green-600 hover:text-green-700 font-medium text-sm md:text-base text-center"
                 >
                   Video Status →
                 </Link>
@@ -552,7 +552,7 @@ export default function UploadPage() {
               <button
                 type="submit"
                 disabled={!previewUrl || isGeneratingVideo || isUploading}
-                className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                className={`px-4 md:px-6 py-3 rounded-lg font-medium transition-colors text-sm md:text-base ${
                   !previewUrl || isGeneratingVideo || isUploading
                     ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                     : "bg-blue-600 text-white hover:bg-blue-700"
@@ -574,18 +574,18 @@ export default function UploadPage() {
           </form>
         </div>
 
-        {/* Preview Modal */}
+        {/* Preview Modal - Mobile responsive */}
         {showPreview && previewData && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
-            <div className="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4">
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-2 md:p-4">
+            <div className="bg-white rounded-lg md:rounded-2xl p-4 md:p-8 max-w-2xl w-full mx-2 md:mx-4 max-h-[90vh] overflow-y-auto">
+              <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">
                 Confirm Upload
               </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-4 md:mb-6">
                 {/* Image Preview */}
                 <div>
-                  <h4 className="font-medium text-gray-700 mb-2">Your Photo</h4>
+                  <h4 className="font-medium text-gray-700 mb-2 text-sm md:text-base">Your Photo</h4>
                   <img
                     src={previewData.imageUrl}
                     alt="Preview"
@@ -595,10 +595,10 @@ export default function UploadPage() {
 
                 {/* Video Preview - Real or Simulated */}
                 <div>
-                  <h4 className="font-medium text-gray-700 mb-2">
+                  <h4 className="font-medium text-gray-700 mb-2 text-sm md:text-base">
                     Generated Video
                   </h4>
-                  <div className="relative w-full h-48 bg-gray-100 rounded-lg shadow-md overflow-hidden">
+                  <div className="relative w-full h-40 md:h-48 bg-gray-100 rounded-lg shadow-md overflow-hidden">
                     {previewData.videoUrl &&
                     (previewData.videoUrl.startsWith(
                       "https://res.cloudinary.com"
@@ -623,10 +623,10 @@ export default function UploadPage() {
                       />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end">
-                      <div className="p-4 text-white">
+                      <div className="p-2 md:p-4 text-white">
                         <div className="flex items-center space-x-2">
-                          <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                          <span className="text-sm">Video Animation</span>
+                          <div className="w-2 h-2 md:w-3 md:h-3 bg-red-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs md:text-sm">Video Animation</span>
                         </div>
                         <p className="text-xs opacity-75 mt-1">
                           Simulated video generation effect
@@ -652,14 +652,14 @@ export default function UploadPage() {
               </div>
 
               {/* User Details */}
-              <div className="mb-6">
-                <h4 className="font-medium text-gray-700 mb-2">Details</h4>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p>
+              <div className="mb-4 md:mb-6">
+                <h4 className="font-medium text-gray-700 mb-2 text-sm md:text-base">Details</h4>
+                <div className="bg-gray-50 rounded-lg p-3 md:p-4">
+                  <p className="text-sm md:text-base">
                     <strong>Name:</strong>{" "}
                     {previewData.userDetails.name || "Anonymous"}
                   </p>
-                  <p>
+                  <p className="text-sm md:text-base">
                     <strong>Description:</strong>{" "}
                     {previewData.userDetails.description || "No description"}
                   </p>
@@ -667,17 +667,17 @@ export default function UploadPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex justify-end space-x-4">
+              <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4">
                 <button
                   onClick={handleCancelUpload}
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  className="px-4 md:px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm md:text-base"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirmUpload}
                   disabled={isUploading}
-                  className={`px-6 py-2 rounded-lg font-medium ${
+                  className={`px-4 md:px-6 py-2 rounded-lg font-medium text-sm md:text-base ${
                     isUploading
                       ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                       : "bg-green-600 text-white hover:bg-green-700"

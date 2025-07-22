@@ -31,8 +31,38 @@
   -webkit-filter: grayscale(50%) !important;
 } */
 
+/* Mobile responsive improvements */
+@media (max-width: 767px) {
+  /* Ensure text is readable on mobile */
+  body {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  
+  /* Improve button tap targets on mobile */
+  button, a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Better spacing for mobile */
+  .mobile-padding {
+    padding: 0.75rem;
+  }
+  
+  /* Prevent horizontal overflow */
+  * {
+    max-width: 100%;
+  }
+}
 
-
+/* Touch-friendly interactions */
+@media (hover: none) and (pointer: coarse) {
+  /* Remove hover effects on touch devices */
+  .hover\\:bg-opacity-50:hover {
+    background-opacity: 0.5;
+  }
+}
 
 /* @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"); */
 
@@ -135,6 +165,7 @@ html, body {
   user-select: none;
   backdrop-filter: blur(8px) saturate(1.2);
   -webkit-backdrop-filter: blur(8px) saturate(1.2);
+  padding: 0.5rem;
 }
 
 .quest-popup {
@@ -157,6 +188,50 @@ html, body {
   outline: 1.5px solid rgba(255,255,255,0.18);
   border: 1px solid rgba(0, 0, 0, 0.85);
   overflow: hidden;
+}
+
+/* Mobile responsive improvements for QuestPopup */
+@media (max-width: 767px) {
+  .quest-popup {
+    width: 98%;
+    height: 95%;
+    max-height: 95vh;
+    transform: translateY(0);
+    top: auto;
+    border-radius: 12px;
+  }
+  
+  .quest-header {
+    padding: 8px 16px;
+    font-size: 12px;
+  }
+  
+  .close-btn {
+    width: 16px;
+    height: 16px;
+    font-size: 18px;
+  }
+  
+  .quest-details-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .quest-details-npc {
+    width: 40px !important;
+    height: 40px !important;
+  }
+  
+  .quest-desc {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  
+  .quest-item {
+    padding: 0.75rem;
+    font-size: 14px;
+  }
 }
 
 .quest-header {

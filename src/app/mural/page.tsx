@@ -44,15 +44,33 @@ export default function MuralPage() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const animationContainerRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const bgVideoRef = useRef<HTMLVideoElement>(null);
 
-  // Grid dimensions
-  const GRID_ROWS = 10;
-  const GRID_COLS = 15;
+  // Responsive grid dimensions
+  const MOBILE_GRID_ROWS = 8;
+  const MOBILE_GRID_COLS = 6;
+  const DESKTOP_GRID_ROWS = 10;
+  const DESKTOP_GRID_COLS = 15;
+  
+  const GRID_ROWS = isMobile ? MOBILE_GRID_ROWS : DESKTOP_GRID_ROWS;
+  const GRID_COLS = isMobile ? MOBILE_GRID_COLS : DESKTOP_GRID_COLS;
   const TOTAL_CELLS = GRID_ROWS * GRID_COLS;
+
+  useEffect(() => {
+    // Check if mobile on mount and window resize
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     if (bgVideoRef.current) {
@@ -171,6 +189,12 @@ export default function MuralPage() {
     const centerX = x + width / 2;
     const centerY = y + height / 2;
 
+    // Mobile-responsive sizing
+    const mobileMaxWidth = Math.min(window.innerWidth - 32, 350);
+    const mobileMaxHeight = Math.min(window.innerHeight - 32, 350);
+    const desktopMaxWidth = 700;
+    const desktopMaxHeight = 700;
+
     switch (animationState.animationPhase) {
       case "enlarging":
         return {
@@ -190,6 +214,8 @@ export default function MuralPage() {
           transform: "translate(-50%, -50%) scale(1)",
           transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
           zIndex: 1000,
+          maxWidth: isMobile ? `${mobileMaxWidth}px` : `${desktopMaxWidth}px`,
+          maxHeight: isMobile ? `${mobileMaxHeight}px` : `${desktopMaxHeight}px`,
         };
       case "shrinking":
         return {
@@ -207,7 +233,7 @@ export default function MuralPage() {
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-b from-blue-200 to-blue-500 py-8 relative"
+      className="min-h-screen bg-gradient-to-b from-blue-200 to-blue-500 py-4 md:py-8 relative"
       style={{
         backgroundImage:
           animationState.animationPhase === "video-playing"
@@ -232,21 +258,21 @@ export default function MuralPage() {
         }}
         src="/videos/mural-background.mp4"
       />
-      <div className="max-w-7xl mx-auto px-4" style={{ position: "relative" }}>
-        {/* Header */}
-        <div className="text-center text-white p-4 m-4">
+      <div className="max-w-7xl mx-auto px-2 md:px-4" style={{ position: "relative" }}>
+        {/* Header - Responsive text sizing */}
+        <div className="text-center text-white p-2 md:p-4 m-2 md:m-4">
           <h1
-            className="text-8xl font-bold mb-2 tracking-widest "
+            className="text-3xl sm:text-4xl md:text-6xl lg:text-8xl font-bold mb-2 tracking-wider md:tracking-widest"
             style={{
               fontFamily: "'Acallon', sans-serif",
-              letterSpacing: "0.2em",
+              letterSpacing: isMobile ? "0.1em" : "0.2em",
               textShadow: "2px 2px 6px rgba(0, 0, 0, 0.4)",
             }}
           >
             CANVAS OF
           </h1>
           <div
-            className="text-4xl m-2"
+            className="text-lg sm:text-xl md:text-2xl lg:text-4xl m-1 md:m-2"
             style={{
               fontFamily: "'LePetitCochon', cursive",
               fontWeight: 400,
@@ -271,12 +297,16 @@ export default function MuralPage() {
           >
             <div
               className={
-                // Make the animation video/image much larger during video-playing and image-showing
+                // Mobile-responsive animation container
                 ["video-playing", "image-showing"].includes(
                   animationState.animationPhase
                 )
-                  ? "relative w-[700px] h-[700px] max-w-3xl max-h-3xl mx-auto my-auto z-50"
-                  : "relative w-96 h-96 max-w-2xl max-h-2xl mx-auto my-auto z-50"
+                  ? `relative mx-auto my-auto z-50 ${
+                      isMobile 
+                        ? "w-[90vw] h-[50vh] max-w-sm max-h-96" 
+                        : "w-[700px] h-[700px] max-w-3xl max-h-3xl"
+                    }`
+                  : "relative w-48 h-48 md:w-96 md:h-96 max-w-2xl max-h-2xl mx-auto my-auto z-50"
               }
               style={getAnimationStyles()}
             >
@@ -307,10 +337,10 @@ export default function MuralPage() {
                     />
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent flex items-end rounded-lg">
-                    <div className="p-4 text-white">
+                    <div className="p-2 md:p-4 text-white">
                       <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                        <span className="text-sm">
+                        <div className="w-2 h-2 md:w-3 md:h-3 bg-red-500 rounded-full animate-pulse"></div>
+                        <span className="text-xs md:text-sm">
                           Playing Video Animation...
                         </span>
                       </div>
@@ -339,7 +369,7 @@ export default function MuralPage() {
               )}
 
               {/* Animation Controls */}
-              <div className="absolute top-4 right-4 flex space-x-2">
+              <div className="absolute top-2 right-2 md:top-4 md:right-4 flex space-x-2">
                 <button
                   onClick={() =>
                     setAnimationState({
@@ -348,9 +378,9 @@ export default function MuralPage() {
                       animationPhase: "idle",
                     })
                   }
-                  className="p-2 bg-white/20 rounded-full hover:bg-opacity-30 transition-colors"
+                  className="p-1 md:p-2 bg-white/20 rounded-full hover:bg-opacity-30 transition-colors"
                 >
-                  <IconX className="h-4 w-4 text-white" />
+                  <IconX className="h-3 w-3 md:h-4 md:w-4 text-white" />
                 </button>
               </div>
             </div>
@@ -358,9 +388,9 @@ export default function MuralPage() {
         )}
 
         {/* Mural Grid */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-10">
+        <div className="bg-white rounded-lg md:rounded-2xl shadow-xl p-4 md:p-8 mb-6 md:mb-10">
           <div className="text-center text-gray-500 text-sm mb-4">
-            <h1 className="text-4xl font-bold mb-2">Our Story, Our Mural</h1>
+            <h1 className="text-2xl md:text-4xl font-bold mb-2">Our Story, Our Mural</h1>
           </div>
           <div
             ref={gridRef}
@@ -368,6 +398,7 @@ export default function MuralPage() {
             style={{
               gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
               gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
+              minHeight: isMobile ? "300px" : "600px",
             }}
           >
             {Array.from({ length: TOTAL_CELLS }, (_, index) => {
@@ -379,7 +410,7 @@ export default function MuralPage() {
                 <div
                   key={index}
                   className={`
-                    aspect-square  border-2 transition-all duration-300 overflow-hidden
+                    aspect-square border-2 transition-all duration-300 overflow-hidden
                     ${
                       item
                         ? "border-gray-300 bg-white hover:border-blue-400 cursor-pointer"
@@ -392,14 +423,13 @@ export default function MuralPage() {
                         : ""
                     }
                   `}
+                  style={{
+                    minHeight: isMobile ? "40px" : "60px",
+                  }}
                   onClick={(e) => item && startAnimation(item, e)}
                 >
                   {item ? (
                     <div className="relative w-full h-full group">
-                      {/* <div className="absolute top-0 left-0 text-xs bg-white/50 p-1 z-20">
-                        {index}
-                      </div> */}
-
                       <img
                         src={item.imageUrl}
                         alt={`Artwork by ${item.userDetails.name}`}
@@ -407,13 +437,12 @@ export default function MuralPage() {
                         style={{
                           backgroundColor: "transparent",
                           zIndex: 1,
-                          display: "block", // Force display
-                          position: "relative", // Ensure positioning
+                          display: "block",
+                          position: "relative",
                         }}
                         onError={(e) => {
                           console.error("Failed to load image:", item.imageUrl);
                           e.currentTarget.style.display = "none";
-                          // Show fallback content
                           const fallback =
                             e.currentTarget.parentElement?.querySelector(
                               ".image-fallback"
@@ -427,31 +456,23 @@ export default function MuralPage() {
                             "Successfully loaded image:",
                             item.imageUrl
                           );
-                          console.log(
-                            "Image dimensions:",
-                            e.currentTarget.naturalWidth,
-                            "x",
-                            e.currentTarget.naturalHeight
-                          );
-                          console.log("Image element:", e.currentTarget);
-                          // Force the image to be visible
                           e.currentTarget.style.opacity = "1";
                           e.currentTarget.style.visibility = "visible";
                         }}
                       />
                       {/* Fallback when image fails to load */}
-                      <div className="image-fallback hidden absolute inset-0 bg-gray-200  flex items-center justify-center">
+                      <div className="image-fallback hidden absolute inset-0 bg-gray-200 flex items-center justify-center">
                         <div className="text-center text-gray-500">
                           <div className="text-xs mb-1">Image not found</div>
                           <div className="text-xs">{item.userDetails.name}</div>
                         </div>
                       </div>
-                      {/* Hover overlay - only show on hover */}
-                      <div className=" bg-white group-hover:bg-opacity-50 transition-all duration-300 flex items-center justify-center pointer-events-none">
-                        <IconPlayerPlay className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      {/* Hover overlay - only show on hover for desktop */}
+                      <div className="hidden md:flex bg-white group-hover:bg-opacity-50 transition-all duration-300 items-center justify-center pointer-events-none">
+                        <IconPlayerPlay className="h-6 w-6 lg:h-8 lg:w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
-                      {/* User name badge */}
-                      <div className="absolute bottom-0 bg-black/50 bg-opacity-75 text-white text-xs px-1 py-0.5 rounded z-10">
+                      {/* User name badge - responsive sizing */}
+                      <div className="absolute bottom-0 bg-black/50 bg-opacity-75 text-white text-xs px-1 py-0.5 rounded z-10 truncate max-w-full">
                         {item.userDetails.name}
                       </div>
                     </div>
@@ -466,13 +487,13 @@ export default function MuralPage() {
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center space-x-4">
+        {/* Controls - Mobile responsive */}
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 space-y-4 md:space-y-0">
+          <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
             <button
               onClick={handleRefresh}
               disabled={isLoading}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm md:text-base"
             >
               <IconRefresh
                 className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
@@ -482,7 +503,7 @@ export default function MuralPage() {
 
             <button
               onClick={toggleMute}
-              className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm md:text-base"
             >
               {isMuted ? (
                 <IconVolumeOff className="h-4 w-4" />
@@ -495,31 +516,31 @@ export default function MuralPage() {
 
           <Link
             href="/upload"
-            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            className="px-4 md:px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-center text-sm md:text-base"
           >
             Upload Your Art
           </Link>
         </div>
 
-        {/* Stats */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-lg p-6 text-center">
-            <div className="text-2xl font-bold text-blue-600">
+        {/* Stats - Mobile responsive grid */}
+        <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white rounded-lg p-4 md:p-6 text-center">
+            <div className="text-xl md:text-2xl font-bold text-blue-600">
               {muralItems.length}
             </div>
-            <div className="text-sm text-gray-600">Artworks Uploaded</div>
+            <div className="text-xs md:text-sm text-gray-600">Artworks Uploaded</div>
           </div>
-          <div className="bg-white rounded-lg p-6 text-center">
-            <div className="text-2xl font-bold text-green-600">
+          <div className="bg-white rounded-lg p-4 md:p-6 text-center">
+            <div className="text-xl md:text-2xl font-bold text-green-600">
               {TOTAL_CELLS - muralItems.length}
             </div>
-            <div className="text-sm text-gray-600">Spaces Available</div>
+            <div className="text-xs md:text-sm text-gray-600">Spaces Available</div>
           </div>
-          <div className="bg-white rounded-lg p-6 text-center">
-            <div className="text-2xl font-bold text-purple-600">
+          <div className="bg-white rounded-lg p-4 md:p-6 text-center">
+            <div className="text-xl md:text-2xl font-bold text-purple-600">
               {Math.round((muralItems.length / TOTAL_CELLS) * 100)}%
             </div>
-            <div className="text-sm text-gray-600">Wall Complete</div>
+            <div className="text-xs md:text-sm text-gray-600">Wall Complete</div>
           </div>
         </div>
       </div>
