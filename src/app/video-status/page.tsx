@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import {
   IconRefresh,
   IconDownload,
-  IconPlayerPlay,
   IconAlertCircle,
   IconCheck,
   IconClock,
@@ -169,29 +168,6 @@ export default function VideoStatusPage() {
         return "text-blue-600 bg-blue-100";
       default:
         return "text-gray-600 bg-gray-100";
-    }
-  };
-
-  const handleDownload = async (task: VideoGenerationTask) => {
-    if (!task.downloadUrl) {
-      alert("Download URL not available");
-      return;
-    }
-
-    try {
-      const response = await fetch(task.downloadUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `video-${task.taskId}.mp4`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error("Download failed:", error);
-      alert("Download failed. Please try again.");
     }
   };
 
@@ -381,25 +357,16 @@ export default function VideoStatusPage() {
 
                     <div className="flex flex-col space-y-2 ml-4">
                       {task.status === "success" && task.downloadUrl && (
-                        <button
-                          onClick={() => handleDownload(task)}
-                          className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                        <a
+                          href={task.downloadUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-center justify-center"
+                          download
                         >
                           <IconDownload className="h-4 w-4" />
-                          <span>Download</span>
-                        </button>
-                      )}
-
-                      {task.status === "success" && (
-                        <button
-                          onClick={() =>
-                            window.open(task.downloadUrl, "_blank")
-                          }
-                          className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                          <IconPlayerPlay className="h-4 w-4" />
-                          <span>Play</span>
-                        </button>
+                          <span>Download Video</span>
+                        </a>
                       )}
                     </div>
                   </div>

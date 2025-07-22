@@ -49,27 +49,42 @@ export default function MuralPage() {
   const animationContainerRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const bgVideoRef = useRef<HTMLVideoElement>(null);
+  // Add refs for timeouts and preloaded videos
+  const animationTimeoutsRef = useRef<number[]>([]);
+  const preloadedVideosRef = useRef<Map<string, HTMLVideoElement>>(new Map());
 
   // Responsive grid dimensions
   const MOBILE_GRID_ROWS = 8;
   const MOBILE_GRID_COLS = 6;
   const DESKTOP_GRID_ROWS = 10;
   const DESKTOP_GRID_COLS = 15;
-  
+
   const GRID_ROWS = isMobile ? MOBILE_GRID_ROWS : DESKTOP_GRID_ROWS;
   const GRID_COLS = isMobile ? MOBILE_GRID_COLS : DESKTOP_GRID_COLS;
   const TOTAL_CELLS = GRID_ROWS * GRID_COLS;
+
+  // listen to shortcut key
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "e" && !isLoading) {
+        event.preventDefault();
+        handleRefresh();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isLoading]);
 
   useEffect(() => {
     // Check if mobile on mount and window resize
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    
+
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    return () => window.removeEventListener('resize', checkMobile);
+    window.addEventListener("resize", checkMobile);
+
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   useEffect(() => {
@@ -125,6 +140,10 @@ export default function MuralPage() {
   };
 
   const startAnimation = (item: MuralItem, event: React.MouseEvent) => {
+    // Clear all previous animation timeouts
+    animationTimeoutsRef.current.forEach((id) => clearTimeout(id));
+    animationTimeoutsRef.current = [];
+
     // Get the clicked element's position and dimensions
     const clickedElement = event.currentTarget as HTMLElement;
     const rect = clickedElement.getBoundingClientRect();
@@ -142,37 +161,72 @@ export default function MuralPage() {
     });
 
     // Enlarge animation (0.3s)
-    setTimeout(() => {
+    const t1 = window.setTimeout(() => {
       setAnimationState((prev) => ({
         ...prev,
         animationPhase: "video-playing",
       }));
 
-      // Simulate video playback (3s)
-      setTimeout(() => {
+      // Simulate video playback (5s)
+      const t2 = window.setTimeout(() => {
         setAnimationState((prev) => ({
           ...prev,
           animationPhase: "image-showing",
         }));
 
         // Show static image (0.3s)
-        setTimeout(() => {
+        const t3 = window.setTimeout(() => {
           setAnimationState((prev) => ({
             ...prev,
             animationPhase: "shrinking",
           }));
 
           // Shrink back to grid (0.3s)
-          setTimeout(() => {
+          const t4 = window.setTimeout(() => {
             setAnimationState({
               isPlaying: false,
               currentItem: null,
               animationPhase: "idle",
             });
           }, 300);
+          animationTimeoutsRef.current.push(t4);
         }, 300);
+        animationTimeoutsRef.current.push(t3);
       }, 5000);
+      animationTimeoutsRef.current.push(t2);
     }, 300);
+    animationTimeoutsRef.current.push(t1);
+  };
+
+  // Clean up timeouts on unmount
+  useEffect(() => {
+    return () => {
+      animationTimeoutsRef.current.forEach((id) => clearTimeout(id));
+      animationTimeoutsRef.current = [];
+    };
+  }, []);
+
+  // Preload video on hover
+  const handleGridItemMouseEnter = (item: MuralItem) => {
+    if (!item.videoUrl) return;
+    if (preloadedVideosRef.current.has(item.videoUrl)) return;
+    const video = document.createElement("video");
+    video.src = item.videoUrl;
+    video.preload = "auto";
+    video.muted = true;
+    video.style.display = "none";
+    document.body.appendChild(video);
+    preloadedVideosRef.current.set(item.videoUrl, video);
+  };
+
+  const handleGridItemMouseLeave = (item: MuralItem) => {
+    if (!item.videoUrl) return;
+    const video = preloadedVideosRef.current.get(item.videoUrl);
+    if (video) {
+      video.pause();
+      video.remove();
+      preloadedVideosRef.current.delete(item.videoUrl);
+    }
   };
 
   const toggleMute = () => {
@@ -215,7 +269,9 @@ export default function MuralPage() {
           transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
           zIndex: 1000,
           maxWidth: isMobile ? `${mobileMaxWidth}px` : `${desktopMaxWidth}px`,
-          maxHeight: isMobile ? `${mobileMaxHeight}px` : `${desktopMaxHeight}px`,
+          maxHeight: isMobile
+            ? `${mobileMaxHeight}px`
+            : `${desktopMaxHeight}px`,
         };
       case "shrinking":
         return {
@@ -258,7 +314,10 @@ export default function MuralPage() {
         }}
         src="/videos/mural-background.mp4"
       />
-      <div className="max-w-7xl mx-auto px-2 md:px-4" style={{ position: "relative" }}>
+      <div
+        className="max-w-7xl mx-auto px-2 md:px-4"
+        style={{ position: "relative" }}
+      >
         {/* Header - Responsive text sizing */}
         <div className="text-center text-white p-2 md:p-4 m-2 md:m-4">
           <h1
@@ -302,8 +361,8 @@ export default function MuralPage() {
                   animationState.animationPhase
                 )
                   ? `relative mx-auto my-auto z-50 ${
-                      isMobile 
-                        ? "w-[90vw] h-[50vh] max-w-sm max-h-96" 
+                      isMobile
+                        ? "w-[90vw] h-[50vh] max-w-sm max-h-96"
                         : "w-[700px] h-[700px] max-w-3xl max-h-3xl"
                     }`
                   : "relative w-48 h-48 md:w-96 md:h-96 max-w-2xl max-h-2xl mx-auto my-auto z-50"
@@ -388,9 +447,17 @@ export default function MuralPage() {
         )}
 
         {/* Mural Grid */}
-        <div className="bg-white rounded-lg md:rounded-2xl shadow-xl p-4 md:p-8 mb-6 md:mb-10">
+        <div className="bg-white/0 rounded-lg md:rounded-2xl shadow-xl p-4 md:p-8 mb-6 md:mb-10">
           <div className="text-center text-gray-500 text-sm mb-4">
-            <h1 className="text-2xl md:text-4xl font-bold mb-2">Our Story, Our Mural</h1>
+            <h1
+              className="text-2xl md:text-4xl font-bold mb-2"
+              style={{
+                fontFamily: "'Acallon', sans-serif",
+                letterSpacing: isMobile ? "0.1em" : "0.2em",
+              }}
+            >
+              Our Story, Our Mural
+            </h1>
           </div>
           <div
             ref={gridRef}
@@ -410,7 +477,7 @@ export default function MuralPage() {
                 <div
                   key={index}
                   className={`
-                    aspect-square border-2 transition-all duration-300 overflow-hidden
+                    aspect-square border-2 transition-all duration-300 overflow-hidden 
                     ${
                       item
                         ? "border-gray-300 bg-white hover:border-blue-400 cursor-pointer"
@@ -427,6 +494,8 @@ export default function MuralPage() {
                     minHeight: isMobile ? "40px" : "60px",
                   }}
                   onClick={(e) => item && startAnimation(item, e)}
+                  onMouseEnter={() => item && handleGridItemMouseEnter(item)}
+                  onMouseLeave={() => item && handleGridItemMouseLeave(item)}
                 >
                   {item ? (
                     <div className="relative w-full h-full group">
@@ -528,19 +597,25 @@ export default function MuralPage() {
             <div className="text-xl md:text-2xl font-bold text-blue-600">
               {muralItems.length}
             </div>
-            <div className="text-xs md:text-sm text-gray-600">Artworks Uploaded</div>
+            <div className="text-xs md:text-sm text-gray-600">
+              Artworks Uploaded
+            </div>
           </div>
           <div className="bg-white rounded-lg p-4 md:p-6 text-center">
             <div className="text-xl md:text-2xl font-bold text-green-600">
               {TOTAL_CELLS - muralItems.length}
             </div>
-            <div className="text-xs md:text-sm text-gray-600">Spaces Available</div>
+            <div className="text-xs md:text-sm text-gray-600">
+              Spaces Available
+            </div>
           </div>
           <div className="bg-white rounded-lg p-4 md:p-6 text-center">
             <div className="text-xl md:text-2xl font-bold text-purple-600">
               {Math.round((muralItems.length / TOTAL_CELLS) * 100)}%
             </div>
-            <div className="text-xs md:text-sm text-gray-600">Wall Complete</div>
+            <div className="text-xs md:text-sm text-gray-600">
+              Wall Complete
+            </div>
           </div>
         </div>
       </div>

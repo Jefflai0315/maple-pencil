@@ -133,14 +133,25 @@ export async function POST(request: NextRequest) {
     const db = client.db("mural-app");
     const collection = db.collection("mural-items");
 
-    // Get next grid position
-    const count = await collection.countDocuments();
+    // Get next available grid position
+    const items = await collection
+      .find({}, { projection: { gridPosition: 1 } })
+      .toArray();
+    const usedPositions = new Set(
+      items
+        .map((item) => item.gridPosition)
+        .filter((pos) => typeof pos === "number" && !isNaN(pos))
+    );
+    let nextPosition = 0;
+    while (usedPositions.has(nextPosition)) {
+      nextPosition++;
+    }
 
     // Create new item
     const newItem: MuralItem = {
       imageUrl: result.secure_url,
       videoUrl: videoUrl || "video-placeholder",
-      gridPosition: count, // Sequential positioning
+      gridPosition: nextPosition, // Use next available position
       timestamp: new Date().toISOString(),
       userDetails: {
         name: name || "Anonymous",

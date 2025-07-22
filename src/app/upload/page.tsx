@@ -13,6 +13,7 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { videoPrompt } from "../utils/constants";
 
 interface PreviewData {
   imageUrl: string;
@@ -21,6 +22,43 @@ interface PreviewData {
     name: string;
     description: string;
   };
+}
+
+// Utility function to resize image
+function resizeImage(
+  dataUrl: string,
+  maxWidth = 800,
+  maxHeight = 800,
+  quality = 0.85
+) {
+  return new Promise<string>((resolve) => {
+    const img = new window.Image();
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxWidth || height > maxHeight) {
+        const aspect = width / height;
+        if (width > height) {
+          width = maxWidth;
+          height = Math.round(maxWidth / aspect);
+        } else {
+          height = maxHeight;
+          width = Math.round(maxHeight * aspect);
+        }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      } else {
+        // fallback: return original if context fails
+        resolve(dataUrl);
+      }
+    };
+    img.src = dataUrl;
+  });
 }
 
 export default function UploadPage() {
@@ -42,6 +80,12 @@ export default function UploadPage() {
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  // Add state to keep last generated video preview visible
+  const [lastVideoPreview, setLastVideoPreview] = useState<PreviewData | null>(
+    null
+  );
+  // Add state for advanced prompt
+  const [advancedPrompt, setAdvancedPrompt] = useState(videoPrompt);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -138,12 +182,14 @@ export default function UploadPage() {
         context.drawImage(video, 0, 0);
 
         const imageDataUrl = canvas.toDataURL("image/jpeg");
-        setCapturedImage(imageDataUrl);
-        setPreviewUrl(imageDataUrl);
-        setSelectedFile(null); // Clear uploaded file
-        setShowCamera(false); // Hide camera interface
-
-        stopCamera();
+        // Resize the captured image before using it
+        resizeImage(imageDataUrl, 800, 800, 0.85).then((resizedDataUrl) => {
+          setCapturedImage(resizedDataUrl);
+          setPreviewUrl(resizedDataUrl);
+          setSelectedFile(null); // Clear uploaded file
+          setShowCamera(false); // Hide camera interface
+          stopCamera();
+        });
       }
     }
   };
@@ -160,7 +206,7 @@ export default function UploadPage() {
         provider,
         previewUrl,
         userDetails,
-        "Create a quick artistic video with smooth camera movements",
+        advancedPrompt,
         (status, progress) => {
           console.log(`Video generation: ${status} (${progress}%)`);
           setUploadProgress(progress || 0);
@@ -188,16 +234,30 @@ export default function UploadPage() {
     setUploadProgress(0);
 
     try {
-      // Simulate progress
+      // Simulate progress (smoother, less stuck)
+      const start = Date.now();
+      const totalDuration = 32000; // 32 seconds
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
+          const elapsed = Date.now() - start;
+          let nextProgress;
+          if (elapsed < totalDuration * 0.5) {
+            // Fast to 50%
+            nextProgress = Math.min(50, prev + 1);
+          } else if (elapsed < totalDuration * 0.8) {
+            // Slower to 80%
+            nextProgress = Math.min(80, prev + 0.5);
+          } else {
+            // Crawl to 98%
+            nextProgress = Math.min(98, prev + 0.1);
           }
-          return prev + 10;
+          if (nextProgress >= 98) {
+            clearInterval(progressInterval);
+            return 98;
+          }
+          return nextProgress;
         });
-      }, 300);
+      }, 100);
 
       // Generate video
       const videoUrl = await generateVideo();
@@ -213,7 +273,7 @@ export default function UploadPage() {
       };
 
       setPreviewData(preview);
-      setUploadStatus("confirming");
+      setLastVideoPreview(preview);
       setShowPreview(true);
     } catch (error) {
       console.error("Video generation failed:", error);
@@ -264,6 +324,7 @@ export default function UploadPage() {
       formData.append("name", previewData.userDetails.name);
       formData.append("description", previewData.userDetails.description);
       formData.append("videoUrl", previewData.videoUrl);
+      formData.append("prompt", advancedPrompt);
 
       // Add upload source information
       const uploadSource = capturedImage ? "camera" : "file";
@@ -370,7 +431,9 @@ export default function UploadPage() {
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <IconUpload className="mx-auto h-6 w-6 md:h-8 md:w-8 text-gray-400 mb-2" />
-                  <p className="font-medium text-gray-900 text-sm md:text-base">Upload Photo</p>
+                  <p className="font-medium text-gray-900 text-sm md:text-base">
+                    Upload Photo
+                  </p>
                   <p className="text-xs md:text-sm text-gray-500">
                     Drag & drop or click to browse
                   </p>
@@ -382,8 +445,12 @@ export default function UploadPage() {
                   onClick={() => setShowCamera(true)}
                 >
                   <IconCamera className="mx-auto h-6 w-6 md:h-8 md:w-8 text-gray-400 mb-2" />
-                  <p className="font-medium text-gray-900 text-sm md:text-base">Take Photo</p>
-                  <p className="text-xs md:text-sm text-gray-500">Use your camera</p>
+                  <p className="font-medium text-gray-900 text-sm md:text-base">
+                    Take Photo
+                  </p>
+                  <p className="text-xs md:text-sm text-gray-500">
+                    Use your camera
+                  </p>
                 </div>
               </div>
 
@@ -475,11 +542,12 @@ export default function UploadPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Your Name (Optional)
+                  Your Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={userDetails.name}
+                  required
                   onChange={(e) =>
                     setUserDetails((prev) => ({
                       ...prev,
@@ -510,6 +578,23 @@ export default function UploadPage() {
               </div>
             </div>
 
+            {/* Advanced Prompt */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Advanced Prompt
+              </label>
+              <textarea
+                value={advancedPrompt}
+                onChange={(e) => setAdvancedPrompt(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm md:text-base"
+                rows={4}
+                placeholder="Enter a custom prompt for video generation"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                You can edit the prompt to customize the video generation.
+              </p>
+            </div>
+
             {/* Progress Bar */}
             {uploadStatus !== "idle" && (
               <div className="space-y-2">
@@ -534,21 +619,6 @@ export default function UploadPage() {
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
-              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-                <Link
-                  href="/mural"
-                  className="text-blue-600 hover:text-blue-700 font-medium text-sm md:text-base text-center"
-                >
-                  View Mural Wall →
-                </Link>
-                <Link
-                  href="/video-status"
-                  className="text-green-600 hover:text-green-700 font-medium text-sm md:text-base text-center"
-                >
-                  Video Status →
-                </Link>
-              </div>
-
               <button
                 type="submit"
                 disabled={!previewUrl || isGeneratingVideo || isUploading}
@@ -573,6 +643,20 @@ export default function UploadPage() {
             </div>
           </form>
         </div>
+        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 mt-8">
+          <Link
+            href="/mural"
+            className="text-blue-600 hover:text-blue-700 font-medium text-sm md:text-base text-center"
+          >
+            View Mural Wall →
+          </Link>
+          <Link
+            href="/video-status"
+            className="text-green-600 hover:text-green-700 font-medium text-sm md:text-base text-center"
+          >
+            Video Status →
+          </Link>
+        </div>
 
         {/* Preview Modal - Mobile responsive */}
         {showPreview && previewData && (
@@ -585,7 +669,9 @@ export default function UploadPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-4 md:mb-6">
                 {/* Image Preview */}
                 <div>
-                  <h4 className="font-medium text-gray-700 mb-2 text-sm md:text-base">Your Photo</h4>
+                  <h4 className="font-medium text-gray-700 mb-2 text-sm md:text-base">
+                    Your Photo
+                  </h4>
                   <img
                     src={previewData.imageUrl}
                     alt="Preview"
@@ -598,7 +684,10 @@ export default function UploadPage() {
                   <h4 className="font-medium text-gray-700 mb-2 text-sm md:text-base">
                     Generated Video
                   </h4>
-                  <div className="relative w-full h-40 md:h-48 bg-gray-100 rounded-lg shadow-md overflow-hidden">
+                  <div
+                    className="relative w-full bg-gray-100 rounded-lg shadow-md overflow-hidden"
+                    style={{ aspectRatio: "auto" }}
+                  >
                     {previewData.videoUrl &&
                     (previewData.videoUrl.startsWith(
                       "https://res.cloudinary.com"
@@ -609,30 +698,21 @@ export default function UploadPage() {
                       <video
                         src={previewData.videoUrl}
                         controls
-                        autoPlay
+                        autoPlay={false}
                         muted
-                        className="w-full h-full object-cover"
-                        style={{ borderRadius: 8, background: "#000" }}
+                        className="w-full h-full object-contain rounded-lg"
+                        style={{ background: "#000", maxHeight: 400 }}
                       />
                     ) : (
                       // Fallback: Simulated animation
                       <img
                         src={previewData.imageUrl}
                         alt="Video Preview"
-                        className="w-full h-full object-cover animate-pulse"
+                        className="w-full h-full object-contain rounded-lg"
+                        style={{ maxHeight: 400 }}
                       />
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end">
-                      <div className="p-2 md:p-4 text-white">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-2 h-2 md:w-3 md:h-3 bg-red-500 rounded-full animate-pulse"></div>
-                          <span className="text-xs md:text-sm">Video Animation</span>
-                        </div>
-                        <p className="text-xs opacity-75 mt-1">
-                          Simulated video generation effect
-                        </p>
-                      </div>
-                    </div>
+
                     <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
                       DEMO
                     </div>
@@ -653,7 +733,9 @@ export default function UploadPage() {
 
               {/* User Details */}
               <div className="mb-4 md:mb-6">
-                <h4 className="font-medium text-gray-700 mb-2 text-sm md:text-base">Details</h4>
+                <h4 className="font-medium text-gray-700 mb-2 text-sm md:text-base">
+                  Details
+                </h4>
                 <div className="bg-gray-50 rounded-lg p-3 md:p-4">
                   <p className="text-sm md:text-base">
                     <strong>Name:</strong>{" "}
@@ -713,6 +795,47 @@ export default function UploadPage() {
                   Your image has been uploaded and is being processed. Check the
                   mural wall to see your art!
                 </p>
+              </div>
+            </div>
+          </div>
+        )}
+        {lastVideoPreview && (
+          <div className="mt-8">
+            <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-2">
+              Last Generated Video Preview
+            </h2>
+            <div className="w-full max-w-lg mx-auto bg-white rounded-lg shadow-md p-4">
+              <div className="relative w-full" style={{ aspectRatio: "auto" }}>
+                {lastVideoPreview.videoUrl &&
+                (lastVideoPreview.videoUrl.startsWith(
+                  "https://res.cloudinary.com"
+                ) ||
+                  lastVideoPreview.videoUrl.startsWith(
+                    "https://d1q70pf5vjeyhc.cloudfront.net"
+                  )) ? (
+                  <video
+                    src={lastVideoPreview.videoUrl}
+                    controls
+                    autoPlay={false}
+                    muted
+                    className="w-full h-full object-contain rounded-lg"
+                    style={{ background: "#000", maxHeight: 400 }}
+                  />
+                ) : (
+                  <img
+                    src={lastVideoPreview.imageUrl}
+                    alt="Video Preview"
+                    className="w-full h-full object-contain rounded-lg"
+                    style={{ maxHeight: 400 }}
+                  />
+                )}
+              </div>
+              <div className="mt-2 text-sm text-gray-700">
+                <strong>Name:</strong>{" "}
+                {lastVideoPreview.userDetails.name || "Anonymous"}
+                <br />
+                <strong>Description:</strong>{" "}
+                {lastVideoPreview.userDetails.description || "No description"}
               </div>
             </div>
           </div>

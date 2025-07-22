@@ -159,3 +159,6 @@ export const sectionContent = {
   //   buttons: ["SEND MESSAGE", "FAQ", "SUPPORT", "FEEDBACK"],
   // },
 };
+
+export const videoPrompt =
+  "Transform this doodle into an animated, artistic scene. Begin with the original sketch, then evolve it into a richly detailed, stylized version using painterly textures, expressive brushstrokes, and creative visual elements. Maintain the core subject while adding flowing, imaginative motion that brings the drawing to life.";

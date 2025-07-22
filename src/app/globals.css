@@ -56,13 +56,8 @@
   }
 }
 
-/* Touch-friendly interactions */
-@media (hover: none) and (pointer: coarse) {
-  /* Remove hover effects on touch devices */
-  .hover\\:bg-opacity-50:hover {
-    background-opacity: 0.5;
-  }
-}
+
+
 
 /* @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"); */
 
