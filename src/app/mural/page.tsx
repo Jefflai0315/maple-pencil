@@ -519,7 +519,7 @@ export default function MuralPage() {
               width: `${PLANE_WIDTH + FLAG_WIDTH}px`,
               height: `${PLANE_HEIGHT}px`,
               gap: "16px",
-              zIndex: 10,
+              zIndex: 0,
               animation: `muralPromptFloat-${prompt.direction} ${prompt.duration}ms linear forwards`,
               "--wobble-amp": `${prompt.wobbleAmp}px`,
               "--rotate": `${prompt.rotate}deg`,
@@ -575,8 +575,9 @@ export default function MuralPage() {
                       zIndex: 1,
                       pointerEvents: "none",
                       userSelect: "none",
+                      rotate: prompt.direction === "rl" ? "-4deg" : "4deg",
                       transform:
-                        prompt.direction === "rl" ? "none" : "scaleX(-1)",
+                        prompt.direction === "rl" ? "none" : "scaleX(-1) ",
                     }}
                     draggable={false}
                   />
@@ -590,11 +591,12 @@ export default function MuralPage() {
                       color: "#000",
                       textShadow: "0 2px 12px rgba(0,0,0,0.18)",
                       letterSpacing: "0.03em",
-
+                      padding: "2px ",
                       whiteSpace: "normal",
                       lineHeight: "1.2",
                       pointerEvents: "none",
                       userSelect: "none",
+                      fontFamily: "'quicksand', sans-serif",
                     }}
                   >
                     {prompt.text}
