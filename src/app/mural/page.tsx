@@ -7,6 +7,7 @@ import {
   IconVolume,
   IconVolumeOff,
   IconX,
+  IconBrush,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { muralPromptThemes } from "../utils/constants";
@@ -402,6 +403,19 @@ export default function MuralPage() {
   const FLAG_WIDTH = 350; // px, adjust to your flag image and desired text area
   const PLANE_HEIGHT = 120; // px, adjust to your images
 
+  const pastelColors = [
+    "#FFD6E0", // pink
+    "#FFF5BA", // yellow
+    "#B5EAD7", // mint
+    "#C7CEEA", // lavender
+    "#FFDAC1", // peach
+    "#E2F0CB", // light green
+    "#B5D8FA", // light blue
+    "#FFB7B2", // coral
+    "#D5C6E0", // purple
+    "#F6DFEB", // blush
+  ];
+
   return (
     <>
       <style jsx global>{`
@@ -770,11 +784,11 @@ export default function MuralPage() {
               <h1
                 className="text-2xl md:text-4xl font-bold mb-2"
                 style={{
-                  fontFamily: "'Acallon', sans-serif",
+                  fontFamily: "'LePetitCochon',sans-serif",
                   letterSpacing: isMobile ? "0.1em" : "0.2em",
                 }}
               >
-                Our Story, Our Mural
+                OUR STORY, OUR MURAL
               </h1>
             </div>
             <div
@@ -790,26 +804,24 @@ export default function MuralPage() {
                 const item = muralItems.find(
                   (item) => item.gridPosition === index
                 );
-
+                // Pick a pastel color for empty cells
+                const randomColor = pastelColors[index % pastelColors.length];
                 return (
                   <div
                     key={index}
-                    className={`
-                      aspect-square border-2 transition-all duration-300 overflow-hidden 
-                      ${
-                        item
-                          ? "border-gray-300 bg-white hover:border-blue-400 cursor-pointer"
-                          : "border-dashed border-gray-200 bg-gray-50"
-                      }
-                      ${
-                        animationState.currentItem?.gridPosition === index &&
-                        animationState.animationPhase === "placing"
-                          ? "scale-110 border-blue-500"
-                          : ""
-                      }
-                    `}
+                    className={
+                      `aspect-square border-2 transition-all duration-300 overflow-hidden ` +
+                      (item
+                        ? "border-gray-300 bg-white hover:border-blue-400 cursor-pointer"
+                        : "border-dashed border-gray-200") +
+                      (animationState.currentItem?.gridPosition === index &&
+                      animationState.animationPhase === "placing"
+                        ? " scale-110 border-blue-500"
+                        : "")
+                    }
                     style={{
                       minHeight: isMobile ? "40px" : "60px",
+                      background: item ? undefined : randomColor,
                     }}
                     onClick={(e) => item && startAnimation(item, e)}
                     onMouseEnter={() => item && handleGridItemMouseEnter(item)}
@@ -864,13 +876,13 @@ export default function MuralPage() {
                           <IconPlayerPlay className="h-6 w-6 lg:h-8 lg:w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
                         {/* User name badge - responsive sizing */}
-                        <div className="absolute bottom-0 bg-black/50 bg-opacity-75 text-white text-xs px-1 py-0.5 rounded z-10 truncate max-w-full">
+                        <div className="absolute bottom-0 bg-black/50 bg-opacity-75 text-white text-xs px-1 py-0.5 rounded z-10 truncate max-w-full font-quicksand">
                           {item.userDetails.name}
                         </div>
                       </div>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-gray-400">
-                        <span className="text-xs">Empty</span>
+                        <IconBrush className="h-4 w-4 lg:h-6 lg:w-6 stroke-1 text-gray-400  group-hover:opacity-100 transition-opacity" />
                       </div>
                     )}
                   </div>
@@ -881,7 +893,7 @@ export default function MuralPage() {
 
           {/* Stats - Mobile responsive grid */}
           <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white rounded-lg p-4 md:p-6 text-center">
+            <div className="bg-white/50 rounded-lg p-4 md:p-6 text-center">
               <div className="text-xl md:text-2xl font-bold text-blue-600 font-quicksand">
                 {muralItems.length}
               </div>
@@ -889,7 +901,7 @@ export default function MuralPage() {
                 Sketches Shared
               </div>
             </div>
-            <div className="bg-white rounded-lg p-4 md:p-6 text-center">
+            <div className="bg-white/50 rounded-lg p-4 md:p-6 text-center">
               <div className="text-xl md:text-2xl font-bold text-green-600 font-quicksand">
                 {TOTAL_CELLS - muralItems.length}
               </div>
@@ -897,7 +909,7 @@ export default function MuralPage() {
                 Room for More Magic
               </div>
             </div>
-            <div className="bg-white rounded-lg p-4 md:p-6 text-center">
+            <div className="bg-white/50 rounded-lg p-4 md:p-6 text-center">
               <div className="text-xl md:text-2xl font-bold text-purple-600 font-quicksand">
                 {Math.round((muralItems.length / TOTAL_CELLS) * 100)}%
               </div>
