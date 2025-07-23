@@ -76,6 +76,10 @@ export default function RootLayout({
         />
         <link rel="apple-touch-icon" href="/jeff-182x182.png" />
         <link rel="manifest" href="/manifest.json" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;700&display=swap"
+          rel="stylesheet"
+        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

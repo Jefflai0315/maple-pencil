@@ -15,6 +15,7 @@ interface MuralItem {
   id: string;
   imageUrl: string;
   videoUrl: string;
+  fallbackVideoUrl?: string;
   gridPosition: number;
   timestamp: string;
   userDetails: {
@@ -36,8 +37,7 @@ interface AnimationState {
   clickedPosition?: { x: number; y: number; width: number; height: number };
 }
 
-const PROMPT_ANIMATION_DURATION = 30000; // ms (slower base)
-const PROMPT_SPAWN_INTERVAL = 5000; // ms (slower spawn)
+const PROMPT_SPAWN_INTERVAL = 7500; // ms (slower spawn)
 
 const PROMPT_DIRECTIONS = ["lr", "rl"] as const;
 type PromptDirection = (typeof PROMPT_DIRECTIONS)[number];
@@ -59,6 +59,12 @@ export default function MuralPage() {
   // Add refs for timeouts and preloaded videos
   const animationTimeoutsRef = useRef<number[]>([]);
   const preloadedVideosRef = useRef<Map<string, HTMLVideoElement>>(new Map());
+  // Add ref for floating prompt container
+  const promptContainerRef = useRef<HTMLDivElement>(null);
+  // Add state to track video fallback
+  const [videoErrorState, setVideoErrorState] = useState<
+    "none" | "main-failed" | "fallback-failed"
+  >("none");
 
   // Floating prompt words state
   const [floatingPrompts, setFloatingPrompts] = useState<
@@ -75,6 +81,7 @@ export default function MuralPage() {
       direction: PromptDirection;
       wobbleAmp: number;
       wobbleFreq: number;
+      speed: number;
     }[]
   >([]);
 
@@ -97,6 +104,15 @@ export default function MuralPage() {
       startLeft = 110;
       endLeft = -20;
     }
+    // --- NEW: Calculate duration based on container width and random speed ---
+    const containerWidth =
+      promptContainerRef.current?.offsetWidth || window.innerWidth;
+    const travelDistance = containerWidth * 1.3; // from -20% to 110%
+    const minSpeed = 60; // px/sec
+    const maxSpeed = 100; // px/sec
+    const speed = Math.random() * (maxSpeed - minSpeed) + minSpeed;
+    const duration = (travelDistance / speed) * 1000; // ms
+
     // Organic motion: random wobble amplitude (px/em) and frequency
     const wobbleAmp = Math.random() * 12 + 8; // 8-20px
     const wobbleFreq = Math.random() * 1.2 + 0.7; // 0.7-1.9 (cycles per anim)
@@ -109,7 +125,8 @@ export default function MuralPage() {
       endLeft,
       fontSize: Math.random() * 0.8 + 1.1,
       rotate: Math.random() * 16 - 8,
-      duration: PROMPT_ANIMATION_DURATION + Math.random() * 12000 - 2000, // more jitter
+      duration, // use calculated duration
+      speed, // store speed for possible future use
       direction,
       wobbleAmp,
       wobbleFreq,
@@ -143,8 +160,8 @@ export default function MuralPage() {
   // Responsive grid dimensions
   const MOBILE_GRID_ROWS = 8;
   const MOBILE_GRID_COLS = 6;
-  const DESKTOP_GRID_ROWS = 10;
-  const DESKTOP_GRID_COLS = 15;
+  const DESKTOP_GRID_ROWS = 8;
+  const DESKTOP_GRID_COLS = 16;
 
   const GRID_ROWS = isMobile ? MOBILE_GRID_ROWS : DESKTOP_GRID_ROWS;
   const GRID_COLS = isMobile ? MOBILE_GRID_COLS : DESKTOP_GRID_COLS;
@@ -374,6 +391,17 @@ export default function MuralPage() {
     }
   };
 
+  // Reset video error state when opening a new animation
+  useEffect(() => {
+    if (animationState.isPlaying) {
+      setVideoErrorState("none");
+    }
+  }, [animationState.currentItem, animationState.isPlaying]);
+
+  const PLANE_WIDTH = 220; // px, adjust to your plane image
+  const FLAG_WIDTH = 350; // px, adjust to your flag image and desired text area
+  const PLANE_HEIGHT = 120; // px, adjust to your images
+
   return (
     <>
       <style jsx global>{`
@@ -452,8 +480,35 @@ export default function MuralPage() {
           overflow: "hidden",
         }}
       >
+        {/* Background video, always rendered and looping */}
+        {animationState.animationPhase !== "video-playing" && (
+          <video
+            ref={bgVideoRef}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="fixed inset-0 w-full h-full object-cover z-0 transition-opacity duration-700"
+            style={{
+              pointerEvents: "none",
+              opacity: 1,
+            }}
+            src={
+              isMobile
+                ? "/videos/mural-bg-main-mobile.mp4"
+                : "/videos/mural-bg-main-pc.mp4"
+            }
+            poster="/images/mural-background.png"
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
+        )}
         {/* Floating animated prompts in the background */}
-        <div className="pointer-events-none select-none absolute inset-0 z-10">
+        <div
+          ref={promptContainerRef}
+          className="pointer-events-none select-none absolute inset-0 z-10"
+        >
           {floatingPrompts.map((prompt) => {
             const style: React.CSSProperties & {
               [key: string]: string | number;
@@ -461,24 +516,91 @@ export default function MuralPage() {
               position: "absolute",
               top: `${prompt.startTop}%`,
               left: `${prompt.startLeft}%`,
-              fontSize: `${prompt.fontSize}em`,
-              color: "#fff",
-              fontWeight: 600,
-              textShadow: "0 2px 12px rgba(0,0,0,0.18)",
-              whiteSpace: "nowrap",
-              pointerEvents: "none",
-              userSelect: "none",
-              letterSpacing: "0.03em",
+              width: `${PLANE_WIDTH + FLAG_WIDTH}px`,
+              height: `${PLANE_HEIGHT}px`,
+              gap: "16px",
               zIndex: 10,
               animation: `muralPromptFloat-${prompt.direction} ${prompt.duration}ms linear forwards`,
-              // Organic motion variables
               "--wobble-amp": `${prompt.wobbleAmp}px`,
               "--rotate": `${prompt.rotate}deg`,
+              display: "flex",
+              flexDirection: prompt.direction === "lr" ? "row-reverse" : "row",
+              alignItems: "center",
+              pointerEvents: "none",
+              userSelect: "none",
             };
             return (
-              <span key={prompt.key} style={style}>
-                {prompt.text}
-              </span>
+              <div key={prompt.key} style={style}>
+                {/* Plane */}
+                <img
+                  src="/images/plane-only.png"
+                  alt=""
+                  style={{
+                    width: `${PLANE_WIDTH}px`,
+                    height: `${PLANE_HEIGHT}px`,
+                    objectFit: "contain",
+                    zIndex: 2,
+                    transform:
+                      prompt.direction === "rl" ? "none" : "scaleX(-1)",
+                    pointerEvents: "none",
+                    userSelect: "none",
+                    filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.18))",
+                  }}
+                  draggable={false}
+                />
+                {/* Flag/banner */}
+                <div
+                  style={{
+                    position: "relative",
+                    width: `${FLAG_WIDTH}px`,
+                    height: `${PLANE_HEIGHT * 0.7}px`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 1,
+                    marginLeft: prompt.direction === "lr" ? 0 : "-16px",
+                    marginRight: prompt.direction === "lr" ? "-16px" : 0,
+                  }}
+                >
+                  <img
+                    src="/images/flag.png"
+                    alt=""
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: 6,
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      zIndex: 1,
+                      pointerEvents: "none",
+                      userSelect: "none",
+                      transform:
+                        prompt.direction === "rl" ? "none" : "scaleX(-1)",
+                    }}
+                    draggable={false}
+                  />
+                  <div
+                    style={{
+                      position: "relative",
+                      zIndex: 2,
+                      width: "90%",
+                      textAlign: "center",
+                      fontWeight: 600,
+                      color: "#000",
+                      textShadow: "0 2px 12px rgba(0,0,0,0.18)",
+                      letterSpacing: "0.03em",
+
+                      whiteSpace: "normal",
+                      lineHeight: "1.2",
+                      pointerEvents: "none",
+                      userSelect: "none",
+                    }}
+                  >
+                    {prompt.text}
+                  </div>
+                </div>
+              </div>
             );
           })}
         </div>
@@ -501,7 +623,7 @@ export default function MuralPage() {
           style={{ position: "relative" }}
         >
           {/* Header - Responsive text sizing */}
-          <div className="text-center text-white p-2 md:p-4 m-2 md:m-4">
+          <div className="text-center text-white p-2 md:p-4 m-2 md:m-8 lg:m-12">
             <h1
               className="text-3xl sm:text-4xl md:text-6xl lg:text-8xl font-bold mb-2 tracking-wider md:tracking-widest"
               style={{
@@ -554,22 +676,34 @@ export default function MuralPage() {
                 {/* Video Player - Real or Simulated */}
                 {animationState.animationPhase === "video-playing" && (
                   <div className="relative w-full h-full">
-                    {animationState.currentItem.videoUrl &&
-                    (animationState.currentItem.videoUrl.startsWith(
-                      "https://res.cloudinary.com"
-                    ) ||
-                      animationState.currentItem.videoUrl.startsWith(
-                        "https://d1q70pf5vjeyhc.cloudfront.net"
-                      )) ? (
-                      <video
-                        src={animationState.currentItem.videoUrl}
-                        controls
-                        autoPlay
-                        muted={isMuted}
-                        className="w-full h-full object-contain rounded-lg"
-                        style={{ background: "rgba(0, 0, 0, 0.30)" }}
-                      />
-                    ) : (
+                    {/* Try main videoUrl first, then fallbackVideoUrl, then fallback image */}
+                    {videoErrorState === "none" &&
+                      animationState.currentItem.videoUrl && (
+                        <video
+                          src={animationState.currentItem.videoUrl}
+                          controls
+                          autoPlay
+                          muted={isMuted}
+                          className="w-full h-full object-contain rounded-lg"
+                          style={{ background: "rgba(0, 0, 0, 0.30)" }}
+                          onError={() => setVideoErrorState("main-failed")}
+                        />
+                      )}
+                    {videoErrorState === "main-failed" &&
+                      animationState.currentItem.fallbackVideoUrl && (
+                        <video
+                          src={animationState.currentItem.fallbackVideoUrl}
+                          controls
+                          autoPlay
+                          muted={isMuted}
+                          className="w-full h-full object-contain rounded-lg"
+                          style={{ background: "rgba(0, 0, 0, 0.30)" }}
+                          onError={() => setVideoErrorState("fallback-failed")}
+                        />
+                      )}
+                    {(videoErrorState === "fallback-failed" ||
+                      (!animationState.currentItem.videoUrl &&
+                        !animationState.currentItem.fallbackVideoUrl)) && (
                       // Fallback: Simulated animation
                       <img
                         src={animationState.currentItem.imageUrl}
@@ -629,7 +763,7 @@ export default function MuralPage() {
           )}
 
           {/* Mural Grid */}
-          <div className="bg-white/0 rounded-lg md:rounded-2xl shadow-xl p-4 md:p-8 mb-6 md:mb-10">
+          <div className="bg-white/50 rounded-lg md:rounded-2xl shadow-xl p-4 md:p-8 mb-6 md:mb-10">
             <div className="text-center text-gray-500 text-sm mb-4">
               <h1
                 className="text-2xl md:text-4xl font-bold mb-2"
@@ -743,67 +877,68 @@ export default function MuralPage() {
             </div>
           </div>
 
+          {/* Stats - Mobile responsive grid */}
+          <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white rounded-lg p-4 md:p-6 text-center">
+              <div className="text-xl md:text-2xl font-bold text-blue-600 font-quicksand">
+                {muralItems.length}
+              </div>
+              <div className="text-xs md:text-sm text-gray-600 font-quicksand">
+                Sketches Shared
+              </div>
+            </div>
+            <div className="bg-white rounded-lg p-4 md:p-6 text-center">
+              <div className="text-xl md:text-2xl font-bold text-green-600 font-quicksand">
+                {TOTAL_CELLS - muralItems.length}
+              </div>
+              <div className="text-xs md:text-sm text-gray-600 font-quicksand">
+                Room for More Magic
+              </div>
+            </div>
+            <div className="bg-white rounded-lg p-4 md:p-6 text-center">
+              <div className="text-xl md:text-2xl font-bold text-purple-600 font-quicksand">
+                {Math.round((muralItems.length / TOTAL_CELLS) * 100)}%
+              </div>
+              <div className="text-xs md:text-sm text-gray-600 font-quicksand">
+                Wall of Wonder
+              </div>
+            </div>
+          </div>
           {/* Controls - Mobile responsive */}
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 space-y-4 md:space-y-0">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 space-y-4 md:space-y-0 mt-8">
             <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
               <button
                 onClick={handleRefresh}
                 disabled={isLoading}
-                className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm md:text-base"
+                className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm md:text-base font-quicksand"
               >
                 <IconRefresh
                   className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
                 />
-                <span>{isLoading ? "Refreshing..." : "Refresh"}</span>
+                <span>
+                  {isLoading ? "Sprinkling Magic..." : "Sprinkle Some Magic"}
+                </span>
               </button>
 
               <button
                 onClick={toggleMute}
-                className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm md:text-base"
+                className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm md:text-base font-quicksand"
               >
                 {isMuted ? (
                   <IconVolumeOff className="h-4 w-4" />
                 ) : (
                   <IconVolume className="h-4 w-4" />
                 )}
-                <span>{isMuted ? "Unmute" : "Mute"}</span>
+                <span>{isMuted ? "Shhh..." : "Let’s Hear It!"}</span>
               </button>
             </div>
 
             <Link
               href="/upload"
-              className="px-4 md:px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-center text-sm md:text-base"
+              className="px-4 md:px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-center text-sm md:text-base font-quicksand"
             >
-              Upload Your Art
+              Add My Sketch!
             </Link>
-          </div>
-
-          {/* Stats - Mobile responsive grid */}
-          <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white rounded-lg p-4 md:p-6 text-center">
-              <div className="text-xl md:text-2xl font-bold text-blue-600">
-                {muralItems.length}
-              </div>
-              <div className="text-xs md:text-sm text-gray-600">
-                Artworks Uploaded
-              </div>
-            </div>
-            <div className="bg-white rounded-lg p-4 md:p-6 text-center">
-              <div className="text-xl md:text-2xl font-bold text-green-600">
-                {TOTAL_CELLS - muralItems.length}
-              </div>
-              <div className="text-xs md:text-sm text-gray-600">
-                Spaces Available
-              </div>
-            </div>
-            <div className="bg-white rounded-lg p-4 md:p-6 text-center">
-              <div className="text-xl md:text-2xl font-bold text-purple-600">
-                {Math.round((muralItems.length / TOTAL_CELLS) * 100)}%
-              </div>
-              <div className="text-xs md:text-sm text-gray-600">
-                Wall Complete
-              </div>
-            </div>
           </div>
         </div>
       </div>

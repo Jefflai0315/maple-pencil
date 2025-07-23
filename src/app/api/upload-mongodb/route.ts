@@ -25,6 +25,7 @@ interface MuralItem {
   _id?: ObjectId;
   imageUrl: string;
   videoUrl: string;
+  fallbackVideoUrl?: string; // Add fallback video URL if Cloudinary fails
   gridPosition: number;
   timestamp: string;
   userDetails: {
@@ -43,12 +44,13 @@ interface MuralItem {
 }
 
 export async function POST(request: NextRequest) {
+  let clientConnected = false;
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File;
     const name = formData.get("name") as string;
     const description = formData.get("description") as string;
-    const videoUrl = formData.get("videoUrl") as string;
+    const videoUrlFromForm = formData.get("videoUrl") as string;
     const uploadSource = (formData.get("uploadSource") as string) || "file";
 
     if (!file) {
@@ -82,40 +84,60 @@ export async function POST(request: NextRequest) {
       "unknown";
     const userAgent = request.headers.get("user-agent") || "unknown";
 
-    // Upload to Cloudinary
-    console.log("Starting Cloudinary upload...");
-    const result = await new Promise<{ secure_url: string }>(
-      (resolve, reject) => {
-        cloudinary.uploader
-          .upload_stream(
-            {
-              folder: "mural-app",
-              resource_type: "auto",
-              transformation: [
-                { width: 800, height: 600, crop: "limit" },
-                { quality: "auto" },
-              ],
-            },
-            (error, result) => {
-              if (error) {
-                console.error("Cloudinary upload error:", error);
-                reject(error);
-              } else {
-                console.log("✅ Cloudinary upload successful!");
-                console.log("🔗 URL:", result?.secure_url);
-                resolve(result as { secure_url: string });
+    let imageUrl = "";
+    let videoUrl = "";
+    let fallbackVideoUrl = "";
+    let usedCloudinary = false;
+
+    // Try Cloudinary upload first
+    try {
+      const result = await new Promise<{ secure_url: string }>(
+        (resolve, reject) => {
+          cloudinary.uploader
+            .upload_stream(
+              {
+                folder: "mural-app",
+                resource_type: "auto",
+                transformation: [
+                  { width: 800, height: 600, crop: "limit" },
+                  { quality: "auto" },
+                ],
+              },
+              (error, result) => {
+                if (error) {
+                  console.error("Cloudinary upload error:", error);
+                  reject(error);
+                } else {
+                  console.log("✅ Cloudinary upload successful!");
+                  console.log("🔗 URL:", result?.secure_url);
+                  resolve(result as { secure_url: string });
+                }
               }
-            }
-          )
-          .end(buffer);
-      }
-    );
+            )
+            .end(buffer);
+        }
+      );
+      imageUrl = result.secure_url;
+      videoUrl = videoUrlFromForm || "video-placeholder";
+      usedCloudinary = true;
+    } catch (cloudinaryError) {
+      // If Cloudinary fails, use fallback (e.g., CloudFront)
+      console.error(
+        "Cloudinary upload failed, using fallback videoUrl.",
+        cloudinaryError
+      );
+      imageUrl = ""; // You may want to set a fallback image URL here if you have one
+      videoUrl = videoUrlFromForm || "video-placeholder";
+      fallbackVideoUrl = videoUrlFromForm || "";
+      usedCloudinary = false;
+    }
 
     // Connect to MongoDB with retry logic
     let retries = 3;
     while (retries > 0) {
       try {
         await client.connect();
+        clientConnected = true;
         console.log("✅ Connected to MongoDB");
         break;
       } catch (error) {
@@ -149,8 +171,9 @@ export async function POST(request: NextRequest) {
 
     // Create new item
     const newItem: MuralItem = {
-      imageUrl: result.secure_url,
-      videoUrl: videoUrl || "video-placeholder",
+      imageUrl,
+      videoUrl,
+      fallbackVideoUrl: fallbackVideoUrl || undefined,
       gridPosition: nextPosition, // Use next available position
       timestamp: new Date().toISOString(),
       userDetails: {
@@ -175,19 +198,23 @@ export async function POST(request: NextRequest) {
       id: insertResult.insertedId,
       name: newItem.userDetails.name,
       uploadSource: newItem.metadata?.uploadSource,
+      usedCloudinary,
     });
 
-    await client.close();
+    if (clientConnected) await client.close();
 
     return NextResponse.json({
       success: true,
       data: newItem,
-      message: "Upload successful",
-      cloudinaryUrl: result.secure_url,
+      message: usedCloudinary
+        ? "Upload successful (Cloudinary)"
+        : "Upload successful (Fallback)",
+      cloudinaryUrl: imageUrl,
+      fallbackVideoUrl: fallbackVideoUrl || undefined,
     });
   } catch (error) {
     console.error("Upload error:", error);
-    await client.close();
+    if (clientConnected) await client.close();
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }

@@ -8,8 +8,11 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        quicksand: ["'Quicksand'", "Arial", "sans-serif"],
+      },
       screens: {
-        'xs': '475px',
+        xs: "475px",
       },
     },
   },
