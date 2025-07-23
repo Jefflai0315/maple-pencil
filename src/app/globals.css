@@ -646,3 +646,20 @@ html, body {
   font-display: swap;
 }
 
+/* Thin and subtle scrollbar for horizontal prompt selector */
+.scrollbar-thin-hide {
+  scrollbar-width: thin;         /* Firefox */
+  scrollbar-color: #e5e7eb #fff; /* Firefox */
+}
+.scrollbar-thin-hide::-webkit-scrollbar {
+  height: 6px;                   /* Chrome/Safari/Edge */
+  background: transparent;
+}
+.scrollbar-thin-hide::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 4px;
+}
+.scrollbar-thin-hide::-webkit-scrollbar-track {
+  background: transparent;
+}
+

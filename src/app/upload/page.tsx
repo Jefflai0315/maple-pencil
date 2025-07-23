@@ -13,7 +13,7 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { videoPrompt } from "../utils/constants";
+import { videoPrompts } from "../utils/constants";
 
 interface PreviewData {
   imageUrl: string;
@@ -85,7 +85,7 @@ export default function UploadPage() {
     null
   );
   // Add state for advanced prompt
-  const [advancedPrompt, setAdvancedPrompt] = useState(videoPrompt);
+  const [advancedPrompt, setAdvancedPrompt] = useState(videoPrompts[0]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -583,6 +583,32 @@ export default function UploadPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Advanced Prompt
               </label>
+              {/* Prompt Tag/Tab Selector */}
+              <div className="flex flex-nowrap gap-2 mb-2 overflow-x-auto -mx-2 py-1 px-2 whitespace-nowrap sm:flex-wrap sm:overflow-visible sm:mx-0 sm:px-0 scrollbar-thin-hide">
+                {videoPrompts.map((prompt, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setAdvancedPrompt(prompt)}
+                    className={`shrink-0 px-3 py-1 rounded-full border min-w-[100px] text-xs md:text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-blue-400 text-gray-700
+                      ${
+                        advancedPrompt === prompt
+                          ? "bg-blue-100 border-blue-200"
+                          : "bg-white border-gray-300 hover:bg-blue-50"
+                      }
+                    `}
+                    style={{
+                      maxWidth: 200,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                    title={prompt}
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
               <textarea
                 value={advancedPrompt}
                 onChange={(e) => setAdvancedPrompt(e.target.value)}

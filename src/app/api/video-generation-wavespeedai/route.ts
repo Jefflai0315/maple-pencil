@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MongoClient } from "mongodb";
 import cloudinary from "cloudinary";
-import { videoPrompt } from "@/app/utils/constants";
+import { videoPrompts } from "@/app/utils/constants";
 
 const uri = process.env.MONGODB_URI;
 const WAVESPEED_API_KEY = process.env.WAVESPEED_API_KEY;
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     const payload = {
       duration: 5,
       image: imageUrl,
-      prompt: prompt || videoPrompt,
+      prompt: prompt || videoPrompts[0],
       seed: -1,
     };
 

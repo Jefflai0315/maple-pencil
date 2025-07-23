@@ -160,5 +160,140 @@ export const sectionContent = {
   // },
 };
 
-export const videoPrompt =
-  "Transform this doodle into an animated, artistic scene. Begin with the original sketch, then evolve it into a richly detailed, stylized version using painterly textures, expressive brushstrokes, and creative visual elements. Maintain the core subject while adding flowing, imaginative motion that brings the drawing to life.";
+//Mural ART Themes
+
+export const videoPrompts = [
+  "Create a quick artistic video with smooth camera movements",
+  "Turn this sketch into an animated, artistic scene. Keep the main subject, but enhance it with wholesome story, and creative motion.",
+  "Transform this doodle into an animated, artistic scene. Begin with the original sketch, then evolve it into a richly detailed, stylized version using painterly textures, expressive brushstrokes, and creative visual elements. Maintain the core subject while adding flowing, imaginative motion that brings the drawing to life.",
+];
+
+export const muralPromptThemes = [
+  {
+    title: "My Kampung Memory",
+    description: "Sketch old Sembawang’s heritage:",
+    prompts: [
+      "Wooden jetties at Sembawang Park",
+      "Rambutan trees in backyard gardens",
+      "Provision shops like 'Ah Huat Grocery'",
+    ],
+  },
+  {
+    title: "Neighbourhood Heroes",
+    description: "Celebrate local community figures:",
+    prompts: [
+      "Uncle selling kacang putih at Sembawang Mart",
+      "Aunty tending flowers at Yishun Ave balcony gardens",
+      "Bus captain on Service 882",
+    ],
+  },
+  {
+    title: "Sembawang’s Natural Treasures",
+    description: "Capture unique local biodiversity:",
+    prompts: [
+      "Mangrove crabs at Sungei Sembawang",
+      "Herons at the former Sembawang Shipyard coast",
+      "Rain trees along Canberra Road",
+    ],
+  },
+  {
+    title: "Festival Lights at Our Void Deck",
+    description: "Multicultural celebrations:",
+    prompts: [
+      "Deepavali kolam patterns near Sembawang CCD",
+      "Chinese New Year pineapple tarts exchange",
+      "Hari Raya ketupat weaving sessions",
+    ],
+  },
+  {
+    title: "Future Sembawang Dreams",
+    description: "Imagine tomorrow’s neighbourhood:",
+    prompts: [
+      "Eco-friendly HDBs with vertical farms",
+      "High-speed water taxis to Pulau Seletar",
+      "Fusion hawker center (chilli crab prata!)",
+    ],
+  },
+  {
+    title: "Simple Object Prompts (Easy for All Ages)",
+    description: "Quick, accessible ideas:",
+    prompts: [
+      "Your favourite teh peng cup from Sembawang Food Centre",
+      "Grandpa’s bicycle with bakul basket",
+      "The red postbox outside Sembawang MRT",
+      "Blue mosaic playground tiles from your childhood",
+    ],
+  },
+  {
+    title: "Interactive Prompt Ideas",
+    description: "Get creative with before/after and personal stories:",
+    prompts: [
+      "Before/After: Old Sembawang Hot Springs vs. new NS Square",
+      "My Block Story: Window view from your HDB",
+      "Memorable moment at your corridor (e.g., makan session during COVID)",
+    ],
+  },
+  {
+    title: "Real Sembawang References to Inspire",
+    description: "Draw from local history and places:",
+    prompts: [
+      "Shipyard Legacy: Cranes, naval workers’ helmets, dockyard tools",
+      "Military Heritage: Old RAF barracks, camouflage patterns",
+      "Coastal Life: Fishing rods at Simpang Beach, kelongs silhouette",
+    ],
+  },
+  {
+    title: "My Daily Life in Sembawang",
+    description: "Encourage simple scenes from everyday routines:",
+    prompts: [
+      "Sketch your favorite moment of the day — morning kopi, a walk in the park, or your pet waiting at home.",
+      "Draw your journey to school or work — MRT ride, bus stop, or a bustling kopi shop.",
+      "Show what your HDB block feels like at sunset or during rainy days.",
+    ],
+  },
+  {
+    title: "Local Treasures & Hidden Gems",
+    description: "Highlight iconic or personal places in Sembawang:",
+    prompts: [
+      "Draw your favorite place in Sembawang — the beach, hot spring park, or a quiet corner in the neighborhood.",
+      "Sketch a memory at the old Sembawang Shipyard, Sun Plaza, or the park connector.",
+      "Reimagine a familiar place in your own artistic style — turn Sembawang Park into a fantasy world.",
+    ],
+  },
+  {
+    title: "Food & Family",
+    description: "Food is a powerful part of Singaporean identity:",
+    prompts: [
+      "Sketch a meal that reminds you of home — chicken rice, satay, nasi lemak, or mom's cooking.",
+      "Draw your family gathering around food during Hari Raya, Chinese New Year, or Deepavali.",
+      "Turn your hawker center into an art piece — with dancing dishes or flying roti prata.",
+    ],
+  },
+  {
+    title: "Singapore Stories & Traditions",
+    description: "Connect with cultural roots and national identity:",
+    prompts: [
+      "Sketch something that represents your heritage or festive traditions.",
+      "Draw a childhood game or local tradition you remember — five stones, kite flying, lion dance.",
+      "Show how you celebrate National Day with your neighbors or at school.",
+    ],
+  },
+  {
+    title: "Dreams & Future Visions",
+    description: "Let people be imaginative and personal:",
+    prompts: [
+      "Sketch your dream for Sembawang — more greenery, floating homes, robot uncles?",
+      "Draw how you imagine life in Singapore in 50 years.",
+      "What does happiness look like to you? Try sketching it.",
+    ],
+  },
+  {
+    title: "Friendly for All Ages",
+    description: "Playful variations for kids:",
+    prompts: [
+      "Draw your superhero version of yourself in Sembawang.",
+      "Imagine if animals took over Sun Plaza — sketch it!",
+      "Design your own MRT station or train.",
+    ],
+  },
+];

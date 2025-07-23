@@ -9,6 +9,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import Link from "next/link";
+import { muralPromptThemes } from "../utils/constants";
 
 interface MuralItem {
   id: string;
@@ -35,6 +36,12 @@ interface AnimationState {
   clickedPosition?: { x: number; y: number; width: number; height: number };
 }
 
+const PROMPT_ANIMATION_DURATION = 30000; // ms (slower base)
+const PROMPT_SPAWN_INTERVAL = 5000; // ms (slower spawn)
+
+const PROMPT_DIRECTIONS = ["lr", "rl"] as const;
+type PromptDirection = (typeof PROMPT_DIRECTIONS)[number];
+
 export default function MuralPage() {
   const [muralItems, setMuralItems] = useState<MuralItem[]>([]);
   const [animationState, setAnimationState] = useState<AnimationState>({
@@ -52,6 +59,86 @@ export default function MuralPage() {
   // Add refs for timeouts and preloaded videos
   const animationTimeoutsRef = useRef<number[]>([]);
   const preloadedVideosRef = useRef<Map<string, HTMLVideoElement>>(new Map());
+
+  // Floating prompt words state
+  const [floatingPrompts, setFloatingPrompts] = useState<
+    {
+      key: string;
+      text: string;
+      startTop: number;
+      startLeft: number;
+      endTop: number;
+      endLeft: number;
+      fontSize: number;
+      rotate: number;
+      duration: number;
+      direction: PromptDirection;
+      wobbleAmp: number;
+      wobbleFreq: number;
+    }[]
+  >([]);
+
+  // Helper to get a random prompt config
+  function getRandomPromptConfig() {
+    const allPrompts = muralPromptThemes.flatMap((theme) => theme.prompts);
+    const text = allPrompts[Math.floor(Math.random() * allPrompts.length)];
+    const directionIdx = Math.floor(Math.random() * 2); // Only lr, rl
+    const direction: PromptDirection = PROMPT_DIRECTIONS[directionIdx];
+    // Restrict to top 8-25%
+    const top = Math.random() * 15 + 5; // 10% to 20%
+    const startTop = top,
+      endTop = top;
+    let startLeft, endLeft;
+    if (direction === "lr") {
+      startLeft = -20;
+      endLeft = 110;
+    } else {
+      // rl
+      startLeft = 110;
+      endLeft = -20;
+    }
+    // Organic motion: random wobble amplitude (px/em) and frequency
+    const wobbleAmp = Math.random() * 12 + 8; // 8-20px
+    const wobbleFreq = Math.random() * 1.2 + 0.7; // 0.7-1.9 (cycles per anim)
+    return {
+      key: `${Date.now()}-${Math.random()}`,
+      text,
+      startTop,
+      startLeft,
+      endTop,
+      endLeft,
+      fontSize: Math.random() * 0.8 + 1.1,
+      rotate: Math.random() * 16 - 8,
+      duration: PROMPT_ANIMATION_DURATION + Math.random() * 12000 - 2000, // more jitter
+      direction,
+      wobbleAmp,
+      wobbleFreq,
+    };
+  }
+
+  // Spawn new prompts at intervals
+  useEffect(() => {
+    const spawnPrompt = () => {
+      const newPrompt = getRandomPromptConfig();
+      console.log("Spawning new prompt:", newPrompt.text);
+      setFloatingPrompts((prev) => [...prev, newPrompt].slice(-4)); // keep at most 4 prompts at a time
+    };
+    spawnPrompt();
+    const interval = setInterval(spawnPrompt, PROMPT_SPAWN_INTERVAL);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Remove prompts after their animation ends
+  useEffect(() => {
+    if (floatingPrompts.length === 0) return;
+    console.log("Current floating prompts:", floatingPrompts.length);
+    const timers = floatingPrompts.map((prompt) =>
+      setTimeout(() => {
+        setFloatingPrompts((prev) => prev.filter((p) => p.key !== prompt.key));
+      }, prompt.duration)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [floatingPrompts]);
 
   // Responsive grid dimensions
   const MOBILE_GRID_ROWS = 8;
@@ -288,337 +375,438 @@ export default function MuralPage() {
   };
 
   return (
-    <div
-      className="min-h-screen bg-gradient-to-b from-blue-200 to-blue-500 py-4 md:py-8 relative"
-      style={{
-        backgroundImage:
-          animationState.animationPhase === "video-playing"
-            ? undefined
-            : "url('/images/mural-background.png')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        overflow: "hidden",
-      }}
-    >
-      {/* Background video, always rendered, fades in/out */}
-      <video
-        ref={bgVideoRef}
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="fixed inset-0 w-full h-full object-cover z-20 transition-opacity duration-700"
-        style={{
-          pointerEvents: "none",
-          opacity: animationState.animationPhase === "video-playing" ? 1 : 0,
-        }}
-        src="/videos/mural-background.mp4"
-      />
+    <>
+      <style jsx global>{`
+        @keyframes muralPromptFloat-lr {
+          0% {
+            opacity: 0;
+            left: -20%;
+            transform: translateY(0) scale(1) rotate(var(--rotate, 0deg));
+          }
+          10% {
+            opacity: 1;
+          }
+          20% {
+            transform: translateY(calc(var(--wobble-amp, 12px) * 1)) scale(1.04)
+              rotate(var(--rotate, 0deg));
+          }
+          40% {
+            transform: translateY(calc(var(--wobble-amp, 12px) * -1))
+              scale(0.98) rotate(var(--rotate, 0deg));
+          }
+          60% {
+            transform: translateY(calc(var(--wobble-amp, 12px) * 0.7))
+              scale(1.02) rotate(var(--rotate, 0deg));
+          }
+          80% {
+            opacity: 1;
+            transform: translateY(0) scale(1) rotate(var(--rotate, 0deg));
+          }
+          100% {
+            opacity: 0;
+            left: 110%;
+            transform: translateY(0) scale(1) rotate(var(--rotate, 0deg));
+          }
+        }
+        @keyframes muralPromptFloat-rl {
+          0% {
+            opacity: 0;
+            left: 110%;
+            transform: translateY(0) scale(1) rotate(var(--rotate, 0deg));
+          }
+          10% {
+            opacity: 1;
+          }
+          20% {
+            transform: translateY(calc(var(--wobble-amp, 12px) * -1))
+              scale(1.04) rotate(var(--rotate, 0deg));
+          }
+          40% {
+            transform: translateY(calc(var(--wobble-amp, 12px) * 1)) scale(0.98)
+              rotate(var(--rotate, 0deg));
+          }
+          60% {
+            transform: translateY(calc(var(--wobble-amp, 12px) * -0.7))
+              scale(1.02) rotate(var(--rotate, 0deg));
+          }
+          80% {
+            opacity: 1;
+            transform: translateY(0) scale(1) rotate(var(--rotate, 0deg));
+          }
+          100% {
+            opacity: 0;
+            left: -20%;
+            transform: translateY(0) scale(1) rotate(var(--rotate, 0deg));
+          }
+        }
+      `}</style>
       <div
-        className="max-w-7xl mx-auto px-2 md:px-4"
-        style={{ position: "relative" }}
+        className="min-h-screen bg-gradient-to-b from-blue-200 to-blue-500 py-4 md:py-8 relative"
+        style={{
+          backgroundImage:
+            animationState.animationPhase === "video-playing"
+              ? undefined
+              : "url('/images/mural-background.png')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          overflow: "hidden",
+        }}
       >
-        {/* Header - Responsive text sizing */}
-        <div className="text-center text-white p-2 md:p-4 m-2 md:m-4">
-          <h1
-            className="text-3xl sm:text-4xl md:text-6xl lg:text-8xl font-bold mb-2 tracking-wider md:tracking-widest"
-            style={{
-              fontFamily: "'Acallon', sans-serif",
-              letterSpacing: isMobile ? "0.1em" : "0.2em",
-              textShadow: "2px 2px 6px rgba(0, 0, 0, 0.4)",
-            }}
-          >
-            CANVAS OF
-          </h1>
-          <div
-            className="text-lg sm:text-xl md:text-2xl lg:text-4xl m-1 md:m-2"
-            style={{
-              fontFamily: "'LePetitCochon', cursive",
-              fontWeight: 400,
-              letterSpacing: "0.05em",
-              textShadow: "2px 2px 6px rgba(0, 0, 0, 0.4)",
-            }}
-          >
-            THE HiDDEN STARTS
-          </div>
+        {/* Floating animated prompts in the background */}
+        <div className="pointer-events-none select-none absolute inset-0 z-10">
+          {floatingPrompts.map((prompt) => {
+            const style: React.CSSProperties & {
+              [key: string]: string | number;
+            } = {
+              position: "absolute",
+              top: `${prompt.startTop}%`,
+              left: `${prompt.startLeft}%`,
+              fontSize: `${prompt.fontSize}em`,
+              color: "#fff",
+              fontWeight: 600,
+              textShadow: "0 2px 12px rgba(0,0,0,0.18)",
+              whiteSpace: "nowrap",
+              pointerEvents: "none",
+              userSelect: "none",
+              letterSpacing: "0.03em",
+              zIndex: 10,
+              animation: `muralPromptFloat-${prompt.direction} ${prompt.duration}ms linear forwards`,
+              // Organic motion variables
+              "--wobble-amp": `${prompt.wobbleAmp}px`,
+              "--rotate": `${prompt.rotate}deg`,
+            };
+            return (
+              <span key={prompt.key} style={style}>
+                {prompt.text}
+              </span>
+            );
+          })}
         </div>
-
-        {/* Animation Container */}
-        {animationState.currentItem && (
-          <div
-            ref={animationContainerRef}
-            className={`fixed inset-0 z-50 transition-opacity duration-300 ${
-              animationState.animationPhase === "idle"
-                ? "opacity-0 pointer-events-none"
-                : "opacity-100"
-            }`}
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.36)" }}
-          >
-            <div
-              className={
-                // Mobile-responsive animation container
-                ["video-playing", "image-showing"].includes(
-                  animationState.animationPhase
-                )
-                  ? `relative mx-auto my-auto z-50 ${
-                      isMobile
-                        ? "w-[90vw] h-[50vh] max-w-sm max-h-96"
-                        : "w-[700px] h-[700px] max-w-3xl max-h-3xl"
-                    }`
-                  : "relative w-48 h-48 md:w-96 md:h-96 max-w-2xl max-h-2xl mx-auto my-auto z-50"
-              }
-              style={getAnimationStyles()}
-            >
-              {/* Video Player - Real or Simulated */}
-              {animationState.animationPhase === "video-playing" && (
-                <div className="relative w-full h-full">
-                  {animationState.currentItem.videoUrl &&
-                  (animationState.currentItem.videoUrl.startsWith(
-                    "https://res.cloudinary.com"
-                  ) ||
-                    animationState.currentItem.videoUrl.startsWith(
-                      "https://d1q70pf5vjeyhc.cloudfront.net"
-                    )) ? (
-                    <video
-                      src={animationState.currentItem.videoUrl}
-                      controls
-                      autoPlay
-                      muted={isMuted}
-                      className="w-full h-full object-contain rounded-lg"
-                      style={{ background: "rgba(0, 0, 0, 0.30)" }}
-                    />
-                  ) : (
-                    // Fallback: Simulated animation
-                    <img
-                      src={animationState.currentItem.imageUrl}
-                      alt="Video Animation"
-                      className="w-full h-full object-contain rounded-lg"
-                    />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent flex items-end rounded-lg">
-                    <div className="p-2 md:p-4 text-white">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-2 h-2 md:w-3 md:h-3 bg-red-500 rounded-full animate-pulse"></div>
-                        <span className="text-xs md:text-sm">
-                          Playing Video Animation...
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Static Image */}
-              {animationState.animationPhase === "image-showing" && (
-                <img
-                  src={animationState.currentItem.imageUrl}
-                  alt="Artwork"
-                  className="w-full h-full object-contain rounded-lg"
-                />
-              )}
-
-              {/* Enlarging/Shrinking Animation */}
-              {(animationState.animationPhase === "enlarging" ||
-                animationState.animationPhase === "shrinking") && (
-                <img
-                  src={animationState.currentItem.imageUrl}
-                  alt="Artwork"
-                  className="w-full h-full object-contain rounded-lg"
-                />
-              )}
-
-              {/* Animation Controls */}
-              <div className="absolute top-2 right-2 md:top-4 md:right-4 flex space-x-2">
-                <button
-                  onClick={() =>
-                    setAnimationState({
-                      isPlaying: false,
-                      currentItem: null,
-                      animationPhase: "idle",
-                    })
-                  }
-                  className="p-1 md:p-2 bg-white/20 rounded-full hover:bg-opacity-30 transition-colors"
-                >
-                  <IconX className="h-3 w-3 md:h-4 md:w-4 text-white" />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Mural Grid */}
-        <div className="bg-white/0 rounded-lg md:rounded-2xl shadow-xl p-4 md:p-8 mb-6 md:mb-10">
-          <div className="text-center text-gray-500 text-sm mb-4">
+        {/* Background video, always rendered, fades in/out */}
+        <video
+          ref={bgVideoRef}
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="fixed inset-0 w-full h-full object-cover z-20 transition-opacity duration-700"
+          style={{
+            pointerEvents: "none",
+            opacity: animationState.animationPhase === "video-playing" ? 1 : 0,
+          }}
+          src="/videos/mural-background.mp4"
+        />
+        <div
+          className="max-w-7xl mx-auto px-2 md:px-4"
+          style={{ position: "relative" }}
+        >
+          {/* Header - Responsive text sizing */}
+          <div className="text-center text-white p-2 md:p-4 m-2 md:m-4">
             <h1
-              className="text-2xl md:text-4xl font-bold mb-2"
+              className="text-3xl sm:text-4xl md:text-6xl lg:text-8xl font-bold mb-2 tracking-wider md:tracking-widest"
               style={{
                 fontFamily: "'Acallon', sans-serif",
                 letterSpacing: isMobile ? "0.1em" : "0.2em",
+                textShadow: "2px 2px 6px rgba(0, 0, 0, 0.4)",
               }}
             >
-              Our Story, Our Mural
+              CANVAS OF
             </h1>
+            <div
+              className="text-lg sm:text-xl md:text-2xl lg:text-4xl m-1 md:m-2"
+              style={{
+                fontFamily: "'LePetitCochon', cursive",
+                fontWeight: 400,
+                letterSpacing: "0.05em",
+                textShadow: "2px 2px 6px rgba(0, 0, 0, 0.4)",
+              }}
+            >
+              THE HiDDEN STARTS
+            </div>
           </div>
-          <div
-            ref={gridRef}
-            className="grid gap-0"
-            style={{
-              gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
-              gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
-              minHeight: isMobile ? "300px" : "600px",
-            }}
-          >
-            {Array.from({ length: TOTAL_CELLS }, (_, index) => {
-              const item = muralItems.find(
-                (item) => item.gridPosition === index
-              );
 
-              return (
-                <div
-                  key={index}
-                  className={`
-                    aspect-square border-2 transition-all duration-300 overflow-hidden 
-                    ${
-                      item
-                        ? "border-gray-300 bg-white hover:border-blue-400 cursor-pointer"
-                        : "border-dashed border-gray-200 bg-gray-50"
-                    }
-                    ${
-                      animationState.currentItem?.gridPosition === index &&
-                      animationState.animationPhase === "placing"
-                        ? "scale-110 border-blue-500"
-                        : ""
-                    }
-                  `}
-                  style={{
-                    minHeight: isMobile ? "40px" : "60px",
-                  }}
-                  onClick={(e) => item && startAnimation(item, e)}
-                  onMouseEnter={() => item && handleGridItemMouseEnter(item)}
-                  onMouseLeave={() => item && handleGridItemMouseLeave(item)}
-                >
-                  {item ? (
-                    <div className="relative w-full h-full group">
-                      <img
-                        src={item.imageUrl}
-                        alt={`Artwork by ${item.userDetails.name}`}
-                        className="w-full h-full object-cover"
-                        style={{
-                          backgroundColor: "transparent",
-                          zIndex: 1,
-                          display: "block",
-                          position: "relative",
-                        }}
-                        onError={(e) => {
-                          console.error("Failed to load image:", item.imageUrl);
-                          e.currentTarget.style.display = "none";
-                          const fallback =
-                            e.currentTarget.parentElement?.querySelector(
-                              ".image-fallback"
-                            );
-                          if (fallback) {
-                            (fallback as HTMLElement).style.display = "flex";
-                          }
-                        }}
-                        onLoad={(e) => {
-                          console.log(
-                            "Successfully loaded image:",
-                            item.imageUrl
-                          );
-                          e.currentTarget.style.opacity = "1";
-                          e.currentTarget.style.visibility = "visible";
-                        }}
+          {/* Animation Container */}
+          {animationState.currentItem && (
+            <div
+              ref={animationContainerRef}
+              className={`fixed inset-0 z-50 transition-opacity duration-300 ${
+                animationState.animationPhase === "idle"
+                  ? "opacity-0 pointer-events-none"
+                  : "opacity-100"
+              }`}
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.36)" }}
+            >
+              <div
+                className={
+                  // Mobile-responsive animation container
+                  ["video-playing", "image-showing"].includes(
+                    animationState.animationPhase
+                  )
+                    ? `relative mx-auto my-auto z-50 ${
+                        isMobile
+                          ? "w-[90vw] h-[50vh] max-w-sm max-h-96"
+                          : "w-[700px] h-[700px] max-w-3xl max-h-3xl"
+                      }`
+                    : "relative w-48 h-48 md:w-96 md:h-96 max-w-2xl max-h-2xl mx-auto my-auto z-50"
+                }
+                style={getAnimationStyles()}
+              >
+                {/* Video Player - Real or Simulated */}
+                {animationState.animationPhase === "video-playing" && (
+                  <div className="relative w-full h-full">
+                    {animationState.currentItem.videoUrl &&
+                    (animationState.currentItem.videoUrl.startsWith(
+                      "https://res.cloudinary.com"
+                    ) ||
+                      animationState.currentItem.videoUrl.startsWith(
+                        "https://d1q70pf5vjeyhc.cloudfront.net"
+                      )) ? (
+                      <video
+                        src={animationState.currentItem.videoUrl}
+                        controls
+                        autoPlay
+                        muted={isMuted}
+                        className="w-full h-full object-contain rounded-lg"
+                        style={{ background: "rgba(0, 0, 0, 0.30)" }}
                       />
-                      {/* Fallback when image fails to load */}
-                      <div className="image-fallback hidden absolute inset-0 bg-gray-200 flex items-center justify-center">
-                        <div className="text-center text-gray-500">
-                          <div className="text-xs mb-1">Image not found</div>
-                          <div className="text-xs">{item.userDetails.name}</div>
+                    ) : (
+                      // Fallback: Simulated animation
+                      <img
+                        src={animationState.currentItem.imageUrl}
+                        alt="Video Animation"
+                        className="w-full h-full object-contain rounded-lg"
+                      />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent flex items-end rounded-lg">
+                      <div className="p-2 md:p-4 text-white">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 md:w-3 md:h-3 bg-red-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs md:text-sm">
+                            Playing Video Animation...
+                          </span>
                         </div>
                       </div>
-                      {/* Hover overlay - only show on hover for desktop */}
-                      <div className="hidden md:flex bg-white group-hover:bg-opacity-50 transition-all duration-300 items-center justify-center pointer-events-none">
-                        <IconPlayerPlay className="h-6 w-6 lg:h-8 lg:w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                      {/* User name badge - responsive sizing */}
-                      <div className="absolute bottom-0 bg-black/50 bg-opacity-75 text-white text-xs px-1 py-0.5 rounded z-10 truncate max-w-full">
-                        {item.userDetails.name}
-                      </div>
                     </div>
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      <span className="text-xs">Empty</span>
-                    </div>
-                  )}
+                  </div>
+                )}
+
+                {/* Static Image */}
+                {animationState.animationPhase === "image-showing" && (
+                  <img
+                    src={animationState.currentItem.imageUrl}
+                    alt="Artwork"
+                    className="w-full h-full object-contain rounded-lg"
+                  />
+                )}
+
+                {/* Enlarging/Shrinking Animation */}
+                {(animationState.animationPhase === "enlarging" ||
+                  animationState.animationPhase === "shrinking") && (
+                  <img
+                    src={animationState.currentItem.imageUrl}
+                    alt="Artwork"
+                    className="w-full h-full object-contain rounded-lg"
+                  />
+                )}
+
+                {/* Animation Controls */}
+                <div className="absolute top-2 right-2 md:top-4 md:right-4 flex space-x-2">
+                  <button
+                    onClick={() =>
+                      setAnimationState({
+                        isPlaying: false,
+                        currentItem: null,
+                        animationPhase: "idle",
+                      })
+                    }
+                    className="p-1 md:p-2 bg-white/20 rounded-full hover:bg-opacity-30 transition-colors"
+                  >
+                    <IconX className="h-3 w-3 md:h-4 md:w-4 text-white" />
+                  </button>
                 </div>
-              );
-            })}
-          </div>
-        </div>
+              </div>
+            </div>
+          )}
 
-        {/* Controls - Mobile responsive */}
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 space-y-4 md:space-y-0">
-          <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
-            <button
-              onClick={handleRefresh}
-              disabled={isLoading}
-              className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm md:text-base"
+          {/* Mural Grid */}
+          <div className="bg-white/0 rounded-lg md:rounded-2xl shadow-xl p-4 md:p-8 mb-6 md:mb-10">
+            <div className="text-center text-gray-500 text-sm mb-4">
+              <h1
+                className="text-2xl md:text-4xl font-bold mb-2"
+                style={{
+                  fontFamily: "'Acallon', sans-serif",
+                  letterSpacing: isMobile ? "0.1em" : "0.2em",
+                }}
+              >
+                Our Story, Our Mural
+              </h1>
+            </div>
+            <div
+              ref={gridRef}
+              className="grid gap-0"
+              style={{
+                gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
+                gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
+                minHeight: isMobile ? "300px" : "600px",
+              }}
             >
-              <IconRefresh
-                className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
-              />
-              <span>{isLoading ? "Refreshing..." : "Refresh"}</span>
-            </button>
+              {Array.from({ length: TOTAL_CELLS }, (_, index) => {
+                const item = muralItems.find(
+                  (item) => item.gridPosition === index
+                );
 
-            <button
-              onClick={toggleMute}
-              className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm md:text-base"
+                return (
+                  <div
+                    key={index}
+                    className={`
+                      aspect-square border-2 transition-all duration-300 overflow-hidden 
+                      ${
+                        item
+                          ? "border-gray-300 bg-white hover:border-blue-400 cursor-pointer"
+                          : "border-dashed border-gray-200 bg-gray-50"
+                      }
+                      ${
+                        animationState.currentItem?.gridPosition === index &&
+                        animationState.animationPhase === "placing"
+                          ? "scale-110 border-blue-500"
+                          : ""
+                      }
+                    `}
+                    style={{
+                      minHeight: isMobile ? "40px" : "60px",
+                    }}
+                    onClick={(e) => item && startAnimation(item, e)}
+                    onMouseEnter={() => item && handleGridItemMouseEnter(item)}
+                    onMouseLeave={() => item && handleGridItemMouseLeave(item)}
+                  >
+                    {item ? (
+                      <div className="relative w-full h-full group">
+                        <img
+                          src={item.imageUrl}
+                          alt={`Artwork by ${item.userDetails.name}`}
+                          className="w-full h-full object-cover"
+                          style={{
+                            backgroundColor: "transparent",
+                            zIndex: 1,
+                            display: "block",
+                            position: "relative",
+                          }}
+                          onError={(e) => {
+                            console.error(
+                              "Failed to load image:",
+                              item.imageUrl
+                            );
+                            e.currentTarget.style.display = "none";
+                            const fallback =
+                              e.currentTarget.parentElement?.querySelector(
+                                ".image-fallback"
+                              );
+                            if (fallback) {
+                              (fallback as HTMLElement).style.display = "flex";
+                            }
+                          }}
+                          onLoad={(e) => {
+                            console.log(
+                              "Successfully loaded image:",
+                              item.imageUrl
+                            );
+                            e.currentTarget.style.opacity = "1";
+                            e.currentTarget.style.visibility = "visible";
+                          }}
+                        />
+                        {/* Fallback when image fails to load */}
+                        <div className="image-fallback hidden absolute inset-0 bg-gray-200 flex items-center justify-center">
+                          <div className="text-center text-gray-500">
+                            <div className="text-xs mb-1">Image not found</div>
+                            <div className="text-xs">
+                              {item.userDetails.name}
+                            </div>
+                          </div>
+                        </div>
+                        {/* Hover overlay - only show on hover for desktop */}
+                        <div className="hidden md:flex bg-white group-hover:bg-opacity-50 transition-all duration-300 items-center justify-center pointer-events-none">
+                          <IconPlayerPlay className="h-6 w-6 lg:h-8 lg:w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                        {/* User name badge - responsive sizing */}
+                        <div className="absolute bottom-0 bg-black/50 bg-opacity-75 text-white text-xs px-1 py-0.5 rounded z-10 truncate max-w-full">
+                          {item.userDetails.name}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400">
+                        <span className="text-xs">Empty</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Controls - Mobile responsive */}
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 space-y-4 md:space-y-0">
+            <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
+              <button
+                onClick={handleRefresh}
+                disabled={isLoading}
+                className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm md:text-base"
+              >
+                <IconRefresh
+                  className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+                />
+                <span>{isLoading ? "Refreshing..." : "Refresh"}</span>
+              </button>
+
+              <button
+                onClick={toggleMute}
+                className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm md:text-base"
+              >
+                {isMuted ? (
+                  <IconVolumeOff className="h-4 w-4" />
+                ) : (
+                  <IconVolume className="h-4 w-4" />
+                )}
+                <span>{isMuted ? "Unmute" : "Mute"}</span>
+              </button>
+            </div>
+
+            <Link
+              href="/upload"
+              className="px-4 md:px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-center text-sm md:text-base"
             >
-              {isMuted ? (
-                <IconVolumeOff className="h-4 w-4" />
-              ) : (
-                <IconVolume className="h-4 w-4" />
-              )}
-              <span>{isMuted ? "Unmute" : "Mute"}</span>
-            </button>
+              Upload Your Art
+            </Link>
           </div>
 
-          <Link
-            href="/upload"
-            className="px-4 md:px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-center text-sm md:text-base"
-          >
-            Upload Your Art
-          </Link>
-        </div>
-
-        {/* Stats - Mobile responsive grid */}
-        <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white rounded-lg p-4 md:p-6 text-center">
-            <div className="text-xl md:text-2xl font-bold text-blue-600">
-              {muralItems.length}
+          {/* Stats - Mobile responsive grid */}
+          <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white rounded-lg p-4 md:p-6 text-center">
+              <div className="text-xl md:text-2xl font-bold text-blue-600">
+                {muralItems.length}
+              </div>
+              <div className="text-xs md:text-sm text-gray-600">
+                Artworks Uploaded
+              </div>
             </div>
-            <div className="text-xs md:text-sm text-gray-600">
-              Artworks Uploaded
+            <div className="bg-white rounded-lg p-4 md:p-6 text-center">
+              <div className="text-xl md:text-2xl font-bold text-green-600">
+                {TOTAL_CELLS - muralItems.length}
+              </div>
+              <div className="text-xs md:text-sm text-gray-600">
+                Spaces Available
+              </div>
             </div>
-          </div>
-          <div className="bg-white rounded-lg p-4 md:p-6 text-center">
-            <div className="text-xl md:text-2xl font-bold text-green-600">
-              {TOTAL_CELLS - muralItems.length}
-            </div>
-            <div className="text-xs md:text-sm text-gray-600">
-              Spaces Available
-            </div>
-          </div>
-          <div className="bg-white rounded-lg p-4 md:p-6 text-center">
-            <div className="text-xl md:text-2xl font-bold text-purple-600">
-              {Math.round((muralItems.length / TOTAL_CELLS) * 100)}%
-            </div>
-            <div className="text-xs md:text-sm text-gray-600">
-              Wall Complete
+            <div className="bg-white rounded-lg p-4 md:p-6 text-center">
+              <div className="text-xl md:text-2xl font-bold text-purple-600">
+                {Math.round((muralItems.length / TOTAL_CELLS) * 100)}%
+              </div>
+              <div className="text-xs md:text-sm text-gray-600">
+                Wall Complete
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
