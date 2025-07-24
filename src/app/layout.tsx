@@ -67,14 +67,14 @@ export default function RootLayout({
         <meta name="msapplication-TileColor" content="#000000" />
         <meta name="msapplication-tap-highlight" content="no" />
 
-        <link rel="icon" href="/jeff-face.png" sizes="any" />
-        <link
+        <link rel="icon" href="/jeff-face.ico" sizes="any" />
+        {/* <link
           rel="icon"
           href="/jeff-face.png"
           type="image/png"
           sizes="110x110"
-        />
-        <link rel="apple-touch-icon" href="/jeff-182x182.png" />
+        /> */}
+        {/* <link rel="apple-touch-icon" href="/jeff-182x182.png" /> */}
         <link rel="manifest" href="/manifest.json" />
         <link
           href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;700&display=swap"
