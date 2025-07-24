@@ -408,7 +408,7 @@ export default function UploadPage() {
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-4 md:py-8 relative -z-3"
+      className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-4 md:py-8 relative z-0"
       style={{
         backgroundImage: "url('/images/upload-page-background.png')",
         backgroundSize: "cover",
@@ -416,8 +416,8 @@ export default function UploadPage() {
         backgroundRepeat: "no-repeat",
       }}
     >
-      <div className="absolute inset-0 w-full h-full -z-1 bg-gradient-to-br from-blue-50/80 to-indigo-100/80"></div>
-      <div className="max-w-4xl mx-auto px-2 md:px-4">
+      <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-blue-50/80 to-indigo-100/80 -z-1"></div>
+      <div className="max-w-4xl mx-auto px-2 md:px-4 z-3">
         {/* Header */}
         <div className="text-center mb-6 md:mb-8">
           <h1 className="text-2xl md:text-4xl font-bold text-gray-900 mb-4">
