@@ -83,7 +83,9 @@ export default function Toolbox({ onNPCClick }: ToolboxProps) {
 
       <div
         className={`absolute top-1/2 left-full mr-2 bg-gray-50/10 backdrop-blur-sm rounded-2xl shadow-xl  z-40 transform -translate-y-1/2 overflow-hidden ${
-          isOpen ? "p-3 mr-2 w-auto opacity-100" : "p-0 mr-0w-0 opacity-0"
+          isOpen
+            ? "p-3 mr-2 w-auto w-auto min-w-[220px] opacity-100"
+            : "p-0 mr-0w-0 opacity-0"
         } transition-all duration-400 ease-out`}
       >
         {isOpen && (
