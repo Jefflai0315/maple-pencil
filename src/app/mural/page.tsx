@@ -159,9 +159,10 @@ export default function MuralPage() {
   }, [floatingPrompts]);
 
   // Responsive grid dimensions
-  const MOBILE_GRID_ROWS = 8;
+  const WANTED_CELLS = 150;
+  const MOBILE_GRID_ROWS = Math.floor(WANTED_CELLS / 6);
   const MOBILE_GRID_COLS = 6;
-  const DESKTOP_GRID_ROWS = 8;
+  const DESKTOP_GRID_ROWS = Math.floor(WANTED_CELLS / 16);
   const DESKTOP_GRID_COLS = 16;
 
   const GRID_ROWS = isMobile ? MOBILE_GRID_ROWS : DESKTOP_GRID_ROWS;
@@ -810,7 +811,9 @@ export default function MuralPage() {
                   <div
                     key={index}
                     className={
-                      `aspect-square border-2 transition-all duration-300 overflow-hidden ` +
+                      `aspect-square border-2 transition-all duration-300 overflow-hidden ${
+                        isMobile ? "mb-2" : "mb-4"
+                      } ` +
                       (item
                         ? "border-gray-300 bg-white hover:border-blue-400 cursor-pointer"
                         : "border-dashed border-gray-200") +
@@ -876,7 +879,7 @@ export default function MuralPage() {
                           <IconPlayerPlay className="h-6 w-6 lg:h-8 lg:w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
                         {/* User name badge - responsive sizing */}
-                        <div className="absolute bottom-0 bg-black/50 bg-opacity-75 text-white text-xs px-1 py-0.5 rounded z-10 truncate max-w-full font-quicksand">
+                        <div className="absolute bottom-0 z-1 left-0 bg-black/50 bg-opacity-75 text-white text-xs px-1 py-0.5 rounded truncate max-w-full font-quicksand">
                           {item.userDetails.name}
                         </div>
                       </div>

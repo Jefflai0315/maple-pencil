@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { videoPrompts } from "../utils/constants";
+import { useSession, signIn } from "next-auth/react";
 
 interface PreviewData {
   imageUrl: string;
@@ -62,6 +63,7 @@ function resizeImage(
 }
 
 export default function UploadPage() {
+  const { data: session, status } = useSession();
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [capturedImage, setCapturedImage] = useState<string>("");
@@ -325,10 +327,11 @@ export default function UploadPage() {
       formData.append("description", previewData.userDetails.description);
       formData.append("videoUrl", previewData.videoUrl);
       formData.append("prompt", advancedPrompt);
-
       // Add upload source information
       const uploadSource = capturedImage ? "camera" : "file";
       formData.append("uploadSource", uploadSource);
+      // Add user email from session
+      formData.append("userEmail", session?.user?.email ?? "");
 
       // Upload to MongoDB API
       const uploadResponse = await fetch("/api/upload-mongodb", {
@@ -386,8 +389,34 @@ export default function UploadPage() {
     setErrorMessage("");
   };
 
+  if (status === "loading") {
+    return <div>Loading...</div>;
+  }
+  if (!session) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center">
+        <h2 className="text-xl font-bold mb-4">Please log in to upload</h2>
+        <button
+          onClick={() => signIn("google")}
+          className="px-4 py-2 bg-blue-600 text-white rounded"
+        >
+          Log in with Google
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-4 md:py-8">
+    <div
+      className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-4 md:py-8 relative -z-3"
+      style={{
+        backgroundImage: "url('/images/upload-page-background.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      <div className="absolute inset-0 w-full h-full -z-1 bg-gradient-to-br from-blue-50/80 to-indigo-100/80"></div>
       <div className="max-w-4xl mx-auto px-2 md:px-4">
         {/* Header */}
         <div className="text-center mb-6 md:mb-8">
