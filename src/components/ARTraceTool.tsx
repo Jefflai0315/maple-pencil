@@ -1,14 +1,22 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Box, Button, Slider, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 import LockIcon from "@mui/icons-material/Lock";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
+import FlashOnIcon from "@mui/icons-material/FlashOn";
+import FlashOffIcon from "@mui/icons-material/FlashOff";
 
 interface ARTraceToolProps {
   onClose: () => void;
 }
+
+const isMobile =
+  (typeof window !== "undefined" &&
+    /Mobi|Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(
+      navigator.userAgent
+    )) ||
+  (typeof window !== "undefined" && window.innerWidth < 768);
 
 const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   const [image, setImage] = useState<string | null>(null);
@@ -29,6 +37,8 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
     null
   );
   const [lastPinchAngle, setLastPinchAngle] = useState<number | null>(null);
+  const [strobeActive, setStrobeActive] = useState(false);
+  const [strobeVisible, setStrobeVisible] = useState(true);
 
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -59,6 +69,21 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
       setIsCameraActive(false);
     };
   }, []); // Empty dependency array since we only want this to run on mount/unmount
+
+  // Strobe effect: toggles overlay visibility at interval when strobeActive
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (strobeActive) {
+      interval = setInterval(() => {
+        setStrobeVisible((v) => !v);
+      }, 350); // Flicker every 350ms
+    } else {
+      setStrobeVisible(true);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [strobeActive]);
 
   // Handle image upload
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -285,231 +310,236 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         left: 0,
         width: "100vw",
         height: "100vh",
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        backgroundColor: "black",
         zIndex: 99999,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
+        overflow: "hidden",
+        m: 0,
+        p: 0,
       }}
     >
-      <Box
-        ref={containerRef}
+      {/* Close Button */}
+      <IconButton
+        onClick={onClose}
         sx={{
-          position: "relative",
-          width: "96vw",
-          height: "94dvh",
-          backgroundColor: "white",
-          zIndex: 99999,
-          borderRadius: "8px",
-          overflow: "hidden",
-          boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+          position: "absolute",
+          top: 16,
+          right: 16,
+          zIndex: 100000,
+          backgroundColor: "rgba(255, 255, 255, 0.8)",
+          "&:hover": {
+            backgroundColor: "rgba(255, 255, 255, 0.9)",
+          },
         }}
       >
-        <IconButton
-          onClick={onClose}
-          sx={{
-            position: "absolute",
-            top: 8,
-            right: 8,
-            zIndex: 100000,
-            backgroundColor: "rgba(255, 255, 255, 0.8)",
-            "&:hover": {
-              backgroundColor: "rgba(255, 255, 255, 0.9)",
-            },
-          }}
-        >
-          <CloseIcon />
-        </IconButton>
+        <CloseIcon />
+      </IconButton>
 
+      {/* Camera/Video Background */}
+      <Box
+        sx={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100vw",
+          height: "100vh",
+          zIndex: 99998,
+          overflow: "hidden",
+          backgroundColor: "black",
+        }}
+      >
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          style={{
+            width: "100vw",
+            height: "100vh",
+            objectFit: "cover",
+            zIndex: 10002,
+            transform: isFrontCamera ? "scaleX(-1)" : "none",
+          }}
+        />
+      </Box>
+
+      {/* Trace Image Overlay */}
+      {image && (
         <Box
           sx={{
             position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            zIndex: 99999,
-            overflow: "hidden",
-            backgroundColor: "black",
+            top: position.y,
+            left: position.x,
+            cursor: isFixed ? "default" : "move",
+            zIndex: 99998,
+            border: isDragging ? "2px dashed #1976d2" : "none",
+            transform: `scale(${scale}) rotate(${rotation}deg)`,
+            transformOrigin: "center center",
           }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
+          <img
+            ref={imageRef}
+            src={image}
+            alt="Trace"
             style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              zIndex: 10002,
-              transform: isFrontCamera ? "scaleX(-1)" : "none", // Only mirror for back camera
+              maxWidth: "100vw",
+              maxHeight: "100vh",
+              opacity: strobeActive ? (strobeVisible ? opacity : 0) : opacity,
+              pointerEvents: isFixed ? "none" : "auto",
+              userSelect: "none",
+              touchAction: "none",
+              WebkitUserSelect: "none",
+              WebkitTouchCallout: "none",
+              zIndex: 99998,
             }}
           />
+          {!isFixed && (
+            <Box
+              sx={{
+                position: "absolute",
+                bottom: -20,
+                right: -20,
+                width: 40,
+                height: 40,
+                backgroundColor: "#1976d2",
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "move",
+                zIndex: 100004,
+                boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                "@media (hover: hover)": {
+                  "&:hover": {
+                    backgroundColor: "#1565c0",
+                  },
+                },
+              }}
+              onMouseDown={handleControlStart}
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="white"
+                strokeWidth="2"
+              >
+                <path d="M12 2L12 22M2 12L22 12" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </Box>
+          )}
         </Box>
+      )}
+
+      {/* Bottom Toolbar */}
+      <Box
+        sx={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          padding: 2,
+          backgroundColor: "rgba(0, 0, 0, 0.8)",
+          display: "flex",
+          gap: 2,
+          alignItems: "center",
+          zIndex: 99999,
+        }}
+      >
+        <input
+          accept="image/*"
+          style={{ display: "none" }}
+          id="image-upload"
+          type="file"
+          onChange={handleImageUpload}
+        />
+        <label htmlFor="image-upload">
+          <Button
+            variant="contained"
+            component="span"
+            sx={{
+              backgroundColor: "#1976d2",
+              "&:hover": {
+                backgroundColor: "#1565c0",
+              },
+              minWidth: isMobile ? 48 : undefined,
+              padding: isMobile ? 1 : undefined,
+              fontSize: isMobile ? 12 : undefined,
+            }}
+          >
+            {isMobile ? "Upload" : "Upload Image"}
+          </Button>
+        </label>
 
         {image && (
-          <Box
-            sx={{
-              position: "absolute",
-              top: position.y,
-              left: position.x,
-              cursor: isFixed ? "default" : "move",
-              zIndex: 100003,
-              border: isDragging ? "2px dashed #1976d2" : "none",
-              transform: `scale(${scale}) rotate(${rotation}deg)`,
-              transformOrigin: "center center",
-            }}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          >
-            <img
-              ref={imageRef}
-              src={image}
-              alt="Trace"
-              style={{
-                maxWidth: "100%",
-                maxHeight: "100%",
-                opacity: opacity,
-                pointerEvents: isFixed ? "none" : "auto",
-                userSelect: "none",
-                touchAction: "none",
-                WebkitUserSelect: "none",
-                WebkitTouchCallout: "none",
-                zIndex: 100003,
-              }}
-            />
-            {!isFixed && (
-              <Box
+          <>
+            <Box sx={{ width: 200, color: "white" }}>
+              <Slider
+                value={opacity}
+                onChange={(_, value) => setOpacity(value as number)}
+                min={0}
+                max={1}
+                step={0.1}
                 sx={{
-                  position: "absolute",
-                  bottom: -20,
-                  right: -20,
-                  width: 40,
-                  height: 40,
-                  backgroundColor: "#1976d2",
-                  borderRadius: "50%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "move",
-                  zIndex: 100004,
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                  "@media (hover: hover)": {
-                    "&:hover": {
-                      backgroundColor: "#1565c0",
-                    },
+                  color: "#1976d2",
+                  "& .MuiSlider-thumb": {
+                    backgroundColor: "#fff",
+                  },
+                  "& .MuiSlider-track": {
+                    backgroundColor: "#1976d2",
                   },
                 }}
-                onMouseDown={handleControlStart}
-              >
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="white"
-                  strokeWidth="2"
-                >
-                  <path d="M12 2L12 22M2 12L22 12" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              </Box>
-            )}
-          </Box>
-        )}
+              />
+            </Box>
 
-        <Box
-          sx={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            padding: 2,
-            backgroundColor: "rgba(0, 0, 0, 0.8)",
-            display: "flex",
-            gap: 2,
-            alignItems: "center",
-            zIndex: 99999,
-          }}
-        >
-          <input
-            accept="image/*"
-            style={{ display: "none" }}
-            id="image-upload"
-            type="file"
-            onChange={handleImageUpload}
-          />
-          <label htmlFor="image-upload">
-            <Button
-              variant="contained"
-              component="span"
-              startIcon={<PhotoCameraIcon />}
+            <IconButton
+              onClick={() => setIsFixed(!isFixed)}
               sx={{
                 backgroundColor: "#1976d2",
+                color: "white",
                 "&:hover": {
                   backgroundColor: "#1565c0",
                 },
               }}
             >
-              Upload Image
-            </Button>
-          </label>
+              {isFixed ? <LockIcon /> : <LockOpenIcon />}
+            </IconButton>
 
-          {image && (
-            <>
-              <Box sx={{ width: 200, color: "white" }}>
-                <Slider
-                  value={opacity}
-                  onChange={(_, value) => setOpacity(value as number)}
-                  min={0}
-                  max={1}
-                  step={0.1}
-                  sx={{
-                    color: "#1976d2",
-                    "& .MuiSlider-thumb": {
-                      backgroundColor: "#fff",
-                    },
-                    "& .MuiSlider-track": {
-                      backgroundColor: "#1976d2",
-                    },
-                  }}
-                />
-              </Box>
+            <IconButton
+              onClick={() => setStrobeActive((v) => !v)}
+              sx={{
+                backgroundColor: strobeActive ? "#ffd600" : "#1976d2",
+                color: strobeActive ? "#333" : "white",
+                "&:hover": {
+                  backgroundColor: strobeActive ? "#ffea00" : "#1565c0",
+                },
+              }}
+              title={strobeActive ? "Disable Strobe" : "Enable Strobe"}
+            >
+              {strobeActive ? <FlashOnIcon /> : <FlashOffIcon />}
+            </IconButton>
+          </>
+        )}
 
-              <IconButton
-                onClick={() => setIsFixed(!isFixed)}
-                sx={{
-                  backgroundColor: "#1976d2",
-                  color: "white",
-                  "&:hover": {
-                    backgroundColor: "#1565c0",
-                  },
-                }}
-              >
-                {isFixed ? <LockIcon /> : <LockOpenIcon />}
-              </IconButton>
-            </>
-          )}
-
-          <IconButton
-            onClick={handleCameraToggle}
-            sx={{
-              backgroundColor: isCameraActive ? "#d32f2f" : "#1976d2",
-              color: "white",
-              "&:hover": {
-                backgroundColor: isCameraActive ? "#c62828" : "#1565c0",
-              },
-            }}
-          >
-            <CameraAltIcon />
-          </IconButton>
-        </Box>
+        <IconButton
+          onClick={handleCameraToggle}
+          sx={{
+            backgroundColor: isCameraActive ? "#d32f2f" : "#1976d2",
+            color: "white",
+            "&:hover": {
+              backgroundColor: isCameraActive ? "#c62828" : "#1565c0",
+            },
+          }}
+        >
+          <CameraAltIcon />
+        </IconButton>
       </Box>
     </Box>
   );
