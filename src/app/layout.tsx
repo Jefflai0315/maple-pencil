@@ -67,7 +67,7 @@ export default function RootLayout({
         <meta name="msapplication-TileColor" content="#000000" />
         <meta name="msapplication-tap-highlight" content="no" />
 
-        <link rel="icon" href="/jeff-face.ico" sizes="any" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
         {/* <link
           rel="icon"
           href="/jeff-face.png"
