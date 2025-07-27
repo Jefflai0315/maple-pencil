@@ -663,3 +663,6 @@ html, body {
   background: transparent;
 }
 
+.moveable-control-box {
+  z-index: 100000 !important;
+}

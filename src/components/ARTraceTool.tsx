@@ -6,6 +6,7 @@ import LockOpenIcon from "@mui/icons-material/LockOpen";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import FlashOnIcon from "@mui/icons-material/FlashOn";
 import FlashOffIcon from "@mui/icons-material/FlashOff";
+import Moveable from "react-moveable";
 
 interface ARTraceToolProps {
   onClose: () => void;
@@ -24,26 +25,25 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   const [isFixed, setIsFixed] = useState<boolean>(false);
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
   const [isFrontCamera, setIsFrontCamera] = useState<boolean>(false);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [scale, setScale] = useState(1);
-  const [rotation, setRotation] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [isControlMode, setIsControlMode] = useState(false);
-  const [controlStartPos, setControlStartPos] = useState({ x: 0, y: 0 });
-  const [controlStartScale, setControlStartScale] = useState(1);
-  const [controlStartRotation, setControlStartRotation] = useState(0);
-  const [lastPinchDistance, setLastPinchDistance] = useState<number | null>(
-    null
-  );
-  const [lastPinchAngle, setLastPinchAngle] = useState<number | null>(null);
   const [strobeActive, setStrobeActive] = useState(false);
   const [strobeVisible, setStrobeVisible] = useState(true);
 
-  const imageRef = useRef<HTMLImageElement>(null);
+  // Add new state for resizing/rotating
+  const moveableBoxRef = useRef<HTMLDivElement>(null);
+  // Remove old frame state and logic
+  // Add new box state for Moveable
+  const [boxState, setBoxState] = useState({
+    top: 100,
+    left: 100,
+    width: 300,
+    height: 300,
+    rotation: 0,
+  });
+
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const [moveableReady, setMoveableReady] = useState(false);
 
   useEffect(() => {
     console.log("ARTraceTool mounted");
@@ -69,6 +69,15 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
       setIsCameraActive(false);
     };
   }, []); // Empty dependency array since we only want this to run on mount/unmount
+
+  useEffect(() => {
+    if (image && moveableBoxRef.current) {
+      setMoveableReady(false); // reset first to force re-render
+      setTimeout(() => setMoveableReady(true), 0);
+    } else {
+      setMoveableReady(false);
+    }
+  }, [image]);
 
   // Strobe effect: toggles overlay visibility at interval when strobeActive
   useEffect(() => {
@@ -142,164 +151,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
     await initializeCamera(!isFrontCamera);
   };
 
-  // Handle image manipulation
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!isFixed && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setIsDragging(true);
-      setDragOffset({
-        x: e.clientX - rect.left - position.x,
-        y: e.clientY - rect.top - position.y,
-      });
-    }
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging && !isFixed && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setPosition({
-        x: e.clientX - rect.left - dragOffset.x,
-        y: e.clientY - rect.top - dragOffset.y,
-      });
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (isFixed) return;
-    if (e.touches.length === 1 && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setIsDragging(true);
-      const touch = e.touches[0];
-      setDragOffset({
-        x: touch.clientX - rect.left - position.x,
-        y: touch.clientY - rect.top - position.y,
-      });
-    } else if (e.touches.length === 2) {
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-
-      // Initialize pinch tracking
-      const initialDistance = Math.hypot(
-        touch2.clientX - touch1.clientX,
-        touch2.clientY - touch1.clientY
-      );
-      const initialAngle = Math.atan2(
-        touch2.clientY - touch1.clientY,
-        touch2.clientX - touch1.clientX
-      );
-
-      setLastPinchDistance(initialDistance);
-      setLastPinchAngle(initialAngle);
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (isFixed) return;
-    e.preventDefault();
-    if (e.touches.length === 1 && isDragging && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const touch = e.touches[0];
-      setPosition({
-        x: touch.clientX - rect.left - dragOffset.x,
-        y: touch.clientY - rect.top - dragOffset.y,
-      });
-    } else if (e.touches.length === 2) {
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-
-      // Calculate current distance between touches
-      const currentDistance = Math.hypot(
-        touch2.clientX - touch1.clientX,
-        touch2.clientY - touch1.clientY
-      );
-
-      // Calculate current angle between touches
-      const currentAngle = Math.atan2(
-        touch2.clientY - touch1.clientY,
-        touch2.clientX - touch1.clientX
-      );
-
-      // Update scale based on pinch distance
-      if (lastPinchDistance !== null) {
-        const scaleDelta = currentDistance / lastPinchDistance;
-        const newScale = Math.max(0.1, Math.min(5, scale * scaleDelta));
-        setScale(newScale);
-      }
-      setLastPinchDistance(currentDistance);
-
-      // Update rotation based on angle change
-      if (lastPinchAngle !== null) {
-        const angleDelta = currentAngle - lastPinchAngle;
-        const degreesDelta = angleDelta * (180 / Math.PI);
-        setRotation(rotation + degreesDelta);
-      }
-      setLastPinchAngle(currentAngle);
-    }
-  };
-
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-    setLastPinchDistance(null);
-    setLastPinchAngle(null);
-  };
-
-  const handleControlStart = (e: React.MouseEvent) => {
-    setIsControlMode(true);
-    setControlStartPos({ x: e.clientX, y: e.clientY });
-    setControlStartScale(scale);
-    setControlStartRotation(rotation);
-  };
-
-  const handleControlMove = (e: React.MouseEvent) => {
-    if (!isControlMode) return;
-
-    const deltaX = e.clientX - controlStartPos.x;
-    const deltaY = e.clientY - controlStartPos.y;
-
-    // Scale based on vertical movement
-    const scaleDelta = deltaY * 0.01;
-    const newScale = Math.max(0.1, Math.min(5, controlStartScale - scaleDelta));
-    setScale(newScale);
-
-    // Rotate based on horizontal movement
-    const rotationDelta = deltaX * 0.5;
-    setRotation(controlStartRotation + rotationDelta);
-  };
-
-  const handleControlEnd = () => {
-    setIsControlMode(false);
-  };
-
-  useEffect(() => {
-    if (isControlMode) {
-      window.addEventListener(
-        "mousemove",
-        handleControlMove as unknown as EventListener
-      );
-      window.addEventListener("mouseup", handleControlEnd);
-    }
-    return () => {
-      window.removeEventListener(
-        "mousemove",
-        handleControlMove as unknown as EventListener
-      );
-      window.removeEventListener("mouseup", handleControlEnd);
-    };
-  }, [isControlMode, controlStartPos, controlStartScale, controlStartRotation]);
-
-  // Update handleCameraToggle to use the new toggle function
-  const handleCameraToggle = async () => {
-    console.log("Toggling camera");
-    if (!isCameraActive) {
-      await initializeCamera(isFrontCamera);
-    } else {
-      await toggleCamera();
-    }
-  };
+  // Remove custom desktop handles and manipulation logic
 
   return (
     <Box
@@ -361,81 +213,80 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         />
       </Box>
 
-      {/* Trace Image Overlay */}
+      {/* Trace Image Target (the element Moveable controls) */}
       {image && (
         <Box
+          ref={moveableBoxRef}
           sx={{
             position: "absolute",
-            top: position.y,
-            left: position.x,
-            cursor: isFixed ? "default" : "move",
-            zIndex: 99998,
-            border: isDragging ? "2px dashed #1976d2" : "none",
-            transform: `scale(${scale}) rotate(${rotation}deg)`,
-            transformOrigin: "center center",
+            top: boxState.top,
+            left: boxState.left,
+            width: boxState.width,
+            height: boxState.height,
+            transform: `rotate(${boxState.rotation}deg)`, // rotation only
+            transformOrigin: "50% 50%", // important for correct rotate/resize
+            border: !isFixed ? "2px dashed #1976d2" : "none",
+            zIndex: 100010,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: isFixed ? "none" : "auto",
           }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
+          draggable={false}
+          onDragStart={(e: React.DragEvent) => e.preventDefault()}
         >
           <img
-            ref={imageRef}
             src={image}
             alt="Trace"
             style={{
-              maxWidth: "100vw",
-              maxHeight: "100vh",
+              width: "100%",
+              height: "100%",
               opacity: strobeActive ? (strobeVisible ? opacity : 0) : opacity,
-              pointerEvents: isFixed ? "none" : "auto",
               userSelect: "none",
               touchAction: "none",
-              WebkitUserSelect: "none",
-              WebkitTouchCallout: "none",
-              zIndex: 99998,
+              pointerEvents: "none",
             }}
+            draggable={false}
           />
-          {!isFixed && (
-            <Box
-              sx={{
-                position: "absolute",
-                bottom: -20,
-                right: -20,
-                width: 40,
-                height: 40,
-                backgroundColor: "#1976d2",
-                borderRadius: "50%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "move",
-                zIndex: 100004,
-                boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                "@media (hover: hover)": {
-                  "&:hover": {
-                    backgroundColor: "#1565c0",
-                  },
-                },
-              }}
-              onMouseDown={handleControlStart}
-            >
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth="2"
-              >
-                <path d="M12 2L12 22M2 12L22 12" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            </Box>
-          )}
         </Box>
+      )}
+
+      {/* Moveable (render as a sibling, not a child of the target) */}
+      {image && moveableReady && moveableBoxRef.current && !isFixed && (
+        <Moveable
+          target={moveableBoxRef.current}
+          container={containerRef.current} // ensures overlay is correct in full-screen overlays
+          draggable
+          resizable
+          rotatable
+          pinchable
+          origin={false} // keep origin off; we’re using top-left
+          renderDirections={["nw", "ne", "sw", "se"]}
+          snappable
+          keepRatio={true}
+          throttleResize={0}
+          onResizeStart={({ target, clientX, clientY }) => {
+            console.log("onResizeStart", target, clientX, clientY);
+          }}
+          onResize={({ target, width, height, delta }) => {
+            console.log("onResize", target);
+            if (delta[0]) target!.style.width = `${width}px`;
+            if (delta[1]) target!.style.height = `${height}px`;
+          }}
+          onResizeEnd={({ target, isDrag }) => {
+            console.log("onResizeEnd", target, isDrag);
+          }}
+          //consider changing the drag and rotate to use the moveable box ref instead of the box state
+          onDrag={({ left, top }) => {
+            setBoxState((s) => ({ ...s, left, top }));
+          }}
+          onRotate={({ beforeRotate }) => {
+            setBoxState((s) => ({ ...s, rotation: beforeRotate }));
+          }}
+          sx={{
+            zIndex: 1000,
+          }}
+        />
       )}
 
       {/* Bottom Toolbar */}
@@ -529,7 +380,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         )}
 
         <IconButton
-          onClick={handleCameraToggle}
+          onClick={toggleCamera}
           sx={{
             backgroundColor: isCameraActive ? "#d32f2f" : "#1976d2",
             color: "white",
