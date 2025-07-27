@@ -208,9 +208,11 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           "&:hover": {
             backgroundColor: "rgba(255, 255, 255, 0.9)",
           },
+          width: isMobile ? 48 : 40,
+          height: isMobile ? 48 : 40,
         }}
       >
-        <CloseIcon />
+        <CloseIcon sx={{ fontSize: isMobile ? 24 : 20 }} />
       </IconButton>
 
       {/* Camera/Video Background */}
@@ -304,114 +306,177 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
             target!.style.transform = transform;
           }}
           pinchable={true}
+          pinchThreshold={isMobile ? 0.1 : 0.5} // More sensitive on mobile
+          pinchOutside={true} // Allow pinching outside the target
           sx={{
             zIndex: 1000,
           }}
         />
       )}
 
-      {/* Bottom Toolbar */}
+      {/* Bottom Toolbar - Mobile Optimized */}
       <Box
         sx={{
           position: "absolute",
           bottom: 0,
           left: 0,
           right: 0,
-          padding: 2,
+          padding: isMobile ? 1 : 2,
           backgroundColor: "rgba(0, 0, 0, 0.8)",
           display: "flex",
-          gap: 2,
+          flexDirection: isMobile ? "column" : "row",
+          gap: isMobile ? 1 : 2,
           alignItems: "center",
           zIndex: 100013,
         }}
       >
-        <input
-          accept="image/*"
-          style={{ display: "none" }}
-          id="image-upload"
-          type="file"
-          onChange={handleImageUpload}
-        />
-        <label htmlFor="image-upload">
-          <Button
-            variant="contained"
-            component="span"
-            sx={{
-              backgroundColor: "#1976d2",
-              "&:hover": {
-                backgroundColor: "#1565c0",
-              },
-              minWidth: isMobile ? 48 : undefined,
-              padding: isMobile ? 1 : undefined,
-              fontSize: isMobile ? 12 : undefined,
-            }}
-          >
-            {isMobile ? "Upload" : "Upload Image"}
-          </Button>
-        </label>
-
-        {image && (
-          <>
-            <Box sx={{ width: 200, color: "white" }}>
-              <Slider
-                value={opacity}
-                onChange={(_, value) => setOpacity(value as number)}
-                min={0}
-                max={1}
-                step={0.1}
-                sx={{
-                  color: "#1976d2",
-                  "& .MuiSlider-thumb": {
-                    backgroundColor: "#fff",
-                  },
-                  "& .MuiSlider-track": {
-                    backgroundColor: "#1976d2",
-                  },
-                }}
-              />
-            </Box>
-
-            <IconButton
-              onClick={() => setIsFixed(!isFixed)}
+        {/* Top row for mobile */}
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "row",
+            gap: isMobile ? 1 : 2,
+            alignItems: "center",
+            width: "100%",
+            justifyContent: "space-between",
+          }}
+        >
+          <input
+            accept="image/*"
+            style={{ display: "none" }}
+            id="image-upload"
+            type="file"
+            onChange={handleImageUpload}
+          />
+          <label htmlFor="image-upload">
+            <Button
+              variant="contained"
+              component="span"
               sx={{
                 backgroundColor: "#1976d2",
-                color: "white",
                 "&:hover": {
                   backgroundColor: "#1565c0",
                 },
+                minWidth: isMobile ? 80 : undefined,
+                padding: isMobile ? "8px 12px" : undefined,
+                fontSize: isMobile ? 12 : undefined,
+                height: isMobile ? 40 : undefined,
               }}
             >
-              {isFixed ? <LockIcon /> : <LockOpenIcon />}
-            </IconButton>
+              {isMobile ? "Upload" : "Upload Image"}
+            </Button>
+          </label>
 
-            <IconButton
-              onClick={() => setStrobeActive((v) => !v)}
+          {image && (
+            <>
+              <IconButton
+                onClick={() => setIsFixed(!isFixed)}
+                sx={{
+                  backgroundColor: "#1976d2",
+                  color: "white",
+                  "&:hover": {
+                    backgroundColor: "#1565c0",
+                  },
+                  width: isMobile ? 40 : 40,
+                  height: isMobile ? 40 : 40,
+                }}
+              >
+                {isFixed ? <LockIcon /> : <LockOpenIcon />}
+              </IconButton>
+
+              <IconButton
+                onClick={() => setStrobeActive((v) => !v)}
+                sx={{
+                  backgroundColor: strobeActive ? "#ffd600" : "#1976d2",
+                  color: strobeActive ? "#333" : "white",
+                  "&:hover": {
+                    backgroundColor: strobeActive ? "#ffea00" : "#1565c0",
+                  },
+                  width: isMobile ? 40 : 40,
+                  height: isMobile ? 40 : 40,
+                }}
+                title={strobeActive ? "Disable Strobe" : "Enable Strobe"}
+              >
+                {strobeActive ? <FlashOnIcon /> : <FlashOffIcon />}
+              </IconButton>
+            </>
+          )}
+
+          <IconButton
+            onClick={toggleCamera}
+            sx={{
+              backgroundColor: isCameraActive ? "#d32f2f" : "#1976d2",
+              color: "white",
+              "&:hover": {
+                backgroundColor: isCameraActive ? "#c62828" : "#1565c0",
+              },
+              width: isMobile ? 40 : 40,
+              height: isMobile ? 40 : 40,
+            }}
+          >
+            <CameraAltIcon />
+          </IconButton>
+        </Box>
+
+        {/* Bottom row for opacity slider on mobile */}
+        {image && isMobile && (
+          <Box sx={{ width: "100%", color: "white", px: 1 }}>
+            <div
+              style={{
+                color: "white",
+                fontSize: "12px",
+                marginBottom: "4px",
+                textAlign: "center",
+              }}
+            >
+              Opacity
+            </div>
+            <Slider
+              value={opacity}
+              onChange={(_, value) => setOpacity(value as number)}
+              min={0}
+              max={1}
+              step={0.1}
               sx={{
-                backgroundColor: strobeActive ? "#ffd600" : "#1976d2",
-                color: strobeActive ? "#333" : "white",
-                "&:hover": {
-                  backgroundColor: strobeActive ? "#ffea00" : "#1565c0",
+                color: "#1976d2",
+                "& .MuiSlider-thumb": {
+                  backgroundColor: "#fff",
+                  width: 20,
+                  height: 20,
+                },
+                "& .MuiSlider-track": {
+                  backgroundColor: "#1976d2",
+                  height: 4,
+                },
+                "& .MuiSlider-rail": {
+                  height: 4,
                 },
               }}
-              title={strobeActive ? "Disable Strobe" : "Enable Strobe"}
-            >
-              {strobeActive ? <FlashOnIcon /> : <FlashOffIcon />}
-            </IconButton>
-          </>
+            />
+          </Box>
         )}
 
-        <IconButton
-          onClick={toggleCamera}
-          sx={{
-            backgroundColor: isCameraActive ? "#d32f2f" : "#1976d2",
-            color: "white",
-            "&:hover": {
-              backgroundColor: isCameraActive ? "#c62828" : "#1565c0",
-            },
-          }}
-        >
-          <CameraAltIcon />
-        </IconButton>
+        {/* Desktop opacity slider */}
+        {image && !isMobile && (
+          <Box sx={{ width: 200, color: "white" }}>
+            <Slider
+              value={opacity}
+              onChange={(_, value) => setOpacity(value as number)}
+              min={0}
+              max={1}
+              step={0.1}
+              sx={{
+                color: "#1976d2",
+                "& .MuiSlider-thumb": {
+                  backgroundColor: "#fff",
+                },
+                "& .MuiSlider-track": {
+                  backgroundColor: "#1976d2",
+                },
+              }}
+            />
+          </Box>
+        )}
       </Box>
     </Box>
   );
