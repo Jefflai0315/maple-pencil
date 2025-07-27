@@ -33,10 +33,10 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   // Remove old frame state and logic
   // Add new box state for Moveable
   const [boxState, setBoxState] = useState({
-    top: 100,
-    left: 100,
-    width: 300,
-    height: 300,
+    top: "100px",
+    left: "100px",
+    width: "400px",
+    height: "400px",
     rotation: 0,
   });
 
@@ -96,15 +96,42 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
 
   // Handle image upload
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("Handling image upload");
     const file = event.target.files?.[0];
     if (file && file.size <= 5 * 1024 * 1024) {
       // 5MB limit
       const reader = new FileReader();
       reader.onload = (e) => {
-        setImage(e.target?.result as string);
+        const imageData = e.target?.result as string;
+        setImage(imageData);
         setIsFixed(false);
+
+        // Create a new image to get dimensions
+        const img = new Image();
+        img.onload = () => {
+          const imageWidth = img.naturalWidth;
+          const imageHeight = img.naturalHeight;
+          const ratio = imageWidth / imageHeight;
+
+          // Calculate dimensions maintaining aspect ratio with width = 400px
+          const width = 400;
+          const height = width / ratio;
+
+          // Calculate center position
+          const centerX = (window.innerWidth - width) / 2;
+          const centerY = (window.innerHeight - height) / 2;
+
+          //reset the box state to the center of the screen
+          setBoxState({
+            top: `${centerY}px`,
+            left: `${centerX}px`,
+            width: `${width}px`,
+            height: `${height}px`,
+            rotation: 0,
+          });
+        };
+        img.src = imageData;
       };
+
       reader.readAsDataURL(file);
     } else {
       alert("Please select an image under 5MB");
@@ -259,30 +286,24 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           draggable
           resizable
           rotatable
-          pinchable
           origin={false} // keep origin off; we’re using top-left
           renderDirections={["nw", "ne", "sw", "se"]}
           snappable
           keepRatio={true}
           throttleResize={0}
-          onResizeStart={({ target, clientX, clientY }) => {
-            console.log("onResizeStart", target, clientX, clientY);
-          }}
+          throttleDrag={0}
+          throttleRotate={0}
           onResize={({ target, width, height, delta }) => {
-            console.log("onResize", target);
             if (delta[0]) target!.style.width = `${width}px`;
             if (delta[1]) target!.style.height = `${height}px`;
           }}
-          onResizeEnd={({ target, isDrag }) => {
-            console.log("onResizeEnd", target, isDrag);
+          onDrag={({ target, transform }) => {
+            target!.style.transform = transform;
           }}
-          //consider changing the drag and rotate to use the moveable box ref instead of the box state
-          onDrag={({ left, top }) => {
-            setBoxState((s) => ({ ...s, left, top }));
+          onRotate={({ target, transform }) => {
+            target!.style.transform = transform;
           }}
-          onRotate={({ beforeRotate }) => {
-            setBoxState((s) => ({ ...s, rotation: beforeRotate }));
-          }}
+          pinchable={true}
           sx={{
             zIndex: 1000,
           }}

@@ -80,6 +80,14 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;700&display=swap"
           rel="stylesheet"
         />
+        <script
+          src="https://aframe.io/releases/1.2.0/aframe.min.js"
+          async
+        ></script>
+        <script
+          src="https://cdn.rawgit.com/jeromeetienne/AR.js/2.1.7/aframe/build/aframe-ar.js"
+          async
+        ></script>
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
