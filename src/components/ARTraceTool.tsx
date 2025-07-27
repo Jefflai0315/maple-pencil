@@ -176,7 +176,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           position: "absolute",
           top: 16,
           right: 16,
-          zIndex: 100000,
+          zIndex: 100013,
           backgroundColor: "rgba(255, 255, 255, 0.8)",
           "&:hover": {
             backgroundColor: "rgba(255, 255, 255, 0.9)",
@@ -301,7 +301,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           display: "flex",
           gap: 2,
           alignItems: "center",
-          zIndex: 99999,
+          zIndex: 100013,
         }}
       >
         <input
