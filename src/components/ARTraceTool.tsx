@@ -363,7 +363,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
             throttleDrag={isMobile ? 16 : 0}
             throttleRotate={isMobile ? 16 : 0}
             throttleScale={isMobile ? 16 : 0}
-            onResize={({ target, width, height, delta, datas }) => {
+            onResize={({ target, width, height, delta }) => {
               if (delta[0]) target!.style.width = `${width}px`;
               if (delta[1]) target!.style.height = `${height}px`;
             }}
