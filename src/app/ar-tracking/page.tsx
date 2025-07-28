@@ -371,6 +371,7 @@ export default function ARTrackingPage() {
         zoom: 1.0;
         user-zoom: fixed;
       }
+
     `;
     document.head.appendChild(style);
     return () => document.getElementById("arjs-video-cover")?.remove();
@@ -493,7 +494,8 @@ export default function ARTrackingPage() {
           "a-plane"
         ) as unknown as AFrameEntity;
         plane.id = "imagePlane";
-        plane.setAttribute("position", "0 0 0");
+        // i want to set a few cm lower than the tracked image
+        plane.setAttribute("position", "0 0 2.5");
         plane.setAttribute("rotation", "-90 0 0"); // lie flat on marker
         plane.setAttribute(
           "material",
@@ -585,9 +587,14 @@ export default function ARTrackingPage() {
       const aspect = imageDimensions.width / imageDimensions.height;
       const baseW = 4 * scale; // meters
       const w = baseW;
-      const h = baseW * aspect;
+      const h = baseW / aspect;
       planeRef.current.setAttribute("width", w.toString());
       planeRef.current.setAttribute("height", h.toString());
+      //Force texture update to ensure it stretches correctly
+      const mesh = meshRef.current;
+      if (mesh) {
+        markTextureNeedsUpdate(mesh.material);
+      }
     } else {
       planeRef.current.setAttribute("width", (4 * scale).toString());
       planeRef.current.setAttribute("height", (4 * scale).toString());
