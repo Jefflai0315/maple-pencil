@@ -65,24 +65,88 @@ export default function ARTrackingPage() {
     const style = document.createElement("style");
     style.id = "arjs-video-cover";
     style.textContent = `
-      html, body { margin:0; padding:0; height:100%; overflow:hidden; }
-      /* Scene & canvas should cover the viewport */
-      #ar-root, #ar-root a-scene { position: fixed; inset: 0; width: 100vw; height: 100dvh; }
-      #ar-root canvas.a-canvas {
-        position: absolute !important;
-        inset: 0 !important;
-        width: 100vw !important;
-        height: 100dvh !important;
+      html, body { 
+        margin: 0 !important; 
+        padding: 0 !important; 
+        height: 100% !important; 
+        width: 100% !important;
+        overflow: hidden !important; 
       }
-      /* AR.js camera video must cover and stay centered */
-      #arjs-video {
+      #ar-root, #ar-root a-scene { 
+        position: fixed !important; 
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important; 
+        height: 100vh !important;
+        height: 100dvh !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        z-index: 1000 !important;
+      }
+      /* Canvas styling */
+      #ar-root canvas.a-canvas {
         position: fixed !important;
-        top: 0 !important; left: 0 !important;
-        width: 100vw !important; height: 100dvh !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        object-fit: cover !important;
+        z-index: 1001 !important;
+      }
+      
+      /* Critical: Force AR.js video to fill screen */
+      #arjs-video, 
+      video[id*="arjs"], 
+      .arjs-video,
+      a-scene video {
+        position: fixed !important;
+        top: 0 !important; 
+        left: 0 !important;
+        width: 100vw !important; 
+        height: 100vh !important;
+        height: 100dvh !important;
         object-fit: cover !important;
         object-position: center center !important;
         transform: none !important;
         z-index: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        outline: none !important;
+      }
+      
+      /* Target all possible AR.js video selectors */
+      video {
+        position: fixed !important;
+        top: 0 !important; 
+        left: 0 !important;
+        width: 100vw !important; 
+        height: 100vh !important;
+        object-fit: cover !important;
+        object-position: center center !important;
+        z-index: 0 !important;
+      }
+      
+      /* Mobile specific fixes */
+      @media screen and (max-width: 768px) {
+        html, body {
+          height: 100vh !important;
+          height: 100dvh !important;
+          width: 100vw !important;
+        }
+        
+        #arjs-video, 
+        video[id*="arjs"], 
+        .arjs-video,
+        a-scene video,
+        video {
+          width: 100vw !important;
+          height: 100vh !important;
+          height: 100dvh !important;
+          min-width: 100vw !important;
+          min-height: 100vh !important;
+        }
       }
     `;
     document.head.appendChild(style);
@@ -282,7 +346,7 @@ export default function ARTrackingPage() {
         const img = new Image();
         img.onload = () => {
           setImageDimensions({
-            width: img.naturalWidth,
+            width: img.naturalWidth * 1.2,
             height: img.naturalHeight,
           });
         };
