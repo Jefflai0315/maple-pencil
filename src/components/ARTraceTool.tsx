@@ -3,7 +3,6 @@ import { Box, Button, Slider, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import LockIcon from "@mui/icons-material/Lock";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
-import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import FlashOnIcon from "@mui/icons-material/FlashOn";
 import FlashOffIcon from "@mui/icons-material/FlashOff";
 import Moveable from "react-moveable";
@@ -23,7 +22,6 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   const [image, setImage] = useState<string | null>(null);
   const [opacity, setOpacity] = useState<number>(0.5);
   const [isFixed, setIsFixed] = useState<boolean>(false);
-  const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
   const [isFrontCamera, setIsFrontCamera] = useState<boolean>(false);
   const [strobeActive, setStrobeActive] = useState(false);
   const [strobeVisible, setStrobeVisible] = useState(true);
@@ -66,7 +64,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         streamRef.current.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
       }
-      setIsCameraActive(false);
+      // setIsCameraActive(false);
     };
   }, []); // Empty dependency array since we only want this to run on mount/unmount
 
@@ -155,7 +153,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         console.log("Setting video source...");
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
-        setIsCameraActive(true);
+        // setIsCameraActive(true);
         setIsFrontCamera(useFrontCamera);
         console.log("Camera initialized successfully");
       }
@@ -167,16 +165,16 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
     }
   };
 
-  // Add camera toggle function
-  const toggleCamera = async () => {
-    if (streamRef.current) {
-      // Stop current stream
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    // Initialize with opposite camera
-    await initializeCamera(!isFrontCamera);
-  };
+  // // Add camera toggle function
+  // const toggleCamera = async () => {
+  //   if (streamRef.current) {
+  //     // Stop current stream
+  //     streamRef.current.getTracks().forEach((track) => track.stop());
+  //     streamRef.current = null;
+  //   }
+  //   // Initialize with opposite camera
+  //   await initializeCamera(!isFrontCamera);
+  // };
 
   // Remove custom desktop handles and manipulation logic
 
