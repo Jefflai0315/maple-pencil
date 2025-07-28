@@ -288,13 +288,15 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           draggable
           resizable
           rotatable
+          scalable
           origin={false} // keep origin off; we’re using top-left
           renderDirections={["nw", "ne", "sw", "se"]}
           snappable
           keepRatio={true}
-          throttleResize={0}
-          throttleDrag={0}
-          throttleRotate={0}
+          throttleResize={isMobile ? 16 : 0} // 60fps throttle for mobile
+          throttleDrag={isMobile ? 16 : 0}
+          throttleRotate={isMobile ? 16 : 0}
+          throttleScale={isMobile ? 16 : 0}
           onResize={({ target, width, height, delta }) => {
             if (delta[0]) target!.style.width = `${width}px`;
             if (delta[1]) target!.style.height = `${height}px`;
@@ -305,8 +307,12 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           onRotate={({ target, transform }) => {
             target!.style.transform = transform;
           }}
-          pinchable={true}
-          pinchThreshold={isMobile ? 0.1 : 0.5} // More sensitive on mobile
+          onScale={({ target, transform, scale }) => {
+            target!.style.transform = transform;
+            console.log("Scaling", scale);
+          }}
+          pinchable={["rotatable", "scalable", "resizable"]} // Enable pinch for rotate, scale, and resize
+          pinchThreshold={isMobile ? 0.05 : 0.1} // Very sensitive on mobile
           pinchOutside={true} // Allow pinching outside the target
           sx={{
             zIndex: 1000,
@@ -402,7 +408,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
             </>
           )}
 
-          <IconButton
+          {/* <IconButton
             onClick={toggleCamera}
             sx={{
               backgroundColor: isCameraActive ? "#d32f2f" : "#1976d2",
@@ -415,7 +421,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
             }}
           >
             <CameraAltIcon />
-          </IconButton>
+          </IconButton> */}
         </Box>
 
         {/* Bottom row for opacity slider on mobile */}
