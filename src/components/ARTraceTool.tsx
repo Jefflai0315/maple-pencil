@@ -43,6 +43,67 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   const streamRef = useRef<MediaStream | null>(null);
   const [moveableReady, setMoveableReady] = useState(false);
 
+  // Custom pinch-to-zoom state
+  const [isPinching, setIsPinching] = useState(false);
+  const initialDistanceRef = useRef<number>(0);
+  const initialScaleRef = useRef<number>(1);
+  const [currentScale, setCurrentScale] = useState<number>(1);
+
+  // Helper function to calculate distance between two touches
+  const getDistance = (touch1: React.Touch, touch2: React.Touch) => {
+    const dx = touch1.clientX - touch2.clientX;
+    const dy = touch1.clientY - touch2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  // Custom touch handlers for pinch-to-zoom
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && !isFixed) {
+      setIsPinching(true);
+      initialDistanceRef.current = getDistance(e.touches[0], e.touches[1]);
+      initialScaleRef.current = currentScale;
+      e.preventDefault();
+    }
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (isPinching && e.touches.length === 2 && !isFixed) {
+      const currentDistance = getDistance(e.touches[0], e.touches[1]);
+      const scaleRatio = currentDistance / initialDistanceRef.current;
+      const newScale = Math.max(
+        0.5,
+        Math.min(3, initialScaleRef.current * scaleRatio)
+      );
+
+      setCurrentScale(newScale);
+
+      if (moveableBoxRef.current) {
+        const currentWidth = parseFloat(boxState.width);
+        const currentHeight = parseFloat(boxState.height);
+
+        const newWidth = (currentWidth / currentScale) * newScale;
+        const newHeight = (currentHeight / currentScale) * newScale;
+
+        setBoxState((prev) => ({
+          ...prev,
+          width: `${newWidth}px`,
+          height: `${newHeight}px`,
+        }));
+
+        moveableBoxRef.current.style.width = `${newWidth}px`;
+        moveableBoxRef.current.style.height = `${newHeight}px`;
+      }
+
+      e.preventDefault();
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (isPinching) {
+      setIsPinching(false);
+      e.preventDefault();
+    }
+  };
+
   useEffect(() => {
     console.log("ARTraceTool mounted");
     // Prevent default touch behaviors
@@ -261,6 +322,10 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           }}
           draggable={false}
           onDragStart={(e: React.DragEvent) => e.preventDefault()}
+          // Custom touch handlers for pinch-to-zoom
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
           <img
             src={image}
@@ -279,44 +344,42 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
       )}
 
       {/* Moveable (render as a sibling, not a child of the target) */}
-      {image && moveableReady && moveableBoxRef.current && !isFixed && (
-        <Moveable
-          target={moveableBoxRef.current}
-          container={containerRef.current} // ensures overlay is correct in full-screen overlays
-          draggable
-          resizable
-          rotatable
-          scalable
-          origin={false} // keep origin off; we’re using top-left
-          renderDirections={["nw", "ne", "sw", "se"]}
-          snappable
-          keepRatio={true}
-          throttleResize={isMobile ? 16 : 0} // 60fps throttle for mobile
-          throttleDrag={isMobile ? 16 : 0}
-          throttleRotate={isMobile ? 16 : 0}
-          throttleScale={isMobile ? 16 : 0}
-          onResize={({ target, width, height, delta }) => {
-            if (delta[0]) target!.style.width = `${width}px`;
-            if (delta[1]) target!.style.height = `${height}px`;
-          }}
-          onDrag={({ target, transform }) => {
-            target!.style.transform = transform;
-          }}
-          onRotate={({ target, transform }) => {
-            target!.style.transform = transform;
-          }}
-          onScale={({ target, transform, scale }) => {
-            target!.style.transform = transform;
-            console.log("Scaling", scale);
-          }}
-          pinchable={["rotatable", "scalable", "resizable"]} // Enable pinch for rotate, scale, and resize
-          pinchThreshold={isMobile ? 0.05 : 0.1} // Very sensitive on mobile
-          pinchOutside={true} // Allow pinching outside the target
-          sx={{
-            zIndex: 1000,
-          }}
-        />
-      )}
+      {image &&
+        moveableReady &&
+        moveableBoxRef.current &&
+        !isFixed &&
+        !isPinching && (
+          <Moveable
+            target={moveableBoxRef.current}
+            container={containerRef.current} // ensures overlay is correct in full-screen overlays
+            draggable
+            resizable
+            rotatable
+            scalable={false}
+            origin={false} // keep origin off; we’re using top-left
+            renderDirections={["nw", "ne", "sw", "se"]}
+            keepRatio={true}
+            throttleResize={isMobile ? 16 : 0} // 60fps throttle for mobile
+            throttleDrag={isMobile ? 16 : 0}
+            throttleRotate={isMobile ? 16 : 0}
+            throttleScale={isMobile ? 16 : 0}
+            onResize={({ target, width, height, delta, datas }) => {
+              if (delta[0]) target!.style.width = `${width}px`;
+              if (delta[1]) target!.style.height = `${height}px`;
+            }}
+            onDrag={({ target, transform }) => {
+              target!.style.transform = transform;
+            }}
+            onRotate={({ target, transform }) => {
+              target!.style.transform = transform;
+            }}
+            // Disable pinchable - using custom implementation
+            pinchable={false}
+            sx={{
+              zIndex: 1000,
+            }}
+          />
+        )}
 
       {/* Bottom Toolbar - Mobile Optimized */}
       <Box
