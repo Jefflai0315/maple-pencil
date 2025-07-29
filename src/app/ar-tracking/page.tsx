@@ -495,14 +495,20 @@ export default function ARTrackingPage() {
         ) as unknown as AFrameEntity;
         plane.id = "imagePlane";
         // i want to set a few cm lower than the tracked image
-        plane.setAttribute("position", "0 0 2.5");
+        plane.setAttribute("position", "0 0 ");
         plane.setAttribute("rotation", "-90 0 0"); // lie flat on marker
         plane.setAttribute(
           "material",
           "shader: flat; transparent: true; opacity: 1"
         );
-        plane.setAttribute("width", "4");
-        plane.setAttribute("height", "4");
+        // StopGap: make the plane size dynamic based on screen ratio
+        const screenRatio = 1024 / 768;
+        const currentRatio = window.innerWidth / window.innerHeight;
+        const scaleFactor = currentRatio / screenRatio;
+        const w = 4 / scaleFactor;
+        const h = 4;
+        plane.setAttribute("width", w.toString());
+        plane.setAttribute("height", h.toString());
 
         // Cache THREE mesh when ready
         plane.addEventListener(
@@ -585,8 +591,15 @@ export default function ARTrackingPage() {
 
     if (imageDimensions) {
       const aspect = imageDimensions.width / imageDimensions.height;
+      const screenRatio = 1024 / 768;
+      const currentRatio = window.innerWidth / window.innerHeight;
+      console.log("screenRatio", screenRatio);
+      console.log("currentRatio", currentRatio);
+      const scaleFactor = currentRatio / screenRatio;
+      console.log("scaleFactor", scaleFactor);
+
       const baseW = 4 * scale; // meters
-      const w = baseW;
+      const w = baseW / scaleFactor;
       const h = baseW / aspect;
       planeRef.current.setAttribute("width", w.toString());
       planeRef.current.setAttribute("height", h.toString());
