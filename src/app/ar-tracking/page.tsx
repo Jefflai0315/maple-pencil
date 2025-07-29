@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -8,11 +8,19 @@ import {
   IconButton,
   Typography,
   LinearProgress,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import LockIcon from "@mui/icons-material/Lock";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import ViewInArIcon from "@mui/icons-material/ViewInAr";
+import PaletteIcon from "@mui/icons-material/Palette";
+import ImageIcon from "@mui/icons-material/Image";
+import LayersIcon from "@mui/icons-material/Layers";
+import LayersClear from "@mui/icons-material/LayersClear";
+import SkipPreviousIcon from "@mui/icons-material/SkipPrevious";
+import SkipNextIcon from "@mui/icons-material/SkipNext";
 import type {
   Mesh,
   Material,
@@ -47,6 +55,14 @@ declare global {
     object3dset: CustomEvent<{ type: string }>;
     object3dremove: CustomEvent<{ type: string }>;
   }
+}
+
+interface ColorLayer {
+  id: number;
+  canvas: HTMLCanvasElement;
+  dominantColor: { r: number; g: number; b: number };
+  name: string;
+  pixelCount: number;
 }
 
 /* ========= Loading States ========= */
@@ -272,12 +288,293 @@ export default function ARTrackingPage() {
     height: number;
   } | null>(null);
 
+  // New layer functionality
+  const [viewMode, setViewMode] = useState<"original" | "layers">("original");
+  const [layers, setLayers] = useState<ColorLayer[]>([]);
+  const [currentLayerIndex, setCurrentLayerIndex] = useState<number>(0);
+  const [isProcessingLayers, setIsProcessingLayers] = useState<boolean>(false);
+  const [showLayerControls, setShowLayerControls] = useState<boolean>(false);
+
+  // New display mode toggles
+  const [singleLayerMode, setSingleLayerMode] = useState<boolean>(false);
+
   // New loading states
   const [loadingState, setLoadingState] = useState<LoadingState>(
     LoadingState.INITIAL
   );
   const [isFirstTime, setIsFirstTime] = useState<boolean>(false);
   const [loadingProgress, setLoadingProgress] = useState<number>(0);
+
+  /* ---------- Color Processing Functions ---------- */
+
+  const colorDistance = useCallback(
+    (
+      color1: { r: number; g: number; b: number },
+      color2: { r: number; g: number; b: number }
+    ) => {
+      const dr = color1.r - color2.r;
+      const dg = color1.g - color2.g;
+      const db = color1.b - color2.b;
+      return Math.sqrt(dr * dr + dg * dg + db * db);
+    },
+    []
+  );
+
+  const rgbToHsl = useCallback((r: number, g: number, b: number) => {
+    r /= 255;
+    g /= 255;
+    b /= 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h, s, l;
+    h = s = l = (max + min) / 2;
+
+    if (max === min) {
+      h = s = 0;
+    } else {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r:
+          h = (g - b) / d + (g < b ? 6 : 0);
+          break;
+        case g:
+          h = (b - r) / d + 2;
+          break;
+        case b:
+          h = (r - g) / d + 4;
+          break;
+      }
+      h /= 6;
+    }
+    return { h: h * 360, s: s * 100, l: l * 100 };
+  }, []);
+
+  const extractDominantColors = useCallback(
+    (imageData: ImageData, numColors: number) => {
+      const pixels = [];
+      const data = imageData.data;
+
+      for (let i = 0; i < data.length; i += 16) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3];
+        if (a > 128) {
+          pixels.push({ r, g, b });
+        }
+      }
+
+      const centroids: { r: number; g: number; b: number }[] = [];
+      for (let i = 0; i < numColors; i++) {
+        const randomPixel = pixels[Math.floor(Math.random() * pixels.length)];
+        centroids.push({ ...randomPixel });
+      }
+
+      for (let iter = 0; iter < 10; iter++) {
+        const clusters: { r: number; g: number; b: number }[][] = Array(
+          numColors
+        )
+          .fill(null)
+          .map(() => []);
+
+        pixels.forEach((pixel: { r: number; g: number; b: number }) => {
+          let minDist = Infinity;
+          let clusterIndex = 0;
+          centroids.forEach((centroid, i) => {
+            const dist = colorDistance(pixel, centroid);
+            if (dist < minDist) {
+              minDist = dist;
+              clusterIndex = i;
+            }
+          });
+          clusters[clusterIndex].push(pixel);
+        });
+
+        clusters.forEach((cluster, i) => {
+          if (cluster.length > 0) {
+            const avgR =
+              cluster.reduce((sum, p) => sum + p.r, 0) / cluster.length;
+            const avgG =
+              cluster.reduce((sum, p) => sum + p.g, 0) / cluster.length;
+            const avgB =
+              cluster.reduce((sum, p) => sum + p.b, 0) / cluster.length;
+            centroids[i] = {
+              r: Math.round(avgR),
+              g: Math.round(avgG),
+              b: Math.round(avgB),
+            };
+          }
+        });
+      }
+
+      return centroids;
+    },
+    [colorDistance]
+  );
+
+  const createColorLayers = useCallback(
+    async (
+      imageData: ImageData,
+      dominantColors: { r: number; g: number; b: number }[]
+    ) => {
+      const width = imageData.width;
+      const height = imageData.height;
+      const data = imageData.data;
+      const newLayers: ColorLayer[] = [];
+      const colorThreshold = 35;
+      const minRegionSize = 100;
+
+      for (
+        let colorIndex = 0;
+        colorIndex < dominantColors.length;
+        colorIndex++
+      ) {
+        const dominantColor = dominantColors[colorIndex];
+        const layerCanvas = document.createElement("canvas");
+        layerCanvas.width = width;
+        layerCanvas.height = height;
+        const layerCtx = layerCanvas.getContext("2d")!;
+        const layerImageData = layerCtx.createImageData(width, height);
+        const layerData = layerImageData.data;
+
+        let pixelCount = 0;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const a = data[i + 3];
+
+          const pixelColor = { r, g, b };
+          const distance = colorDistance(pixelColor, dominantColor);
+
+          if (distance <= colorThreshold && a > 128) {
+            layerData[i] = r;
+            layerData[i + 1] = g;
+            layerData[i + 2] = b;
+            layerData[i + 3] = a;
+            pixelCount++;
+          } else {
+            layerData[i] = 0;
+            layerData[i + 1] = 0;
+            layerData[i + 2] = 0;
+            layerData[i + 3] = 0;
+          }
+        }
+
+        if (pixelCount > minRegionSize) {
+          layerCtx.putImageData(layerImageData, 0, 0);
+
+          const hsl = rgbToHsl(
+            dominantColor.r,
+            dominantColor.g,
+            dominantColor.b
+          );
+
+          newLayers.push({
+            id: colorIndex,
+            canvas: layerCanvas,
+            dominantColor,
+            pixelCount,
+            name: `${hsl.l < 50 ? "Dark" : "Light"} ${
+              hsl.s < 20
+                ? "Gray"
+                : hsl.h < 30
+                ? "Red"
+                : hsl.h < 90
+                ? "Yellow"
+                : hsl.h < 150
+                ? "Green"
+                : hsl.h < 210
+                ? "Cyan"
+                : hsl.h < 270
+                ? "Blue"
+                : hsl.h < 330
+                ? "Magenta"
+                : "Red"
+            }`,
+          });
+        }
+      }
+
+      // Sort by luminance (darkest to lightest) for proper artist workflow
+      newLayers.sort((a, b) => {
+        const hslA = rgbToHsl(
+          a.dominantColor.r,
+          a.dominantColor.g,
+          a.dominantColor.b
+        );
+        const hslB = rgbToHsl(
+          b.dominantColor.r,
+          b.dominantColor.g,
+          b.dominantColor.b
+        );
+        return hslA.l - hslB.l;
+      });
+
+      return newLayers;
+    },
+    [colorDistance, rgbToHsl]
+  );
+
+  const processImageLayers = useCallback(async () => {
+    if (!image) return;
+
+    setIsProcessingLayers(true);
+
+    try {
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d")!;
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+
+        const imageData = ctx.getImageData(0, 0, img.width, img.height);
+        const dominantColors = extractDominantColors(imageData, 6);
+        const newLayers = await createColorLayers(imageData, dominantColors);
+
+        setLayers(newLayers);
+        setCurrentLayerIndex(0);
+        setIsProcessingLayers(false);
+      };
+      img.src = image;
+    } catch (error) {
+      console.error("Error processing layers:", error);
+      setIsProcessingLayers(false);
+    }
+  }, [image, extractDominantColors, createColorLayers]);
+
+  const createCompositeImage = useCallback(
+    (layerIndex: number) => {
+      if (layers.length === 0) return null;
+
+      const firstLayer = layers[0];
+      const canvas = document.createElement("canvas");
+      canvas.width = firstLayer.canvas.width;
+      canvas.height = firstLayer.canvas.height;
+      const ctx = canvas.getContext("2d")!;
+
+      if (singleLayerMode) {
+        // Draw only the current layer
+        if (layers[layerIndex]) {
+          ctx.drawImage(layers[layerIndex].canvas, 0, 0);
+        }
+      } else {
+        // Draw layers up to current index (cumulative)
+        for (let i = 0; i <= layerIndex; i++) {
+          if (layers[i]) {
+            ctx.drawImage(layers[i].canvas, 0, 0);
+          }
+        }
+      }
+
+      return canvas.toDataURL();
+    },
+    [layers, singleLayerMode, image]
+  );
 
   /* ---------- Check if first time user ---------- */
   useEffect(() => {
@@ -555,21 +852,34 @@ export default function ARTrackingPage() {
 
   /* ---------- Reactive updates (no scene rebuild) ---------- */
 
-  // New image -> set asset src and refresh texture once loaded
+  // Handle image display based on current mode and layer
   useEffect(() => {
     if (!imgAssetRef.current || !image) return;
 
-    imgAssetRef.current.onload = () => {
-      const mesh = meshRef.current;
-      if (!mesh) return;
-      markTextureNeedsUpdate(mesh.material);
-    };
-    imgAssetRef.current.src = image;
+    const updateImage = async () => {
+      let displayImage = image;
 
-    if (planeRef.current) {
-      planeRef.current.setAttribute("material", "src", "#uploaded-image");
-    }
-  }, [image]);
+      if (viewMode === "layers" && layers.length > 0) {
+        const compositeImage = createCompositeImage(currentLayerIndex);
+        if (compositeImage) {
+          displayImage = compositeImage;
+        }
+      }
+
+      imgAssetRef.current!.onload = () => {
+        const mesh = meshRef.current;
+        if (!mesh) return;
+        markTextureNeedsUpdate(mesh.material);
+      };
+      imgAssetRef.current!.src = displayImage;
+
+      if (planeRef.current) {
+        planeRef.current.setAttribute("material", "src", "#uploaded-image");
+      }
+    };
+
+    updateImage();
+  }, [image, viewMode, currentLayerIndex, layers, createCompositeImage]);
 
   // Opacity updates immediately
   useEffect(() => {
@@ -630,6 +940,12 @@ export default function ARTrackingPage() {
         const imageData = e.target?.result as string;
         setImage(imageData);
 
+        // Reset layers when new image is uploaded
+        setLayers([]);
+        setCurrentLayerIndex(0);
+        setViewMode("original");
+        setShowLayerControls(false);
+
         const img = new Image();
         img.onload = () => {
           setImageDimensions({
@@ -656,6 +972,26 @@ export default function ARTrackingPage() {
       sceneRef.current = null;
       planeRef.current = null;
       meshRef.current = null;
+    }
+  };
+
+  const handleViewModeChange = async (newMode: "original" | "layers") => {
+    if (newMode === "layers" && layers.length === 0 && image) {
+      await processImageLayers();
+    }
+    setViewMode(newMode);
+    setShowLayerControls(newMode === "layers");
+  };
+
+  const nextLayer = () => {
+    if (currentLayerIndex < layers.length - 1) {
+      setCurrentLayerIndex(currentLayerIndex + 1);
+    }
+  };
+
+  const prevLayer = () => {
+    if (currentLayerIndex > 0) {
+      setCurrentLayerIndex(currentLayerIndex - 1);
     }
   };
 
@@ -696,36 +1032,123 @@ export default function ARTrackingPage() {
             bottom: 0,
             left: 0,
             right: 0,
-            padding: 2,
-            backgroundColor: "rgba(0, 0, 0, 0.8)",
-            display: "flex",
-            gap: 2,
-            alignItems: "center",
+            padding: { xs: 1, sm: 2 },
+            backgroundColor: "rgba(0, 0, 0, 0.95)",
             zIndex: 100013,
+            backdropFilter: "blur(10px)",
           }}
         >
-          <input
-            accept="image/*"
-            style={{ display: "none" }}
-            id="image-upload"
-            type="file"
-            onChange={handleImageUpload}
-          />
-          <label htmlFor="image-upload">
-            <Button
-              variant="contained"
-              component="span"
-              sx={{
-                backgroundColor: "#1976d2",
-                "&:hover": { backgroundColor: "#1565c0" },
-              }}
-            >
-              Upload Image
-            </Button>
-          </label>
+          {/* Main Controls Row */}
+          <Box
+            sx={{
+              display: "flex",
+              gap: { xs: 1, sm: 2 },
+              alignItems: "center",
+              mb: showLayerControls ? { xs: 1, sm: 2 } : 0,
+              flexWrap: "wrap",
+              justifyContent: "space-between",
+              paddingX: 2,
+            }}
+          >
+            {/* Upload Button */}
+            <input
+              accept="image/*"
+              style={{ display: "none" }}
+              id="image-upload"
+              type="file"
+              onChange={handleImageUpload}
+            />
+            <label htmlFor="image-upload">
+              <Button
+                variant="contained"
+                component="span"
+                sx={{
+                  backgroundColor: "#1976d2",
+                  "&:hover": { backgroundColor: "#1565c0" },
+                  minWidth: { xs: 80, sm: 120 },
+                  fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                  padding: { xs: "6px 12px", sm: "8px 16px" },
+                }}
+              >
+                Upload
+              </Button>
+            </label>
 
-          {image && (
-            <>
+            {/* View Mode Toggle (only show when image is uploaded) */}
+            {image && (
+              <ToggleButtonGroup
+                value={viewMode}
+                exclusive
+                size="small"
+                onChange={(_, newMode) =>
+                  newMode && handleViewModeChange(newMode)
+                }
+                sx={{
+                  "& .MuiToggleButton-root": {
+                    color: "white",
+                    borderColor: "rgba(255,255,255,0.3)",
+                    fontSize: { xs: "0.7rem", sm: "0.875rem" },
+                    padding: { xs: "4px 8px", sm: "6px 12px" },
+                    "&.Mui-selected": {
+                      backgroundColor: "#1976d2",
+                      color: "white",
+                      "&:hover": {
+                        backgroundColor: "#1565c0",
+                      },
+                    },
+                    "&:hover": {
+                      backgroundColor: "rgba(255,255,255,0.1)",
+                    },
+                  },
+                }}
+              >
+                <ToggleButton value="original" aria-label="original image">
+                  <ImageIcon
+                    sx={{
+                      mr: { xs: 0.5, sm: 1 },
+                      fontSize: { xs: 16, sm: 20 },
+                    }}
+                  />
+                  <Box sx={{ display: { xs: "none", sm: "inline" } }}>
+                    Original
+                  </Box>
+                </ToggleButton>
+                <ToggleButton value="layers" aria-label="color layers">
+                  <PaletteIcon
+                    sx={{
+                      mr: { xs: 0.5, sm: 1 },
+                      fontSize: { xs: 16, sm: 20 },
+                    }}
+                  />
+                  <Box sx={{ display: { xs: "none", sm: "inline" } }}>
+                    {isProcessingLayers ? "Processing..." : "Layers"}
+                  </Box>
+                </ToggleButton>
+              </ToggleButtonGroup>
+            )}
+
+            {/* Outline Toggle (only show in original mode) */}
+            {/* {image && viewMode === "original" && (
+              <IconButton
+                onClick={() => setShowOutline(!showOutline)}
+                sx={{
+                  backgroundColor: showOutline
+                    ? "#1976d2"
+                    : "rgba(255,255,255,0.1)",
+                  color: "white",
+                  "&:hover": {
+                    backgroundColor: showOutline
+                      ? "#1565c0"
+                      : "rgba(255,255,255,0.2)",
+                  },
+                }}
+              >
+                <BorderAllIcon />
+              </IconButton>
+            )} */}
+
+            {/* Lock Button */}
+            {image && (
               <IconButton
                 onClick={() => setIsLocked(!isLocked)}
                 sx={{
@@ -738,71 +1161,272 @@ export default function ARTrackingPage() {
               >
                 {isLocked ? <LockIcon /> : <LockOpenIcon />}
               </IconButton>
+            )}
 
-              {!isLocked && (
-                <>
-                  <Box sx={{ width: 150, color: "white" }}>
-                    <div
-                      style={{ color: "white", fontSize: 12, marginBottom: 4 }}
-                    >
-                      Opacity
-                    </div>
-                    <Slider
-                      value={opacity}
-                      onChange={(_, v) => setOpacity(v as number)}
-                      min={0}
-                      max={1}
-                      step={0.1}
-                      sx={{
-                        color: "#1976d2",
-                        "& .MuiSlider-thumb": { backgroundColor: "#fff" },
-                        "& .MuiSlider-track": { backgroundColor: "#1976d2" },
-                      }}
-                    />
-                  </Box>
+            {/* Basic Controls (when not locked) */}
+            {image && !isLocked && (
+              <div
+                style={{
+                  display: "flex",
+                  gap: 20,
+                  alignItems: "center",
+                  width: "100%",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Box sx={{ width: { xs: 80, sm: 120 }, color: "white" }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      display: "block",
+                      mb: 0.2,
+                      fontSize: { xs: "0.65rem", sm: "0.75rem" },
+                    }}
+                  >
+                    Opacity
+                  </Typography>
+                  <Slider
+                    value={opacity}
+                    onChange={(_, v) => setOpacity(v as number)}
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    size="small"
+                    sx={{
+                      color: "#1976d2",
+                      height: { xs: 6, sm: 8 },
+                      "& .MuiSlider-thumb": {
+                        backgroundColor: "#fff",
+                        width: { xs: 16, sm: 20 },
+                        height: { xs: 16, sm: 20 },
+                      },
+                      "& .MuiSlider-track": { backgroundColor: "#1976d2" },
+                    }}
+                  />
+                </Box>
 
-                  <Box sx={{ width: 150, color: "white" }}>
-                    <div
-                      style={{ color: "white", fontSize: 12, marginBottom: 4 }}
-                    >
-                      Scale
-                    </div>
-                    <Slider
-                      value={scale}
-                      onChange={(_, v) => setScale(v as number)}
-                      min={0.1}
-                      max={3}
-                      step={0.1}
-                      sx={{
-                        color: "#1976d2",
-                        "& .MuiSlider-thumb": { backgroundColor: "#fff" },
-                        "& .MuiSlider-track": { backgroundColor: "#1976d2" },
-                      }}
-                    />
-                  </Box>
+                <Box sx={{ width: { xs: 80, sm: 120 }, color: "white" }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      display: "block",
+                      mb: 0.2,
+                      fontSize: { xs: "0.65rem", sm: "0.75rem" },
+                    }}
+                  >
+                    Scale
+                  </Typography>
+                  <Slider
+                    value={scale}
+                    onChange={(_, v) => setScale(v as number)}
+                    min={0.1}
+                    max={3}
+                    step={0.1}
+                    size="small"
+                    sx={{
+                      color: "#1976d2",
+                      height: { xs: 6, sm: 8 },
+                      "& .MuiSlider-thumb": {
+                        backgroundColor: "#fff",
+                        width: { xs: 16, sm: 20 },
+                        height: { xs: 16, sm: 20 },
+                      },
+                      "& .MuiSlider-track": { backgroundColor: "#1976d2" },
+                    }}
+                  />
+                </Box>
 
-                  <Box sx={{ width: 150, color: "white" }}>
-                    <div
-                      style={{ color: "white", fontSize: 12, marginBottom: 4 }}
-                    >
-                      Rotation
-                    </div>
-                    <Slider
-                      value={rotation}
-                      onChange={(_, v) => setRotation(v as number)}
-                      min={0}
-                      max={360}
-                      step={1}
-                      sx={{
-                        color: "#1976d2",
-                        "& .MuiSlider-thumb": { backgroundColor: "#fff" },
-                        "& .MuiSlider-track": { backgroundColor: "#1976d2" },
-                      }}
-                    />
-                  </Box>
-                </>
-              )}
-            </>
+                <Box sx={{ width: { xs: 80, sm: 120 }, color: "white" }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      display: "block",
+                      mb: 0.2,
+                      fontSize: { xs: "0.65rem", sm: "0.75rem" },
+                    }}
+                  >
+                    Rotation
+                  </Typography>
+                  <Slider
+                    value={rotation}
+                    onChange={(_, v) => setRotation(v as number)}
+                    min={0}
+                    max={360}
+                    step={1}
+                    size="small"
+                    sx={{
+                      color: "#1976d2",
+                      height: { xs: 6, sm: 8 },
+                      "& .MuiSlider-thumb": {
+                        backgroundColor: "#fff",
+                        width: { xs: 16, sm: 20 },
+                        height: { xs: 16, sm: 20 },
+                      },
+                      "& .MuiSlider-track": { backgroundColor: "#1976d2" },
+                    }}
+                  />
+                </Box>
+              </div>
+            )}
+          </Box>
+
+          {/* Layer Controls (only show in layers mode) */}
+          {showLayerControls && layers.length > 0 && (
+            <Box
+              sx={{
+                backgroundColor: "rgba(25, 118, 210, 0.1)",
+                border: "1px solid rgba(25, 118, 210, 0.3)",
+                borderRadius: 2,
+                padding: { xs: 1, sm: 2 },
+              }}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 2,
+                  mb: 2,
+                }}
+              >
+                <IconButton
+                  onClick={prevLayer}
+                  disabled={currentLayerIndex === 0}
+                  sx={{
+                    color: "white",
+                    backgroundColor: "rgba(255,255,255,0.1)",
+                    "&:hover": { backgroundColor: "rgba(255,255,255,0.2)" },
+                    "&:disabled": { color: "rgba(255,255,255,0.3)" },
+                  }}
+                >
+                  <SkipPreviousIcon />
+                </IconButton>
+
+                <Box
+                  sx={{ textAlign: "center", minWidth: { xs: 120, sm: 200 } }}
+                >
+                  {/* Layer Info */}
+                  {layers[currentLayerIndex] && (
+                    <Box sx={{ textAlign: "center", mt: 2 }}>
+                      <Typography
+                        sx={{
+                          color: "white",
+                          fontSize: { xs: "0.65rem", sm: "0.75rem" },
+                        }}
+                      >
+                        <LayersIcon
+                          sx={{
+                            mr: 0.5,
+                            color: `rgb(${layers[currentLayerIndex].dominantColor.r}, ${layers[currentLayerIndex].dominantColor.g}, ${layers[currentLayerIndex].dominantColor.b})`,
+                          }}
+                        />
+                        {layers[currentLayerIndex].name}
+                      </Typography>
+                    </Box>
+                  )}
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "rgba(255,255,255,0.7)",
+                      fontSize: { xs: "0.65rem", sm: "0.75rem" },
+                    }}
+                  >
+                    Step {currentLayerIndex + 1} of {layers.length}
+                  </Typography>
+                </Box>
+
+                <IconButton
+                  onClick={nextLayer}
+                  disabled={currentLayerIndex === layers.length - 1}
+                  sx={{
+                    color: "white",
+                    backgroundColor: "rgba(255,255,255,0.1)",
+                    "&:hover": { backgroundColor: "rgba(255,255,255,0.2)" },
+                    "&:disabled": { color: "rgba(255,255,255,0.3)" },
+                  }}
+                >
+                  <SkipNextIcon />
+                </IconButton>
+              </Box>
+
+              {/* Layer Progress Indicator */}
+              <Box sx={{ display: "flex", gap: 1, justifyContent: "center" }}>
+                {layers.map((layer, index) => (
+                  <Box
+                    key={layer.id}
+                    onClick={() => setCurrentLayerIndex(index)}
+                    sx={{
+                      width: 32,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor:
+                        index <= currentLayerIndex
+                          ? `rgb(${layer.dominantColor.r}, ${layer.dominantColor.g}, ${layer.dominantColor.b})`
+                          : "rgba(255,255,255,0.2)",
+                      cursor: "pointer",
+                      transition: "all 0.3s ease",
+                      "&:hover": {
+                        transform: "scaleY(1.5)",
+                      },
+                    }}
+                  />
+                ))}
+                {/* Single Layer Mode Toggle */}
+
+                <Typography
+                  variant="caption"
+                  onClick={() => setSingleLayerMode(!singleLayerMode)}
+                  className="absolute right-5 bottom-5"
+                  sx={{
+                    color: "white",
+                    alignSelf: "center",
+                  }}
+                >
+                  {singleLayerMode ? (
+                    <LayersClear sx={{ fontSize: 24 }} />
+                  ) : (
+                    <LayersIcon sx={{ fontSize: 24 }} />
+                  )}
+                </Typography>
+              </Box>
+            </Box>
+          )}
+
+          {/* Processing Indicator */}
+          {isProcessingLayers && (
+            <Box
+              sx={{
+                position: "absolute",
+                top: -60,
+                left: "50%",
+                transform: "translateX(-50%)",
+                backgroundColor: "rgba(0, 0, 0, 0.8)",
+                color: "white",
+                padding: 2,
+                borderRadius: 2,
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+              }}
+            >
+              <Box
+                sx={{
+                  width: 20,
+                  height: 20,
+                  border: "2px solid rgba(255,255,255,0.3)",
+                  borderTop: "2px solid white",
+                  borderRadius: "50%",
+                  animation: "spin 1s linear infinite",
+                  "@keyframes spin": {
+                    "0%": { transform: "rotate(0deg)" },
+                    "100%": { transform: "rotate(360deg)" },
+                  },
+                }}
+              />
+              <Typography variant="body2">
+                Processing color layers...
+              </Typography>
+            </Box>
           )}
         </Box>
       )}
