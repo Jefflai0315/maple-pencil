@@ -81,21 +81,24 @@ function App() {
       price: "$20 SGD",
       duration: "5-15 minutes",
       description: "Fast and expressive sketches perfect for capturing moments on the go",
-      features: ["Black and white pencil", "Digital copy included", "Perfect for events", "Great as gifts"]
+      features: ["Black and white pencil", "Digital copy included", "Perfect for events", "Great as gifts"],
+      image: "/gallery/quick/Com_1.jpg"
     },
     {
       title: "Wood Sketches", 
       price: "$40 SGD",
       duration: "20-30 minutes",
       description: "Unique sketches on wood surfaces, creating rustic and natural artwork",
-      features: ["Natural wood canvas", "Rustic aesthetic", "Perfect for home decor", "Custom sizes available"]
+      features: ["Natural wood canvas", "Rustic aesthetic", "Perfect for home decor", "Custom sizes available"],
+      image: "/gallery/wood/1.jpg"
     },
     {
       title: "Detailed Portraits",
       price: "$70 SGD", 
       duration: "30-60 minutes",
       description: "Intricate and detailed portraits with careful attention to every feature",
-      features: ["High-quality paper", "Detailed shading", "Perfect for special occasions", "Framing options available"]
+      features: ["High-quality paper", "Detailed shading", "Perfect for special occasions", "Framing options available"],
+      image: "/gallery/detailed/1.jpg"
     }
   ]
 
@@ -360,7 +363,7 @@ function App() {
       </nav>
 
       {/* Hero Section */}
-      <section id="home" className="min-h-screen flex items-center justify-center px-4 mt-20">
+      {/* <section id="home" className="min-h-screen flex items-center justify-center px-4 mt-20">
         <div className="max-w-4xl mx-auto text-center">
           <div className="mb-8 float-sketch mt-10">
             <h1 className="font-display text-6xl md:text-8xl font-bold text-charcoal mb-4 transform -rotate-1">
@@ -399,7 +402,6 @@ function App() {
             </Link>
           </div>
 
-          {/* Stats in organic containers */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-8 max-w-2xl mx-auto">
             <div className="sketch-container text-center transform rotate-1 p-1">
               <div className="font-display text-4xl font-bold text-charcoal">100K+</div>
@@ -415,87 +417,50 @@ function App() {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Wavy Divider */}
       <div className="wavy-divider"></div>
 
       {/* About Section */}
-      <section id="about" className="py-20 px-4">
+      <section id="about" className="py-10 px-4">
         <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div className="sketch-container">
-              <h2 className="sketch-heading text-4xl md:text-5xl font-bold text-charcoal mb-6">
-                About Playing with Pencil
-              </h2>
-              <div className="space-y-6 font-body text-lg text-charcoal-medium">
-                <p className="transform rotate-0.5">
-                  Hi, I'm Jeff — an artist, a curious listener, and someone who believes that even the smallest 
-                  act of kindness can brighten someone's day.
-                </p>
-                <p className="transform -rotate-0.5">
-                  My journey began not with galleries or grand plans, but with a pencil and a quiet seat 
-                  on a Japan Airlines flight to Tokyo. When I noticed a weary stewardess, I was inspired 
-                  to sketch her portrait and gift it as a small gesture of appreciation.
-                </p>
-                <p className="transform rotate-0.5">
-                  That moment taught me something profound: art isn't just about creating beautiful things — 
-                  it's about creating beautiful moments between people. Today, I continue to sketch strangers 
-                  across Singapore and Southeast Asia, spreading positivity one portrait at a time.
-                </p>
-                <p className="transform -rotate-0.5">
-                  When I'm not sketching, I work as a software engineer, but my heart always returns to 
-                  the simple joy of capturing human stories with pencil and paper.
-                </p>
-              </div>
-              
-              <div className="mt-8 flex items-center space-x-6">
-                <a 
-                  href="https://instagram.com/playingwithpencil" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="sketch-btn flex items-center space-x-2"
-                >
-                  <Instagram size={20} />
-                  <span>@playingwithpencil</span>
-                </a>
-              </div>
-            </div>
-            
-            <div className="portfolio-sketch p-8 float-sketch">
+          <div className="max-w-xl mx-auto gap-12 items-center">
+          <div className="p-8 float-sketch ">
               <img 
                 src="/gallery/detailed/1.jpg" 
                 alt="Jeff Lai Portrait" 
-                className="w-full"
+                className="w-full rounded-2xl"
               />
               <p className="font-handwritten text-center mt-4 text-charcoal-medium text-xl">
                 "A simple thank you...that's all I need"
               </p>
             </div>
+           
           </div>
         </div>
       </section>
 
-      {/* Wavy Divider */}
-      <div className="wavy-divider"></div>
+  
 
       {/* Services Section */}
-      <section id="services" className="py-20 px-4">
+      <section id="services" className="py-0 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="sketch-heading text-4xl md:text-5xl font-bold text-charcoal mb-4">
-              Services
+              Commissioned Portraits
             </h2>
-            <p className="font-body text-lg text-charcoal-medium max-w-2xl mx-auto">
-              From quick street sketches to detailed commissioned portraits, 
-              I offer various artistic services to capture your special moments.
-            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {services.map((service, index) => (
-              <div key={index} className="organic-card">
+              <div key={index} className="sketch-container">
                 <div className="mb-4">
+                  <img 
+                    src={service.image} 
+                    alt={service.title}
+                    className="w-full h-48 object-cover rounded-lg mb-4 transform hover:scale-105 transition-transform duration-300"
+                  />
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="font-handwritten text-2xl font-bold text-charcoal">
                       {service.title}
@@ -577,7 +542,7 @@ function App() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="sketch-heading text-4xl md:text-5xl font-bold text-charcoal mb-4">
-              Portfolio
+              Magic in Pencil
             </h2>
             <p className="font-body text-lg text-charcoal-medium max-w-2xl mx-auto">
               A collection of moments captured in pencil — each sketch tells a story 
@@ -587,10 +552,11 @@ function App() {
 
           <div className="organic-portfolio">
             {portfolioItems.map((item) => (
-              <div key={item.id} className="portfolio-sketch">
+              <div key={item.id} className="sketch-container" style={{padding: "10px"}}>
                 <img 
                   src={item.image} 
                   alt={item.title}
+                  className="w-full h-48 object-cover rounded-lg transform "
                 />
                 <div className="p-6">
                   <h3 className="font-handwritten text-xl font-semibold text-charcoal mb-2">
@@ -759,7 +725,45 @@ function App() {
             </div>
           </div>
         </div>
+        <div className="sketch-container">
+              <h2 className="sketch-heading text-4xl md:text-5xl font-bold text-charcoal mb-6">
+                About Playing with Pencil
+              </h2>
+              <div className="space-y-6 font-body text-lg text-charcoal-medium">
+                <p className="transform rotate-0.5">
+                  Hi, I'm Jeff — an artist, a curious listener, and someone who believes that even the smallest 
+                  act of kindness can brighten someone's day.
+                </p>
+                <p className="transform -rotate-0.5">
+                  My journey began not with galleries or grand plans, but with a pencil and a quiet seat 
+                  on a Japan Airlines flight to Tokyo. When I noticed a weary stewardess, I was inspired 
+                  to sketch her portrait and gift it as a small gesture of appreciation.
+                </p>
+                <p className="transform rotate-0.5">
+                  That moment taught me something profound: art isn't just about creating beautiful things — 
+                  it's about creating beautiful moments between people. Today, I continue to sketch strangers 
+                  across Singapore and Southeast Asia, spreading positivity one portrait at a time.
+                </p>
+                <p className="transform -rotate-0.5">
+                  When I'm not sketching, I work as a software engineer, but my heart always returns to 
+                  the simple joy of capturing human stories with pencil and paper.
+                </p>
+              </div>
+              
+              <div className="mt-8 flex items-center space-x-6">
+                <a 
+                  href="https://instagram.com/playingwithpencil" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="sketch-btn flex items-center space-x-2"
+                >
+                  <Instagram size={20} />
+                  <span>@playingwithpencil</span>
+                </a>
+              </div>
+            </div>
       </section>
+
 
       {/* Footer */}
       <footer className="py-12 px-4">
