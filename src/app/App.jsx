@@ -224,7 +224,7 @@ function App() {
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY
-      const sections = ['home', 'about', 'services', 'portfolio', 'contact']
+      const sections = [ 'about', 'services', 'portfolio', 'contact']
       const scrollPosition = currentScrollY + 100
 
       // Handle navigation visibility
@@ -269,7 +269,7 @@ function App() {
           
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            {['home', 'about', 'services', 'portfolio', 'contact'].map((section) => (
+            {[ 'about', 'services', 'portfolio', 'contact'].map((section) => (
               <button
                 key={section}
                 onClick={() => scrollToSection(section)}
@@ -324,7 +324,7 @@ function App() {
         {isMenuOpen && (
           <div className="md:hidden absolute  top-full left-0 right-0 bg-paper-white border-t-2 border-sketch-gray">
             <div className="flex flex-col space-y-4 p-4 bg-white rounded-lg border-b-2 border-charcoal-light">
-              {['home', 'about', 'services', 'portfolio', 'contact'].map((section) => (
+              {[ 'about', 'services', 'portfolio', 'contact'].map((section) => (
                 <button
                   key={section}
                   onClick={() => scrollToSection(section)}
@@ -423,7 +423,7 @@ function App() {
       <div className="wavy-divider"></div>
 
       {/* About Section */}
-      <section id="about" className="py-10 px-4">
+      <section className="py-10 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="max-w-xl mx-auto gap-12 items-center">
           <div className="p-8 float-sketch ">
@@ -433,7 +433,7 @@ function App() {
                 className="w-full rounded-2xl"
               />
               <p className="font-handwritten text-center mt-4 text-charcoal-medium text-xl">
-                "A simple thank you...that's all I need"
+                "Welcome to the world of Playing with Pencil"
               </p>
             </div>
            
@@ -725,7 +725,7 @@ function App() {
             </div>
           </div>
         </div>
-        <div className="sketch-container">
+        <div id="about" className="sketch-container">
               <h2 className="sketch-heading text-4xl md:text-5xl font-bold text-charcoal mb-6">
                 About Playing with Pencil
               </h2>
