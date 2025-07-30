@@ -220,6 +220,17 @@ function App() {
     }
   }
 
+  // Track button clicks
+  const trackButtonClick = (buttonName, category = 'engagement') => {
+    if (typeof window !== 'undefined' && window.gtag) {
+      window.gtag('event', 'click', {
+        event_category: category,
+        event_label: buttonName,
+        value: 1
+      })
+    }
+  }
+
   // Handle scroll for active section and nav visibility
   useEffect(() => {
     const handleScroll = () => {
@@ -305,7 +316,10 @@ function App() {
             </Link>
             <button 
               className="sketch-btn"
-              onClick={() => scrollToSection('contact')}
+              onClick={() => {
+                trackButtonClick('Book Now - Nav', 'navigation')
+                scrollToSection('contact')
+              }}
             >
               Book Now
             </button>
@@ -485,7 +499,10 @@ function App() {
                 
                 <button 
                   className="sketch-btn w-full"
-                  onClick={() => scrollToSection('contact')}
+                  onClick={() => {
+                    trackButtonClick(`Book ${service.title}`, 'service_booking')
+                    scrollToSection('contact')
+                  }}
                 >
                   Book Now
                 </button>
@@ -509,7 +526,10 @@ function App() {
                 </p>
                 <button 
                   className="sketch-btn"
-                  onClick={() => scrollToSection('contact')}
+                  onClick={() => {
+                    trackButtonClick('Event Sketching - Get Quote', 'service_booking')
+                    scrollToSection('contact')
+                  }}
                 >
                   Get Quote
                 </button>
@@ -524,7 +544,10 @@ function App() {
                 </p>
                 <button 
                   className="sketch-btn"
-                  onClick={() => scrollToSection('contact')}
+                  onClick={() => {
+                    trackButtonClick('Commission Work - Inquire', 'service_booking')
+                    scrollToSection('contact')
+                  }}
                 >
                   Inquire
                 </button>
@@ -583,6 +606,7 @@ function App() {
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="sketch-btn flex items-center space-x-2"
+                onClick={() => trackButtonClick('Instagram - Portfolio', 'social_media')}
               >
                 <Instagram size={20} />
                 <span>Instagram</span>
@@ -592,6 +616,7 @@ function App() {
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="sketch-btn flex items-center space-x-2"
+                onClick={() => trackButtonClick('TikTok - Portfolio', 'social_media')}
               >
                 <Users size={20} />
                 <span>TikTok</span>
@@ -781,12 +806,14 @@ function App() {
               target="_blank" 
               rel="noopener noreferrer"
               className="text-charcoal-medium hover:text-charcoal transition-colors transform hover:rotate-12"
+              onClick={() => trackButtonClick('Instagram - Footer', 'social_media')}
             >
               <Instagram size={24} />
             </a>
             <a 
               href="mailto:playingwithpencil@gmail.com"
               className="text-charcoal-medium hover:text-charcoal transition-colors transform hover:rotate-12"
+              onClick={() => trackButtonClick('Email - Footer', 'contact')}
             >
               <Mail size={24} />
             </a>
