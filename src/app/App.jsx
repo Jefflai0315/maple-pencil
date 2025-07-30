@@ -465,7 +465,7 @@ function App() {
                     <h3 className="font-handwritten text-2xl font-bold text-charcoal">
                       {service.title}
                     </h3>
-                    <span className="font-display text-xl font-bold text-charcoal bg-paper-white px-3 py-1 rounded-full transform rotate-12">
+                    <span className="font-sketch text-xl font-bold text-charcoal bg-paper-white px-3 py-1 rounded-full transform rotate-12">
                       {service.price}
                     </span>
                   </div>
