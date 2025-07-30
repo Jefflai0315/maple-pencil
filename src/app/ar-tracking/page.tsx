@@ -21,6 +21,7 @@ import LayersIcon from "@mui/icons-material/Layers";
 import LayersClear from "@mui/icons-material/LayersClear";
 import SkipPreviousIcon from "@mui/icons-material/SkipPrevious";
 import SkipNextIcon from "@mui/icons-material/SkipNext";
+import * as THREE from "three";
 import type {
   Mesh,
   Material,
@@ -297,6 +298,15 @@ export default function ARTrackingPage() {
 
   // New display mode toggles
   const [singleLayerMode, setSingleLayerMode] = useState<boolean>(false);
+
+  // Drag functionality
+  const isDraggingRef = useRef<boolean>(false);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const planePositionRef = useRef<{ x: number; y: number; z: number }>({
+    x: 0,
+    y: 0,
+    z: 0,
+  });
 
   // New loading states
   const [loadingState, setLoadingState] = useState<LoadingState>(
@@ -727,6 +737,103 @@ export default function ARTrackingPage() {
     }
   }
 
+  // Custom drag functionality using THREE.js raycasting
+  const setupDragFunctionality = () => {
+    if (!meshRef.current || !planeRef.current) {
+      return;
+    }
+
+    const mesh = meshRef.current;
+    const plane = planeRef.current;
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    const handlePointerDown = (event: PointerEvent) => {
+      // Don't allow dragging when locked
+      if (isLocked) {
+        return;
+      }
+
+      // Get camera dynamically when needed
+      const cameraEntity = sceneRef.current?.querySelector(
+        "[camera]"
+      ) as AFrameEntity;
+      const camera = cameraEntity?.getObject3D("camera") as THREE.Camera;
+
+      if (!camera || !mesh) {
+        console.error("No camera or mesh");
+        return;
+      }
+
+      // Convert screen coordinates to normalized device coordinates
+      const rect = arContainerRef.current?.getBoundingClientRect();
+      if (!rect) {
+        console.error("No rect");
+        return;
+      }
+
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      // Raycast to check if we clicked on the plane
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObject(mesh);
+
+      if (intersects.length > 0) {
+        isDraggingRef.current = true;
+        dragStartRef.current = { x: event.clientX, y: event.clientY };
+        planePositionRef.current = { ...mesh.position };
+      }
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!isDraggingRef.current || !dragStartRef.current || !mesh) {
+        return;
+      }
+
+      const deltaX = (event.clientX - dragStartRef.current.x) * 0.01;
+      const deltaY = (event.clientY - dragStartRef.current.y) * 0.01;
+
+      mesh.position.x = planePositionRef.current.x + deltaX;
+      mesh.position.y = planePositionRef.current.y - deltaY;
+
+      // Update A-Frame position
+      plane.setAttribute(
+        "position",
+        `${mesh.position.x} ${mesh.position.y} ${mesh.position.z}`
+      );
+    };
+
+    const handlePointerUp = () => {
+      isDraggingRef.current = false;
+      dragStartRef.current = null;
+    };
+
+    // Add event listeners
+
+    arContainerRef.current?.addEventListener("pointerdown", handlePointerDown);
+    arContainerRef.current?.addEventListener("pointermove", handlePointerMove);
+    arContainerRef.current?.addEventListener("pointerup", handlePointerUp);
+    arContainerRef.current?.addEventListener("pointerleave", handlePointerUp);
+
+    // Cleanup function
+    return () => {
+      arContainerRef.current?.removeEventListener(
+        "pointerdown",
+        handlePointerDown
+      );
+      arContainerRef.current?.removeEventListener(
+        "pointermove",
+        handlePointerMove
+      );
+      arContainerRef.current?.removeEventListener("pointerup", handlePointerUp);
+      arContainerRef.current?.removeEventListener(
+        "pointerleave",
+        handlePointerUp
+      );
+    };
+  };
+
   /* ---------- Create scene once ---------- */
 
   useEffect(() => {
@@ -792,7 +899,7 @@ export default function ARTrackingPage() {
         ) as unknown as AFrameEntity;
         plane.id = "imagePlane";
         // i want to set a few cm lower than the tracked image
-        plane.setAttribute("position", "0 0 ");
+        plane.setAttribute("position", "0 0 2.5");
         plane.setAttribute("rotation", "-90 0 0"); // lie flat on marker
         plane.setAttribute(
           "material",
@@ -807,12 +914,20 @@ export default function ARTrackingPage() {
         plane.setAttribute("width", w.toString());
         plane.setAttribute("height", h.toString());
 
-        // Cache THREE mesh when ready
+        // Remove A-Frame draggable (not working with AR.js)
+        // We'll implement custom drag with THREE.js raycasting
+
+        // Cache THREE mesh when ready and setup drag functionality
         plane.addEventListener(
           "object3dset",
           (e: CustomEvent<{ type: string }>) => {
             if (e.detail?.type === "mesh") {
               meshRef.current = plane.getObject3D("mesh") as Mesh | null;
+
+              // Setup custom drag functionality
+              if (meshRef.current) {
+                setupDragFunctionality();
+              }
             }
           }
         );
@@ -903,10 +1018,8 @@ export default function ARTrackingPage() {
       const aspect = imageDimensions.width / imageDimensions.height;
       const screenRatio = 1024 / 768;
       const currentRatio = window.innerWidth / window.innerHeight;
-      console.log("screenRatio", screenRatio);
-      console.log("currentRatio", currentRatio);
+
       const scaleFactor = currentRatio / screenRatio;
-      console.log("scaleFactor", scaleFactor);
 
       const baseW = 4 * scale; // meters
       const w = baseW / scaleFactor;
@@ -1174,6 +1287,22 @@ export default function ARTrackingPage() {
                   justifyContent: "space-between",
                 }}
               >
+                {/* Drag Instructions */}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "rgba(255,255,255,0.7)",
+                    fontSize: { xs: "0.6rem", sm: "0.7rem" },
+                    textAlign: "center",
+                    position: "absolute",
+                    top: -25,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  💡 Click/touch & drag to move image
+                </Typography>
                 <Box sx={{ width: { xs: 80, sm: 120 }, color: "white" }}>
                   <Typography
                     variant="caption"
