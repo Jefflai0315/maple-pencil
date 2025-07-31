@@ -40,10 +40,10 @@
   }
   
   /* Improve button tap targets on mobile */
-  button, a {
+  /* button, a {
     min-height: 44px;
     min-width: 44px;
-  }
+  } */
   
   /* Better spacing for mobile */
   .mobile-padding {
