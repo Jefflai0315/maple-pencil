@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 
 interface CarouselItem {
   id: number;
@@ -64,6 +64,17 @@ const PAGES = [
 
 export default function ClippathSketchbook() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 600);
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   return (
     <section className="sketch-services ">
@@ -104,11 +115,13 @@ export default function ClippathSketchbook() {
               Professional portrait sketching for events, parties, and personal
               sessions.
             </p>
-            <div className="features">
-              <div className="feature">✓ Live sketching</div>
-              <div className="feature">✓ Event coverage</div>
-              <div className="feature">✓ Reaction content</div>
-            </div>
+            {!isMobile && (
+              <div className="features">
+                <div className="feature">✓ Live sketching</div>
+                <div className="feature">✓ Event coverage</div>
+                <div className="feature">✓ Reaction content</div>
+              </div>
+            )}
           </div>
         </div>
         te
@@ -146,7 +159,6 @@ export default function ClippathSketchbook() {
         }
 
         .header h2 {
-          font-size: clamp(2rem, 5vw, 3.5rem);
           color: #2c2c2c;
           margin: 0;
           transform: rotate(-1deg);
@@ -159,7 +171,6 @@ export default function ClippathSketchbook() {
           color: white;
           padding: 0.5rem 1rem;
           border-radius: 20px;
-          font-size: 0.9rem;
           font-weight: 600;
           transform: rotate(1deg);
           margin-top: 1rem;
@@ -294,7 +305,7 @@ export default function ClippathSketchbook() {
 
         /* Content positioning - adjust these percentages to match your image */
         .picture-content {
-          top: 20%;
+          top: 15%;
           left: 20%;
           width: 28%;
           height: 45%;
@@ -306,13 +317,12 @@ export default function ClippathSketchbook() {
         }
 
         .text-content {
-          top: 22%;
+          top: 17%;
           left: 48%;
           width: 30%;
           height: 40%;
           padding: 1rem;
           box-sizing: border-box;
-          background: rgba(255, 255, 255, 0.9);
         }
 
         .tabs-content {
@@ -366,13 +376,11 @@ export default function ClippathSketchbook() {
           background: rgba(255, 255, 255, 0.9);
           padding: 0.2rem 0.5rem;
           border-radius: 12px;
-          font-size: 0.7rem;
         }
 
         .nav-btn {
           background: none;
           border: none;
-          font-size: 0.8rem;
           cursor: pointer;
           padding: 0.1rem 0.3rem;
           border-radius: 3px;
@@ -389,7 +397,6 @@ export default function ClippathSketchbook() {
         }
 
         .counter {
-          font-size: 0.6rem;
           color: #666;
           white-space: nowrap;
         }
@@ -397,21 +404,19 @@ export default function ClippathSketchbook() {
         /* Text content styles */
         .service-description {
           font-family: "Courier New", monospace;
-          font-size: 0.75rem;
           color: #555;
           line-height: 1.3;
         }
 
         .service-description h3 {
           margin: 0 0 0.5rem 0;
-          font-size: 0.9rem;
+
           color: #333;
           transform: rotate(-0.3deg);
         }
 
         .service-description p {
           margin: 0 0 0.8rem 0;
-          font-size: 0.65rem;
           font-style: italic;
         }
 
@@ -422,7 +427,6 @@ export default function ClippathSketchbook() {
         }
 
         .feature {
-          font-size: 0.6rem;
           color: #666;
         }
 
@@ -431,7 +435,6 @@ export default function ClippathSketchbook() {
           flex: 1;
           background: rgba(240, 240, 240, 0.8);
           border: 1px solid #ccc;
-          font-size: 0.6rem;
           font-weight: bold;
           color: #666;
           cursor: pointer;
@@ -461,23 +464,18 @@ export default function ClippathSketchbook() {
           }
 
           .service-description {
-            font-size: 0.65rem;
           }
 
           .service-description h3 {
-            font-size: 0.8rem;
           }
 
           .service-description p {
-            font-size: 0.7rem;
           }
 
           .feature {
-            font-size: 0.65rem;
           }
 
           .tab-btn {
-            font-size: 0.5rem;
           }
         }
 
@@ -491,15 +489,12 @@ export default function ClippathSketchbook() {
           }
 
           .service-description {
-            font-size: 0.55rem;
           }
 
           .service-description h3 {
-            font-size: 0.7rem;
           }
 
           .counter {
-            font-size: 0.5rem;
           }
         }
         @media (max-width: 600px) {

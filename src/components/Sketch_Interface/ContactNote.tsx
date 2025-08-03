@@ -164,7 +164,11 @@ export default function ContactNote() {
               placeholder="Tell me about your idea…"
               rows={4}
             />
-            <button type="submit" disabled={isSubmitting}>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="align-self-start"
+            >
               {isSubmitting ? "Sending..." : "Send"}
             </button>
           </form>
@@ -201,7 +205,7 @@ export default function ContactNote() {
         .wrap {
           padding: 60px 5vw 100px;
           display: grid;
-          gap: 100px;
+          gap: 20rem;
           font-family: "Caveat", cursive;
         }
         .note-container {
@@ -225,14 +229,11 @@ export default function ContactNote() {
         }
         .form-content {
           width: 90%;
-          left: -5%;
-          top: 0px;
+          left: 10%;
           position: relative;
           z-index: 10;
           background: rgba(255, 255, 255, 0.95);
           border-radius: 16px;
-          padding: 2rem;
-          padding-top: 100px;
           transform: rotate(-10deg);
         }
         h3 {
@@ -335,10 +336,6 @@ export default function ContactNote() {
           border: 2px solid #dc2626;
         }
         @media (max-width: 700px) {
-          .form-content {
-            padding: 1.5rem;
-            margin: 1rem;
-          }
           h3 {
             font-size: 1.5rem;
           }

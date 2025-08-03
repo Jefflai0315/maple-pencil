@@ -180,9 +180,9 @@ export default function PhoneGallery() {
         }
 
         .phone-content {
-          top: 11%;
-          left: 60%;
-          width: 37%;
+          top: 15%;
+          left: 51%;
+          width: 36%;
           aspect-ratio: 2/3.5;
           transform: translate(-50%, 0) rotate(25deg);
         }
@@ -190,7 +190,7 @@ export default function PhoneGallery() {
           position: relative;
           aspect-ratio: 2/3.5;
           overflow: hidden auto;
-          border-radius: 24px;
+          border-radius: 14px;
           background: #fff;
           scrollbar-width: thin;
           scrollbar-color: #ccc transparent;
@@ -256,8 +256,9 @@ export default function PhoneGallery() {
           }
 
           .phone-content {
-            top: 8%;
+            top: 13%;
             width: 30%;
+            left: 43%;
             aspect-ratio: 2/3.5;
             transform: translate(-50%, 0) rotate(25deg);
           }
@@ -273,8 +274,9 @@ export default function PhoneGallery() {
             padding-top: 150px;
           }
           .phone-content {
-            top: 7%;
+            top: 10%;
             width: 36.5%;
+            left: 50%;
             transform: translate(-50%, 0) rotate(25deg);
           }
         }
