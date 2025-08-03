@@ -89,9 +89,18 @@ export default function PhoneGallery() {
       <h2>My Gallery</h2>
       <h2>Sketching strangers & moments</h2>
       <div className="stage">
-        {/* hand + phone */}
-        <img src="/sketch/phone.png" className="hand-img" alt="" aria-hidden />
-        <div className="phone" ref={outerRef}>
+        {/* Background layer - hand + phone image */}
+        <div className="background-layer">
+          <img
+            src="/sketch/phone.png"
+            className="hand-img"
+            alt=""
+            aria-hidden
+          />
+        </div>
+
+        {/* Content layer - phone screen positioned relative to background */}
+        <div className="content-layer phone-content" ref={outerRef}>
           <div className="screen" ref={innerRef}>
             {FEED.map((item, i) => (
               <div key={i} className="feed-item">
@@ -103,8 +112,6 @@ export default function PhoneGallery() {
               </div>
             ))}
           </div>
-          {/* optional chrome overlay */}
-          {/* <img src="/phone-screen.png" className="frame" alt="" /> */}
         </div>
       </div>
       <style jsx>{`
@@ -144,21 +151,40 @@ export default function PhoneGallery() {
         }
         .stage {
           position: relative;
-          display: grid;
-          place-items: center;
-          min-height: 70vh;
+          width: 100%;
+          max-width: 900px;
+          margin: 0 auto;
+          aspect-ratio: 16/10;
+          min-height: 60vh;
         }
-        .hand-img {
-          width: calc(100% + 300px) !important;
-          pointer-events: none;
-        }
-        .phone {
+
+        /* Background layer */
+        .background-layer {
           position: absolute;
-          top: 24%;
-          left: 43%;
-          width: min(140px, 60vw);
-          aspect-ratio: 2/3;
-          transform: rotate(25deg) translateY(12px);
+          inset: 0;
+          z-index: 1;
+        }
+
+        .hand-img {
+          width: 100%;
+          object-fit: contain;
+          pointer-events: none;
+          opacity: 0.95;
+        }
+
+        /* Content layer */
+        .content-layer {
+          position: absolute;
+          z-index: 2;
+          pointer-events: auto;
+        }
+
+        .phone-content {
+          top: 11%;
+          left: 60%;
+          width: 37%;
+          aspect-ratio: 2/3.5;
+          transform: translate(-50%, 0) rotate(25deg);
         }
         .screen {
           position: relative;
@@ -223,10 +249,33 @@ export default function PhoneGallery() {
           height: 100%;
           pointer-events: none;
         }
+        @media (max-width: 768px) {
+          .stage {
+            aspect-ratio: 4/3;
+            min-height: 50vh;
+          }
+
+          .phone-content {
+            top: 8%;
+            width: 30%;
+            aspect-ratio: 2/3.5;
+            transform: translate(-50%, 0) rotate(25deg);
+          }
+
+          .hand-img {
+            max-width: 600px;
+          }
+        }
+
         @media (max-width: 555px) {
           .wrap {
             padding: 5vw;
             padding-top: 150px;
+          }
+          .phone-content {
+            top: 7%;
+            width: 36.5%;
+            transform: translate(-50%, 0) rotate(25deg);
           }
         }
       `}</style>

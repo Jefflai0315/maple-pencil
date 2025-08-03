@@ -91,17 +91,15 @@ export default function ImageCarousel({
       </div>
 
       <style jsx>{`
-        .carousel-container {
+        .carousel-content {
+          width: 100%;
+          height: 100%;
           display: flex;
-          flex-direction: row;
-          gap: 4rem;
+          flex-direction: column;
           align-items: center;
-          min-height: 40vh;
-          padding: 2rem;
-          max-width: 600px;
-          margin: 0 auto;
+          justify-content: center;
+          gap: 0.5rem;
         }
-
         .image-section {
           position: relative;
           display: flex;

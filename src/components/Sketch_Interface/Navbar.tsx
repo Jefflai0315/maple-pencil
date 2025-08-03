@@ -3,8 +3,23 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import rough from "roughjs";
 
+declare global {
+  interface Window {
+    gtag: (
+      command: string,
+      action: string,
+      params: Record<string, unknown>
+    ) => void;
+  }
+}
+
+import { Gamepad2, Palette, Upload, X, Menu } from "lucide-react";
+
 export default function Navbar() {
-  const [open, setOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState("home");
+  const [isNavVisible, setIsNavVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -27,6 +42,65 @@ export default function Navbar() {
       }
     }
   }, []);
+  // Scroll to section
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth" });
+      setActiveSection(sectionId);
+      setIsMenuOpen(false);
+    }
+  };
+
+  // Track button clicks
+  const trackButtonClick = (buttonName: string, category = "engagement") => {
+    if (typeof window !== "undefined" && window.gtag) {
+      window.gtag("event", "click", {
+        event_category: category,
+        event_label: buttonName,
+        value: 1,
+      });
+    }
+  };
+
+  // Handle scroll for active section and nav visibility
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      const sections = ["about", "services", "portfolio", "contact"];
+      const scrollPosition = currentScrollY + 100;
+
+      // Handle navigation visibility
+      if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        // Scrolling down and not at the top
+        setIsNavVisible(false);
+      } else {
+        // Scrolling up or at the top
+        setIsNavVisible(true);
+      }
+      setLastScrollY(currentScrollY);
+
+      // Handle active section
+      for (const section of sections) {
+        const element = document.getElementById(section);
+        if (element) {
+          const offsetTop = element.offsetTop;
+          const offsetHeight = element.offsetHeight;
+
+          if (
+            scrollPosition >= offsetTop &&
+            scrollPosition < offsetTop + offsetHeight
+          ) {
+            setActiveSection(section);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [lastScrollY]);
 
   return (
     <header className="nav">
@@ -36,37 +110,118 @@ export default function Navbar() {
         width={typeof window !== "undefined" ? window.innerWidth : 1200}
         height={4}
       />
-      <div className="inner">
-        <Link
-          className="logo font-handwritten text-3xl font-bold text-charcoal"
-          href="/"
-        >
-          {/* Swap this for your SVG or <img src="/logo.svg" /> */}
-          <span>PWP</span>
-        </Link>
-        <button
-          className="hamburger"
-          aria-label="Menu"
-          onClick={() => setOpen(!open)}
-        >
-          <span />
-          <span />
-          <span />
-        </button>
-      </div>
-      {open && (
-        <nav className="drawer">
-          <a href="#services">Services</a>
-          <a href="#moments">Moments</a>
-          <a href="#contact">Contact</a>
-        </nav>
-      )}
+      <nav
+        className={`organic-nav px-4 py-4 transition-transform duration-300 ${
+          isNavVisible ? "translate-y-0" : "-translate-y-full"
+        }`}
+      >
+        <div className="max-w-6xl mx-auto px-2 flex items-center justify-between">
+          <div className="font-handwritten text-3xl font-bold text-charcoal">
+            Playing with Pencil
+          </div>
+
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center space-x-8">
+            {["about", "services", "portfolio", "contact"].map((section) => (
+              <button
+                key={section}
+                onClick={() => scrollToSection(section)}
+                className={`font-sketch text-lg capitalize transition-colors ${
+                  activeSection === section
+                    ? "text-charcoal font-bold sketch-heading"
+                    : "text-charcoal-medium hover:text-charcoal"
+                }`}
+              >
+                {section}
+              </button>
+            ))}
+            <Link
+              href="/world"
+              className="font-sketch text-lg text-charcoal-medium hover:text-charcoal transition-colors flex items-center gap-2"
+            >
+              <Gamepad2 size={18} />
+              World
+            </Link>
+            <Link
+              href="/upload"
+              className="font-sketch text-lg text-charcoal-medium hover:text-charcoal transition-colors flex items-center gap-2"
+            >
+              <Upload size={18} />
+              Upload
+            </Link>
+            <Link
+              href="/mural"
+              className="font-sketch text-lg text-charcoal-medium hover:text-charcoal transition-colors flex items-center gap-2"
+            >
+              <Palette size={18} />
+              Mural
+            </Link>
+            <button
+              className="sketch-btn"
+              onClick={() => {
+                trackButtonClick("Book Now - Nav", "navigation");
+                scrollToSection("contact");
+              }}
+            >
+              Book Now
+            </button>
+          </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            className="md:hidden text-charcoal"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
+
+        {/* Mobile Navigation */}
+        {isMenuOpen && (
+          <div className="md:hidden absolute  top-full left-0 right-0 border-t-2 border-sketch-gray">
+            <div className="flex flex-col space-y-4 p-4 bg-white rounded-lg border-b-2 border-charcoal-light">
+              {["about", "services", "portfolio", "contact"].map((section) => (
+                <button
+                  key={section}
+                  onClick={() => scrollToSection(section)}
+                  className="font-sketch text-lg capitalize text-left text-charcoal-medium hover:text-charcoal"
+                >
+                  {section}
+                </button>
+              ))}
+              <Link
+                href="/world"
+                className="font-sketch text-lg text-left text-charcoal-medium hover:text-charcoal flex items-center gap-2"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <Gamepad2 size={18} />
+                World
+              </Link>
+              <Link
+                href="/upload"
+                className="font-sketch text-lg text-left text-charcoal-medium hover:text-charcoal flex items-center gap-2"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <Upload size={18} />
+                Upload
+              </Link>
+              <Link
+                href="/mural"
+                className="font-sketch text-lg text-left text-charcoal-medium hover:text-charcoal flex items-center gap-2"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <Palette size={18} />
+                Mural
+              </Link>
+            </div>
+          </div>
+        )}
+      </nav>
       <style jsx>{`
         .nav {
           position: sticky;
           top: 0;
           z-index: 50;
-          background: #faf7f2cc;
           backdrop-filter: blur(6px);
         }
         .rough-border {

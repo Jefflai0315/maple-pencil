@@ -24,6 +24,7 @@ export default function Hero() {
 
       <style jsx>{`
         .hero {
+          margin-top: 8vh;
           position: relative;
           min-height: 70vh;
           padding: 10vh 5vw;
