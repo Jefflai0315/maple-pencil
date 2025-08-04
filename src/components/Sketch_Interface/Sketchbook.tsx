@@ -141,9 +141,16 @@ export default function ClippathSketchbook() {
       </div>
 
       <style jsx>{`
+        @font-face {
+          font-family: "Brushed";
+          src: url("/BRUSHED.TTF") format("truetype");
+          font-weight: normal;
+          font-style: normal;
+        }
+
         .sketch-services {
           padding: 2rem;
-          font-family: "Georgia", serif;
+          font-family: "Brushed", "Georgia", serif;
           --header-spacing: clamp(3rem, 8vh, 6rem); /* Responsive spacing */
           --header-height: clamp(
             100px,
@@ -162,7 +169,6 @@ export default function ClippathSketchbook() {
 
         .header {
           text-align: center;
-          margin-bottom: var(--header-spacing);
           min-height: var(--header-height);
           display: flex;
           flex-direction: column;
@@ -173,8 +179,11 @@ export default function ClippathSketchbook() {
         .header h2 {
           color: #2c2c2c;
           margin: 0;
+          font-size: clamp(2.5rem, 5vw, 2rem); /* Responsive font size */
+          font-weight: bold;
           transform: rotate(-1deg);
           text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+          line-height: 1.2;
         }
 
         .caption {
@@ -361,6 +370,7 @@ export default function ClippathSketchbook() {
           position: relative;
           display: flex;
           align-items: center;
+          gap: 0.5rem;
           justify-content: center;
           overflow: hidden; /* ✅ enable clipping */
           border-radius: 16px; /* ✅ round the frame */
@@ -385,6 +395,7 @@ export default function ClippathSketchbook() {
           display: flex;
           align-items: center;
           gap: 0.5rem;
+          margin-top: 0.5rem;
           background: rgba(255, 255, 255, 0.9);
           padding: 0.2rem 0.5rem;
           border-radius: 12px;
@@ -477,7 +488,6 @@ export default function ClippathSketchbook() {
           .sketchbook-container {
             overflow-y: hidden;
             aspect-ratio: 4/3;
-            margin-top: 5vh;
           }
 
           .service-description {
@@ -516,11 +526,15 @@ export default function ClippathSketchbook() {
         }
         @media (max-width: 600px) {
           .sketch-services {
-            height: 80vh;
+            height: 90vh;
             overflow: hidden; /* Prevent horizontal scroll */
+            position: relative;
+            --mobile-header-total: calc(
+              var(--header-height) + var(--header-spacing)
+            ); /* Total header space needed */
           }
           .sketchbook-container {
-            top: 100%;
+            top: var(--mobile-header-total); /* Use calculated header space */
             position: absolute;
             width: 100vw; /* Use full viewport width */
             height: 70vh;
@@ -534,6 +548,7 @@ export default function ClippathSketchbook() {
             width: 150%;
             height: 100%;
             left: -35%;
+            top: 0; /* Ensure it starts from the container top */
             object-fit: cover;
           }
 
@@ -552,6 +567,7 @@ export default function ClippathSketchbook() {
           }
 
           .image-container {
+            gap: 0.3rem;
             aspect-ratio: 3 / 4; /* pick the portrait frame you want on mobile */
           }
 

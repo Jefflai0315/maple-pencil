@@ -87,7 +87,7 @@ export default function PhoneGallery() {
   return (
     <section id="moments" className="wrap">
       <h2>My Gallery</h2>
-      <h2>Sketching strangers & moments</h2>
+      <h3>Sketching strangers & moments</h3>
       <div className="stage">
         {/* Background layer - hand + phone image */}
         <div className="background-layer">
@@ -106,7 +106,7 @@ export default function PhoneGallery() {
               <div key={i} className="feed-item">
                 <img src={item.image} alt={item.title} />
                 <div className="feed-content">
-                  <h3>{item.title}</h3>
+                  <h4>{item.title}</h4>
                   <p>{item.description}</p>
                 </div>
               </div>
@@ -115,6 +115,13 @@ export default function PhoneGallery() {
         </div>
       </div>
       <style jsx>{`
+        @font-face {
+          font-family: "Brushed";
+          src: url("/BRUSHED.TTF") format("truetype");
+          font-weight: normal;
+          font-style: normal;
+        }
+
         .wrap {
           padding: 10px;
           padding-top: 60px;
@@ -123,7 +130,7 @@ export default function PhoneGallery() {
           text-align: center;
           margin-bottom: 18px;
           transform: rotate(-1deg);
-          font-family: "Caveat", cursive;
+          font-family: "Brushed", "Caveat", cursive;
           font-size: clamp(2rem, 4vw, 3rem);
           font-weight: 700;
           color: #1f1f1f;
@@ -131,6 +138,14 @@ export default function PhoneGallery() {
             4px 4px 0px rgba(0, 0, 0, 0.05);
           letter-spacing: 1px;
           position: relative;
+        }
+        h3 {
+          font-family: "Caveat", cursive;
+          font-size: clamp(1.5rem, 3vw, 2rem);
+          text-align: center;
+          font-weight: 700;
+          color: #1f1f1f;
+          text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.1);
         }
 
         h2::before {
@@ -264,7 +279,7 @@ export default function PhoneGallery() {
           background: #fff;
         }
 
-        .feed-content h3 {
+        .feed-content h4 {
           font-size: 0.8rem;
           font-weight: 600;
           margin: 0 0 0.25rem 0;
@@ -306,7 +321,7 @@ export default function PhoneGallery() {
         @media (max-width: 555px) {
           .wrap {
             padding: 5vw;
-            padding-top: 150px;
+            padding-top: 60px;
           }
           .phone-content {
             top: 10%;
