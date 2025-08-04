@@ -185,6 +185,41 @@ export default function PhoneGallery() {
           width: 36%;
           aspect-ratio: 2/3.5;
           transform: translate(-50%, 0) rotate(25deg);
+          position: relative;
+        }
+
+        .phone-content::before {
+          content: "";
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 20px;
+          background: linear-gradient(
+            to bottom,
+            rgba(255, 255, 255, 0.9) 0%,
+            rgba(255, 255, 255, 0.5) 20%,
+            transparent 100%
+          );
+          z-index: 10;
+          pointer-events: none;
+        }
+
+        .phone-content::after {
+          content: "";
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 20px;
+          background: linear-gradient(
+            to top,
+            rgba(255, 255, 255, 0.9) 0%,
+            rgba(255, 255, 255, 0.5) 20%,
+            transparent 100%
+          );
+          z-index: 10;
+          pointer-events: none;
         }
         .screen {
           position: relative;
