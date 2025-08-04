@@ -201,15 +201,20 @@ export default function ContactNote() {
       </div>
       <style jsx>{`
         .wrap {
-          padding: 60px 5vw;
+          padding: 60px 5vw 100px;
           display: grid;
           gap: 20rem;
           font-family: "Caveat", cursive;
+          --note-height: clamp(600px, 70vh, 800px);
+          --info-height: clamp(120px, 15vh, 200px);
+          min-height: calc(var(--note-height) + var(--info-height) + 4rem);
+          position: relative;
         }
         .note-container {
           position: relative;
           width: min(960px, 94vw);
           margin: 0 auto;
+          min-height: var(--note-height);
         }
         .note-background {
           position: absolute;
@@ -221,13 +226,15 @@ export default function ContactNote() {
         }
         .note-background img {
           width: 100%;
+          max-width: 1200px;
           height: auto;
           display: block;
           filter: drop-shadow(0 8px 24px #0001);
+          object-fit: contain;
         }
         .form-content {
-          width: 85%;
-          top: 3%;
+          width: 70%;
+          top: 20%;
           left: 10%;
           position: relative;
           z-index: 10;
@@ -249,6 +256,9 @@ export default function ContactNote() {
           font-size: 1.2rem;
           margin-bottom: 1.5rem;
           color: #666;
+          margin-top: 10rem;
+          min-height: var(--info-height);
+          align-self: end;
         }
         .info a {
           color: #1f1f1f;
@@ -335,8 +345,29 @@ export default function ContactNote() {
           border: 2px solid #dc2626;
         }
         @media (max-width: 700px) {
+          .wrap {
+            --note-height: clamp(500px, 60vh, 700px);
+            --info-height: clamp(100px, 12vh, 150px);
+            gap: 10rem;
+          }
+          .form-content {
+            width: 80%;
+            top: 10%;
+          }
+        }
+        @media (max-width: 500px) {
+          .wrap {
+            --note-height: clamp(400px, 50vh, 600px);
+            --info-height: clamp(80px, 10vh, 120px);
+            gap: 5rem;
+            padding: 40px 5vw 80px;
+          }
           h3 {
             font-size: 1.5rem;
+          }
+          .form-content {
+            width: 85%;
+            top: 3%;
           }
         }
       `}</style>

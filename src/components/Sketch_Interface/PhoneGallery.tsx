@@ -125,6 +125,13 @@ export default function PhoneGallery() {
         .wrap {
           padding: 10px;
           padding-top: 60px;
+          --header-height: clamp(80px, 15vh, 100px);
+          --header-spacing: clamp(2rem, 4vh, 3rem);
+          --stage-height: clamp(40vh, 80vh, 90vh);
+          min-height: calc(
+            var(--header-height) + var(--header-spacing) + var(--stage-height) +
+              4rem
+          );
         }
         h2 {
           text-align: center;
@@ -322,7 +329,9 @@ export default function PhoneGallery() {
           .wrap {
             padding: 5vw;
             padding-top: 60px;
+            --stage-height: clamp(30vh, 40vh, 50vh);
           }
+
           .phone-content {
             top: 10%;
             width: 36%;
