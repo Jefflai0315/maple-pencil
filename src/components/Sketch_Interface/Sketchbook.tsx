@@ -124,7 +124,6 @@ export default function ClippathSketchbook() {
             )}
           </div>
         </div>
-        te
         {/* <div className="content-layer tabs-content">
           <button className="tab-btn tab-1" title="Quick sketches">
             QUICK
@@ -145,6 +144,14 @@ export default function ClippathSketchbook() {
         .sketch-services {
           padding: 2rem;
           font-family: "Georgia", serif;
+          --header-spacing: clamp(3rem, 8vh, 6rem); /* Responsive spacing */
+          --header-height: clamp(
+            100px,
+            15vh,
+            150px
+          ); /* Responsive header height */
+          overflow-x: hidden; /* Prevent horizontal scroll */
+          max-width: 100vw; /* Ensure container doesn't exceed viewport */
         }
 
         .sketchbook-bg-image {
@@ -155,7 +162,12 @@ export default function ClippathSketchbook() {
 
         .header {
           text-align: center;
-          margin-bottom: 3rem;
+          margin-bottom: var(--header-spacing);
+          min-height: var(--header-height);
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
         }
 
         .header h2 {
@@ -457,6 +469,11 @@ export default function ClippathSketchbook() {
 
         /* Responsive design */
         @media (max-width: 768px) {
+          .sketch-services {
+            --header-spacing: clamp(2rem, 6vh, 4rem);
+            --header-height: clamp(80px, 12vh, 120px);
+          }
+
           .sketchbook-container {
             overflow-y: hidden;
             aspect-ratio: 4/3;
@@ -505,33 +522,33 @@ export default function ClippathSketchbook() {
           .sketchbook-container {
             top: 100%;
             position: absolute;
-            width: 150vw; /* Use viewport width instead of height */
+            width: 100vw; /* Use full viewport width */
             height: 70vh;
             left: 50%;
-            transform: translateX(-55%); /* Center properly */
+            transform: translateX(-50%); /* Center properly */
           }
 
           /* Rotate only the background image */
           .background-layer {
             transform: rotate(90deg);
-            width: 100%;
+            width: 150%;
             height: 100%;
-            left: 0;
+            left: -35%;
             object-fit: cover;
           }
 
           /* Keep content layers upright but reposition them */
           .picture-content {
             top: 13%;
-            left: 40%;
-            width: 35%;
+            left: 27%;
+            width: 50%;
           }
 
           .text-content {
             top: 55%;
-            left: 40%;
+            left: 27%;
             height: 20%;
-            width: 35%;
+            width: 50%;
           }
 
           .image-container {

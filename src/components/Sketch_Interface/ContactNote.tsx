@@ -131,8 +131,6 @@ export default function ContactNote() {
 
         {/* Form content - in front */}
         <div className="form-content">
-          <h3>Let’s work together</h3>
-
           <form className="form" onSubmit={handleSubmit}>
             <input
               name="name"
@@ -203,7 +201,7 @@ export default function ContactNote() {
       </div>
       <style jsx>{`
         .wrap {
-          padding: 60px 5vw 100px;
+          padding: 60px 5vw;
           display: grid;
           gap: 20rem;
           font-family: "Caveat", cursive;
@@ -228,11 +226,12 @@ export default function ContactNote() {
           filter: drop-shadow(0 8px 24px #0001);
         }
         .form-content {
-          width: 90%;
+          width: 85%;
+          top: 3%;
           left: 10%;
           position: relative;
           z-index: 10;
-          background: rgba(255, 255, 255, 0.95);
+          align-self: flex-start;
           border-radius: 16px;
           transform: rotate(-10deg);
         }
@@ -261,7 +260,7 @@ export default function ContactNote() {
         }
         .form {
           display: grid;
-          gap: 1rem;
+          gap: 0.8rem;
         }
         input,
         textarea {

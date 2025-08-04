@@ -275,8 +275,8 @@ export default function PhoneGallery() {
           }
           .phone-content {
             top: 10%;
-            width: 36.5%;
-            left: 50%;
+            width: 36%;
+            left: 50.5%;
             transform: translate(-50%, 0) rotate(25deg);
           }
         }

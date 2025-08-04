@@ -4,6 +4,7 @@ import Socials from '../components/Sketch_Interface/Socials'
 import Sketchbook from '../components/Sketch_Interface/Sketchbook'
 import PhoneGallery from '../components/Sketch_Interface/PhoneGallery'
 import ContactNote from '../components/Sketch_Interface/ContactNote'
+import Footer from '../components/Sketch_Interface/Footer'
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
       <Sketchbook />
       <PhoneGallery />
       <ContactNote />
+      <Footer />
     </>
   )
 }
