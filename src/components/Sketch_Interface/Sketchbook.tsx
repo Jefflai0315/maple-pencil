@@ -530,7 +530,7 @@ export default function ClippathSketchbook() {
             overflow: hidden; /* Prevent horizontal scroll */
             position: relative;
             --mobile-header-total: calc(
-              var(--header-height) + var(--header-spacing)
+              var(--header-height) + var(--header-spacing) + 3rem
             ); /* Total header space needed */
           }
           .sketchbook-container {

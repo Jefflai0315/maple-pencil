@@ -4,10 +4,11 @@ export default function Hero() {
   return (
     <section className="hero">
       <div className="content">
-        <h1 className="title">Hand-Drawn Stories</h1>
-        <p className="subtitle">
-          Faces, hands, and little moments—sketched with heart.
-        </p>
+        <img
+          className="title-image"
+          src="/sketch/jeff_e_roaming_artist.png"
+          alt="Jeff E Roaming Artist"
+        />
       </div>
 
       {/* background blob top-left */}
@@ -33,7 +34,7 @@ export default function Hero() {
         .content {
           position: absolute;
           bottom: 5vh;
-          left: 5vw;
+          right: 30%;
           max-width: 620px;
           z-index: 10;
         }
@@ -45,20 +46,14 @@ export default function Hero() {
           height: 100%;
           z-index: -1;
         }
-        .title {
-          font-size: clamp(36px, 6vw, 72px);
-          line-height: 1;
-          margin: 0 0 10px;
-          bottom: 10%;
-          font-family: "Caveat", "Comic Sans MS", "Bradley Hand", cursive;
-          font-weight: 700;
-          color: #1f1f1f;
-          text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.1),
-            4px 4px 0px rgba(0, 0, 0, 0.05);
+        .title-image {
+          max-width: 100%;
+          height: auto;
           transform: rotate(-1deg);
-          letter-spacing: -0.02em;
           position: relative;
           display: inline-block;
+          filter: drop-shadow(2px 2px 0px rgba(0, 0, 0, 0.1))
+            drop-shadow(4px 4px 0px rgba(0, 0, 0, 0.05));
         }
         .title::before {
           content: "";
@@ -74,14 +69,7 @@ export default function Hero() {
           z-index: -1;
           box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.1);
         }
-        .subtitle {
-          font-size: 18px;
-          opacity: 0.8;
-          font-family: "Caveat", "Comic Sans MS", "Bradley Hand", cursive;
-          font-weight: 600;
-          transform: rotate(0.5deg);
-          color: #333;
-        }
+
         .bg {
           position: absolute;
           top: 15%;
@@ -120,10 +108,8 @@ export default function Hero() {
         @media (max-width: 900px) {
           .content {
             position: absolute;
-            top: 5vh;
-            left: 50%;
-            transform: translateX(-50%);
-            bottom: auto;
+            left: 10%;
+            width: 50%;
             text-align: center;
             max-width: 90vw;
           }
