@@ -194,7 +194,7 @@ export default function Hero() {
           font-weight: bold;
           color: #333;
           white-space: nowrap;
-          z-index: 1000;
+          z-index: 10;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
           animation: subtleFloat 3s ease-in-out infinite;
           pointer-events: none;
@@ -227,7 +227,7 @@ export default function Hero() {
           font-weight: bold;
           color: #333;
           white-space: nowrap;
-          z-index: 1000;
+          z-index: 10;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
           animation: subtleFloat 3s ease-in-out infinite;
           pointer-events: none;
