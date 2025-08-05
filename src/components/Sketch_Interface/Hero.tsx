@@ -1,6 +1,14 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 export default function Hero() {
+  const router = useRouter();
+
+  const handleWorldClick = () => {
+    router.push("/world");
+  };
+
   return (
     <section className="hero">
       <div className="content">
@@ -11,8 +19,27 @@ export default function Hero() {
         />
       </div>
 
-      {/* background blob top-left */}
-      <img className="bg" src="/sketch/world.png" alt="" aria-hidden />
+      {/* background blob top-left - now clickable */}
+      <div className="world-container">
+        <img
+          className="bg world-button"
+          src="/sketch/world.png"
+          alt="World"
+          onClick={handleWorldClick}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleWorldClick();
+            }
+          }}
+        />
+        {/* Tooltip positioned relative to the world image */}
+        <div className="tooltip">
+          <span>enter my world</span>
+        </div>
+      </div>
 
       {/* portrait right */}
       <img className="portrait" src="/sketch/face.png" alt="Sketch portrait" />
@@ -70,16 +97,84 @@ export default function Hero() {
           box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.1);
         }
 
-        .bg {
+        .world-container {
           position: absolute;
           top: 15%;
           left: 0;
           width: calc(100% - min(40vw, 520px));
           height: auto;
+        }
+
+        .bg {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: auto;
           object-fit: contain;
           opacity: 0.6;
           pointer-events: none;
         }
+
+        .world-button {
+          pointer-events: auto !important;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+
+        .world-button:hover {
+          opacity: 0.8 !important;
+          transform: scale(1.02);
+          filter: brightness(1.1) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+        }
+
+        .world-button:active {
+          transform: scale(0.98);
+        }
+
+        .tooltip {
+          position: absolute;
+          bottom: -80px;
+          left: 15%;
+          background: rgba(255, 255, 255, 0.95);
+          border: 2px solid #333;
+          border-radius: 50px;
+          padding: 12px 20px;
+          font-family: "Comic Sans MS", "Bradley Hand", cursive;
+          font-size: 16px;
+          font-weight: bold;
+          color: #333;
+          white-space: nowrap;
+          z-index: 1000;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+          animation: subtleFloat 3s ease-in-out infinite;
+          pointer-events: none;
+        }
+
+        .tooltip::before {
+          content: "";
+          position: absolute;
+          bottom: -8px;
+          left: 20%;
+          transform: translateX(-50%);
+          width: 0;
+          height: 0;
+          transform: rotate(180deg);
+          border-left: 8px solid transparent;
+          border-right: 8px solid transparent;
+          border-bottom: 8px solid #333;
+        }
+
+        @keyframes subtleFloat {
+          0%,
+          100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-5px);
+          }
+        }
+
         .portrait {
           position: absolute;
           right: 3vw;
@@ -117,6 +212,11 @@ export default function Hero() {
             width: 70vw;
             margin: 24px 0 0;
             right: 0;
+          }
+          .world-container {
+            width: 100%;
+            top: 0;
+            left: 0;
           }
           .bg {
             width: 100%;
