@@ -132,6 +132,10 @@ export default function ContactNote() {
         {/* Form content - in front */}
         <div className="form-content">
           <form className="form" onSubmit={handleSubmit}>
+            {/* Tooltip for send button */}
+            <div className="send-tooltip">
+              <span>click to send!</span>
+            </div>
             <input
               name="name"
               value={formData.name}
@@ -165,9 +169,14 @@ export default function ContactNote() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="align-self-start"
+              className="send-button"
             >
-              {isSubmitting ? "Sending..." : "Send"}
+              <img
+                src="/sketch/send_a_note.png"
+                alt="Send note"
+                className="send-icon"
+              />
+              {isSubmitting && <span className="sending-text">Sending...</span>}
             </button>
           </form>
 
@@ -215,6 +224,8 @@ export default function ContactNote() {
           width: min(960px, 94vw);
           margin: 0 auto;
           min-height: var(--note-height);
+          --note-width: min(960px, 94vw);
+          --send-button-size: calc(var(--note-width));
         }
         .note-background {
           position: absolute;
@@ -294,34 +305,95 @@ export default function ContactNote() {
           resize: vertical;
           min-height: 100px;
         }
-        button {
-          width: fit-content;
-          border: 2px solid #1f1f1f;
-          background: #ffd166;
-          padding: 0.75rem 1.5rem;
-          border-radius: 8px;
-          font-weight: 700;
-          font-size: 1rem;
+        .send-button {
+          position: absolute;
+          bottom: calc(-1 * var(--send-button-size) * 0.9);
+          left: calc(-1 * var(--send-button-size) * 0.45);
+          width: var(--send-button-size);
+          height: var(--send-button-size);
+          border: none;
+          background: transparent;
           cursor: pointer;
           transition: all 0.3s ease;
-          justify-self: center;
-        }
-        button:hover {
-          background: #ffc233;
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(255, 209, 102, 0.3);
+          padding: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transform: rotate(10deg);
         }
 
-        button:disabled {
+        .send-button:hover {
+          transform: scale(1.1);
+          filter: brightness(1.1);
+        }
+
+        .send-button:disabled {
           opacity: 0.6;
           cursor: not-allowed;
           transform: none;
         }
 
-        button:disabled:hover {
-          background: #ffd166;
+        .send-button:disabled:hover {
           transform: none;
-          box-shadow: none;
+          filter: none;
+        }
+
+        .send-icon {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+        }
+
+        .sending-text {
+          position: absolute;
+          bottom: calc(-1 * var(--send-button-size) * 0.4);
+          left: 50%;
+          transform: translateX(-50%);
+          font-size: 0.8rem;
+          color: #1f1f1f;
+          white-space: nowrap;
+        }
+
+        .send-tooltip {
+          position: absolute;
+          bottom: calc(-1 * var(--send-button-size) * 0.55);
+          left: calc(var(--send-button-size) * 0.2);
+          background: rgba(255, 255, 255, 0.95);
+          border: 2px solid #333;
+          border-radius: 50px;
+          padding: 8px 16px;
+          font-family: "Comic Sans MS", "Bradley Hand", cursive;
+          font-size: 12px;
+          font-weight: bold;
+          color: #333;
+          white-space: nowrap;
+          z-index: 10;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+          animation: subtleFloat 3s ease-in-out infinite;
+          pointer-events: none;
+        }
+
+        .send-tooltip::before {
+          content: "";
+          position: absolute;
+          top: -8px;
+          left: 20%;
+          transform: translateX(-50%);
+          width: 0;
+          height: 0;
+          border-left: 8px solid transparent;
+          border-right: 8px solid transparent;
+          border-bottom: 8px solid #333;
+        }
+
+        @keyframes subtleFloat {
+          0%,
+          100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-3px);
+          }
         }
 
         .status-message {

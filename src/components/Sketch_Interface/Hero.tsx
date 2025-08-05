@@ -284,7 +284,7 @@ export default function Hero() {
         @media (max-width: 900px) {
           .content {
             position: absolute;
-            left: 10%;
+            left: 4%;
             width: 50%;
             text-align: center;
             max-width: 90vw;
@@ -295,10 +295,11 @@ export default function Hero() {
             right: 0;
           }
           .world-container {
-            width: 100%;
+            width: 60%;
             top: 0;
             left: 0;
           }
+
           .bg {
             width: 100%;
             height: auto;
@@ -307,12 +308,23 @@ export default function Hero() {
           }
           .mural-container {
             position: relative;
-            bottom: -7rem;
-            left: -10;
-            width: 150px;
+            bottom: -8rem;
+
+            width: 250px;
           }
           .hero {
             padding-bottom: 4rem;
+          }
+        }
+        @media (max-width: 600px) {
+          .world-container {
+            width: 100%;
+          }
+          .mural-container {
+            position: relative;
+            bottom: -9rem;
+            left: -4.5%;
+            width: 160px;
           }
         }
       `}</style>
