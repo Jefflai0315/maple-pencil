@@ -41,6 +41,28 @@ export default function Hero() {
         </div>
       </div>
 
+      {/* mural button - clickable */}
+      <div className="mural-container">
+        <img
+          className="mural-button"
+          src="/sketch/mural.png"
+          alt="Mural"
+          onClick={() => router.push("/mural")}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              router.push("/mural");
+            }
+          }}
+        />
+        {/* Tooltip for mural button */}
+        <div className="mural-tooltip">
+          <span>view my murals</span>
+        </div>
+      </div>
+
       {/* portrait right */}
       <img className="portrait" src="/sketch/face.png" alt="Sketch portrait" />
 
@@ -105,12 +127,22 @@ export default function Hero() {
           height: auto;
         }
 
+        .mural-container {
+          position: absolute;
+          bottom: 7%;
+          width: 300px;
+          left: 5%;
+          height: auto;
+          z-index: 10;
+        }
+
         .bg {
           position: absolute;
           top: 0;
           left: 0;
           width: 100%;
-          height: auto;
+          max-height: 400px;
+          align-self: left;
           object-fit: contain;
           opacity: 0.6;
           pointer-events: none;
@@ -129,6 +161,24 @@ export default function Hero() {
         }
 
         .world-button:active {
+          transform: scale(0.98);
+        }
+
+        .mural-button {
+          width: 100%;
+          height: auto;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          opacity: 0.8;
+        }
+
+        .mural-button:hover {
+          opacity: 1;
+          transform: scale(1.05);
+          filter: brightness(1.1) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+        }
+
+        .mural-button:active {
           transform: scale(0.98);
         }
 
@@ -160,6 +210,38 @@ export default function Hero() {
           width: 0;
           height: 0;
           transform: rotate(180deg);
+          border-left: 8px solid transparent;
+          border-right: 8px solid transparent;
+          border-bottom: 8px solid #333;
+        }
+
+        .mural-tooltip {
+          position: absolute;
+          bottom: -50px;
+          transform: translateX(-50%);
+          background: rgba(255, 255, 255, 0.95);
+          border: 2px solid #333;
+          border-radius: 50px;
+          padding: 10px 16px;
+          font-family: "Comic Sans MS", "Bradley Hand", cursive;
+          font-size: 14px;
+          font-weight: bold;
+          color: #333;
+          white-space: nowrap;
+          z-index: 1000;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+          animation: subtleFloat 3s ease-in-out infinite;
+          pointer-events: none;
+        }
+
+        .mural-tooltip::before {
+          content: "";
+          position: absolute;
+          top: -8px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 0;
+          height: 0;
           border-left: 8px solid transparent;
           border-right: 8px solid transparent;
           border-bottom: 8px solid #333;
@@ -223,6 +305,12 @@ export default function Hero() {
             height: auto;
             top: 0;
             left: 0;
+          }
+          .mural-container {
+            position: relative;
+            bottom: -7rem;
+            left: -10;
+            width: 150px;
           }
           .hero {
             padding-bottom: 4rem;
