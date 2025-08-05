@@ -69,7 +69,6 @@ export default function Hero() {
       {/* hand-drawn note + arrow bottom-right */}
       <div className="note">
         <span>Scroll ↓</span>
-        <img src="/arrow.svg" alt="" />
       </div>
 
       <style jsx>{`
