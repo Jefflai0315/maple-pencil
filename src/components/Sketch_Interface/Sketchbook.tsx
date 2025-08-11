@@ -184,7 +184,13 @@ const DETAILED_PAGES = [
   "/gallery/detailed/12.jpg",
 ];
 
-const BIG_PAGES = ["/gallery/big/1.jpg", "/gallery/big/2.jpg"];
+const BIG_PAGES = [
+  "/gallery/wood/1.jpg",
+  "/gallery/wood/2.jpg",
+  "/gallery/wood/3.jpg",
+  "/gallery/wood/4.jpg",
+  "/gallery/wood/5.jpg",
+];
 
 type Mode = "quick" | "detailed" | "big" | "comingSoon";
 
@@ -248,25 +254,29 @@ export default function ClippathSketchbook() {
       : mode === "detailed"
       ? "Detailed portraits"
       : mode === "big"
-      ? "Large format portraits"
+      ? "Live sketching at hawkers/eateries, private events, corporate events, and promo activations."
       : "";
 
   const headerTitle =
     mode === "quick"
-      ? "Quick Sketch Services"
+      ? "Quick Sketch"
       : mode === "detailed"
-      ? "Detailed Portrait Services"
+      ? "Detailed Portrait"
       : mode === "big"
-      ? "Big Portrait Services"
+      ? "Live Sketching"
       : "";
 
   const featureList =
     mode === "quick"
-      ? ["✓ Live sketching", "✓ Event coverage", "✓ Reaction content"]
+      ? ["✓ Event coverage", "✓ Reaction content"]
       : mode === "detailed"
       ? ["✓ Premium finish", "✓ High-resolution export", "✓ Framing available"]
       : mode === "big"
-      ? ["✓ Large format", "✓ High detail", "✓ Great for displays"]
+      ? [
+          "✓ Live at hawkers/eateries",
+          "✓ Private & corporate events",
+          "✓ Promo activations",
+        ]
       : [];
 
   return (
@@ -310,8 +320,8 @@ export default function ClippathSketchbook() {
                 : mode === "quick"
                 ? "Professional portrait sketching for events, parties, and personal sessions."
                 : mode === "detailed"
-                ? "Premium detailed portraits with refined shading and finishing touches, perfect as gifts or keepsakes."
-                : "Larger, more impactful portraits ideal for displays and exhibits."}
+                ? "Premium portraits with refined shading and finishing touches, perfect as gifts or keepsakes."
+                : "Portraits that captures candid, wholesome moments as they unfold."}
             </p>
             {!isMobile && featureList.length > 0 && (
               <div className="features">
@@ -357,9 +367,9 @@ export default function ClippathSketchbook() {
             aria-selected={mode === "big"}
             aria-controls="panel-big"
             onClick={() => setMode("big")}
-            title="BIG"
+            title="WOOD"
           >
-            BI
+            WO
           </button>
           <button
             className={`tab-btn ${mode === "comingSoon" ? "active" : ""}`}
@@ -462,6 +472,7 @@ export default function ClippathSketchbook() {
           width: 30%;
           height: 40%;
           padding: 1rem;
+
           box-sizing: border-box;
         }
 
@@ -722,7 +733,7 @@ export default function ClippathSketchbook() {
           }
           .text-content {
             top: 55%;
-            left: 27%;
+            left: 30%;
             height: 20%;
             width: 50%;
           }
