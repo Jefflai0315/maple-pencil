@@ -16,42 +16,151 @@ interface ImageCarouselProps {
 
 const ImageCarousel = ({ items }: ImageCarouselProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const touchStartXRef = useRef<number | null>(null);
+  const touchDeltaXRef = useRef<number>(0);
+
+  const hasItems = items.length > 0;
+
+  const goPrev = () => setCurrentIndex((i) => Math.max(0, i - 1));
+  const goNext = () =>
+    setCurrentIndex((i) => Math.min(items.length - 1, i + 1));
+
+  useEffect(() => {
+    setCurrentIndex((i) => Math.min(i, Math.max(0, items.length - 1)));
+  }, [items.length]);
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!hasItems) return;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      goPrev();
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      goNext();
+    }
+  };
+
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (!hasItems) return;
+    touchStartXRef.current = event.touches[0].clientX;
+    touchDeltaXRef.current = 0;
+  };
+
+  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (!hasItems) return;
+    if (touchStartXRef.current !== null) {
+      touchDeltaXRef.current =
+        event.touches[0].clientX - touchStartXRef.current;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!hasItems) return;
+    const deltaX = touchDeltaXRef.current;
+    touchStartXRef.current = null;
+    touchDeltaXRef.current = 0;
+    const threshold = 40; // px swipe threshold
+    if (Math.abs(deltaX) > threshold) {
+      if (deltaX > 0) {
+        goPrev();
+      } else {
+        goNext();
+      }
+    }
+  };
+
+  const handleClickZone = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!hasItems) return;
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    if (clickX < rect.width * 0.4) {
+      goPrev();
+    } else if (clickX > rect.width * 0.6) {
+      goNext();
+    }
+  };
 
   return (
     <div className="carousel-content">
-      <div className="image-container">
+      <div
+        className="image-container"
+        ref={containerRef}
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={handleClickZone}
+        aria-roledescription="carousel"
+        aria-label="Sketch carousel"
+      >
         <img
           src={items[currentIndex]?.image || "/api/placeholder/120/150"}
-          alt={items[currentIndex]?.alt || "Sketch"}
+          alt={
+            items[currentIndex]?.alt ||
+            (hasItems ? "Sketch" : "Coming soon placeholder")
+          }
           className="sketch-image rounded-lg aspect-square object-cover"
         />
-        <div className="nav-controls">
-          <button
-            onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
-            disabled={currentIndex === 0}
-            className="nav-btn prev"
-          >
-            ‹
-          </button>
-          <span className="counter">
-            {currentIndex + 1}/{items.length}
-          </span>
-          <button
-            onClick={() =>
-              setCurrentIndex(Math.min(items.length - 1, currentIndex + 1))
-            }
-            disabled={currentIndex === items.length - 1}
-            className="nav-btn next"
-          >
-            ›
-          </button>
-        </div>
+
+        {hasItems && (
+          <>
+            <button
+              className="tap-zone left"
+              onClick={(e) => {
+                e.stopPropagation();
+                goPrev();
+              }}
+              aria-label="Previous image"
+              disabled={currentIndex === 0}
+            />
+            <button
+              className="tap-zone right"
+              onClick={(e) => {
+                e.stopPropagation();
+                goNext();
+              }}
+              aria-label="Next image"
+              disabled={currentIndex === items.length - 1}
+            />
+          </>
+        )}
+
+        {hasItems && (
+          <div className="nav-controls" aria-live="polite">
+            <button
+              onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
+              disabled={currentIndex === 0}
+              className="nav-btn prev"
+              aria-label="Previous"
+              title="Previous"
+            >
+              ‹
+            </button>
+            <span className="counter">
+              {currentIndex + 1}/{items.length}
+            </span>
+            <button
+              onClick={() =>
+                setCurrentIndex(Math.min(items.length - 1, currentIndex + 1))
+              }
+              disabled={currentIndex === items.length - 1}
+              className="nav-btn next"
+              aria-label="Next"
+              title="Next"
+            >
+              ›
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
-const PAGES = [
+const QUICK_PAGES = [
   "/gallery/quick/Com_1.jpg",
   "/gallery/quick/Com_2.jpg",
   "/gallery/quick/Com_3.jpg",
@@ -62,9 +171,28 @@ const PAGES = [
   "/gallery/quick/Com_8.jpg",
 ];
 
+const DETAILED_PAGES = [
+  "/gallery/detailed/1.jpg",
+  "/gallery/detailed/2.jpg",
+  "/gallery/detailed/4.jpg",
+  "/gallery/detailed/5.jpg",
+  "/gallery/detailed/6.jpg",
+  "/gallery/detailed/7.jpg",
+  "/gallery/detailed/8.jpg",
+  "/gallery/detailed/9.jpg",
+  "/gallery/detailed/10.jpg",
+  "/gallery/detailed/11.jpg",
+  "/gallery/detailed/12.jpg",
+];
+
+const BIG_PAGES = ["/gallery/big/1.jpg", "/gallery/big/2.jpg"];
+
+type Mode = "quick" | "detailed" | "big" | "comingSoon";
+
 export default function ClippathSketchbook() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [mode, setMode] = useState<Mode>("quick");
 
   useEffect(() => {
     const checkMobile = () => {
@@ -75,6 +203,72 @@ export default function ClippathSketchbook() {
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
+
+  // Compute tab gap relative to container size so spacing scales with the image
+  useEffect(() => {
+    const updateTabGap = () => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const base = isMobile ? rect.width : rect.height; // align with visual orientation
+      const gapPx = Math.max(30, Math.min(80, base * 0.09));
+      containerRef.current.style.setProperty("--tab-gap", `${gapPx}px`);
+    };
+
+    updateTabGap();
+    window.addEventListener("resize", updateTabGap);
+    return () => window.removeEventListener("resize", updateTabGap);
+  }, [isMobile, mode]);
+
+  const backgroundSrc =
+    mode === "quick"
+      ? "/sketch/sketchbook.png"
+      : mode === "detailed"
+      ? "/sketch/sketchbook1.png"
+      : mode === "big"
+      ? "/sketch/sketchbook2.png"
+      : "/sketch/sketchbook3.png"; // comingSoon
+
+  const items =
+    mode === "quick"
+      ? QUICK_PAGES
+      : mode === "detailed"
+      ? DETAILED_PAGES
+      : mode === "big"
+      ? BIG_PAGES
+      : [];
+
+  const carouselItems = items.map((page, index) => ({
+    id: index,
+    image: page,
+    alt: `${mode} sketch ${index + 1}`,
+  }));
+
+  const description =
+    mode === "quick"
+      ? "Quick portraits"
+      : mode === "detailed"
+      ? "Detailed portraits"
+      : mode === "big"
+      ? "Large format portraits"
+      : "";
+
+  const headerTitle =
+    mode === "quick"
+      ? "Quick Sketch Services"
+      : mode === "detailed"
+      ? "Detailed Portrait Services"
+      : mode === "big"
+      ? "Big Portrait Services"
+      : "";
+
+  const featureList =
+    mode === "quick"
+      ? ["✓ Live sketching", "✓ Event coverage", "✓ Reaction content"]
+      : mode === "detailed"
+      ? ["✓ Premium finish", "✓ High-resolution export", "✓ Framing available"]
+      : mode === "big"
+      ? ["✓ Large format", "✓ High detail", "✓ Great for displays"]
+      : [];
 
   return (
     <section className="sketch-services ">
@@ -87,57 +281,98 @@ export default function ClippathSketchbook() {
         className="sketchbook-container overflow-x-hidden"
         ref={containerRef}
       >
-        {/* Method 1: Using your actual sketchbook image as background */}
+        {/* Background */}
         <div className="background-layer">
           <img
-            src="/sketch/sketchbook.png"
+            src={backgroundSrc}
             alt="Sketchbook"
             className="sketchbook-bg-image overflow-x-hidden"
           />
         </div>
-        {/* Content layers with precise positioning */}
+
+        {/* Picture content */}
         <div className="content-layer picture-content">
           <ImageCarousel
-            items={PAGES.map((page, index) => ({
-              id: index,
-              image: page,
-              alt: `Quick sketch ${index + 1}`,
-            }))}
+            key={mode}
+            items={carouselItems}
             title="Sketches"
-            description="Quick portraits"
-            features={["5-15 min", "Live drawing", "Digital copy"]}
+            description={description}
+            features={undefined}
           />
         </div>
+
+        {/* Text content */}
         <div className="content-layer text-content">
           <div className="service-description">
-            <h3>Quick Sketch Services</h3>
+            <h3>{headerTitle}</h3>
             <p>
-              Professional portrait sketching for events, parties, and personal
-              sessions.
+              {mode === "comingSoon"
+                ? ""
+                : mode === "quick"
+                ? "Professional portrait sketching for events, parties, and personal sessions."
+                : mode === "detailed"
+                ? "Premium detailed portraits with refined shading and finishing touches, perfect as gifts or keepsakes."
+                : "Larger, more impactful portraits ideal for displays and exhibits."}
             </p>
-            {!isMobile && (
+            {!isMobile && featureList.length > 0 && (
               <div className="features">
-                <div className="feature">✓ Live sketching</div>
-                <div className="feature">✓ Event coverage</div>
-                <div className="feature">✓ Reaction content</div>
+                {featureList.map((text) => (
+                  <div key={text} className="feature">
+                    {text}
+                  </div>
+                ))}
               </div>
             )}
           </div>
         </div>
-        {/* <div className="content-layer tabs-content">
-          <button className="tab-btn tab-1" title="Quick sketches">
+
+        {/* Tabs positioned similar to the sketchbook tabs on the image */}
+        <div
+          className="content-layer tabs-content"
+          role="tablist"
+          aria-label="Sketchbook sections"
+        >
+          <button
+            className={`tab-btn ${mode === "quick" ? "active" : ""}`}
+            role="tab"
+            aria-selected={mode === "quick"}
+            aria-controls="panel-quick"
+            onClick={() => setMode("quick")}
+            title="QUICK"
+          >
             QUICK
           </button>
-          <button className="tab-btn tab-2" title="Detailed portraits">
+          <button
+            className={`tab-btn ${mode === "detailed" ? "active" : ""}`}
+            role="tab"
+            aria-selected={mode === "detailed"}
+            aria-controls="panel-detailed"
+            onClick={() => setMode("detailed")}
+            title="DETAIL"
+          >
             DETAIL
           </button>
-          <button className="tab-btn tab-3" title="Live events">
-            LIVE
+          <button
+            className={`tab-btn ${mode === "big" ? "active" : ""}`}
+            role="tab"
+            aria-selected={mode === "big"}
+            aria-controls="panel-big"
+            onClick={() => setMode("big")}
+            title="BIG"
+          >
+            BIG
           </button>
-          <button className="tab-btn tab-4" title="Digital copies">
-            COPY
+          <button
+            className={`tab-btn ${mode === "comingSoon" ? "active" : ""}`}
+            role="tab"
+            aria-selected={mode === "comingSoon"}
+            aria-controls="panel-soon"
+            onClick={() => setMode("comingSoon")}
+            title="SOON"
+          >
+            SOON
           </button>
-        </div> */}
+        </div>
       </div>
 
       <style jsx>{`
@@ -151,14 +386,10 @@ export default function ClippathSketchbook() {
         .sketch-services {
           padding: 2rem;
           font-family: "Brushed", "Georgia", serif;
-          --header-spacing: clamp(3rem, 8vh, 6rem); /* Responsive spacing */
-          --header-height: clamp(
-            100px,
-            15vh,
-            150px
-          ); /* Responsive header height */
-          overflow-x: hidden; /* Prevent horizontal scroll */
-          max-width: 100vw; /* Ensure container doesn't exceed viewport */
+          --header-spacing: clamp(3rem, 8vh, 6rem);
+          --header-height: clamp(100px, 15vh, 150px);
+          overflow-x: hidden;
+          max-width: 100vw;
         }
 
         .sketchbook-bg-image {
@@ -175,17 +406,15 @@ export default function ClippathSketchbook() {
           justify-content: center;
           align-items: center;
         }
-
         .header h2 {
           color: #2c2c2c;
           margin: 0;
-          font-size: clamp(2.5rem, 5vw, 2rem); /* Responsive font size */
+          font-size: clamp(2.5rem, 5vw, 2rem);
           font-weight: bold;
           transform: rotate(-1deg);
           text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
           line-height: 1.2;
         }
-
         .caption {
           display: inline-block;
           background: #d4af37;
@@ -205,126 +434,18 @@ export default function ClippathSketchbook() {
           min-height: 400px;
           filter: drop-shadow(0 15px 30px rgba(0, 0, 0, 0.2));
         }
-
         .background-layer {
           position: absolute;
           inset: 0;
           z-index: 1;
         }
-
         .content-layer {
           position: absolute;
           z-index: 2;
           pointer-events: auto;
         }
 
-        /* Mock sketchbook design (replace with your image) */
-        .mock-sketchbook {
-          width: 100%;
-          height: 100%;
-          background: #f8f8f0;
-          border-radius: 8px;
-          position: relative;
-          box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-        }
-
-        .spiral-binding {
-          position: absolute;
-          left: 5%;
-          top: 15%;
-          bottom: 15%;
-          width: 3%;
-          background: repeating-linear-gradient(
-            to bottom,
-            #666 0px,
-            #666 8px,
-            transparent 8px,
-            transparent 16px
-          );
-        }
-
-        .spiral-binding::before {
-          content: "";
-          position: absolute;
-          left: -30%;
-          top: 0;
-          bottom: 0;
-          width: 20%;
-          background: #444;
-        }
-
-        .page-area {
-          position: absolute;
-          top: 15%;
-          left: 12%;
-          right: 8%;
-          bottom: 15%;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-        }
-
-        .picture-frame {
-          position: absolute;
-          top: 20%;
-          left: 15%;
-          width: 25%;
-          height: 45%;
-          border: 2px solid #666;
-          border-radius: 4px;
-          background: rgba(255, 255, 255, 0.8);
-        }
-
-        .text-lines {
-          position: absolute;
-          top: 25%;
-          left: 45%;
-          right: 15%;
-          height: 40%;
-          background: repeating-linear-gradient(
-            to bottom,
-            transparent 0px,
-            transparent 18px,
-            #ddd 19px,
-            #ddd 20px
-          );
-        }
-
-        .tabs {
-          position: absolute;
-          top: 20%;
-          right: 5%;
-          width: 12%;
-          height: 50%;
-          background: repeating-linear-gradient(
-            to bottom,
-            #f0f0f0 0%,
-            #f0f0f0 22%,
-            #e0e0e0 22%,
-            #e0e0e0 25%
-          );
-          border: 1px solid #ccc;
-          border-radius: 0 4px 4px 0;
-        }
-
-        .pencil {
-          position: absolute;
-          bottom: 15%;
-          left: 30%;
-          width: 15%;
-          height: 2%;
-          background: linear-gradient(
-            to right,
-            #f4d03f 0%,
-            #f4d03f 80%,
-            #e8b4cb 80%,
-            #e8b4cb 90%,
-            #2c3e50 90%
-          );
-          border-radius: 2px;
-          transform: rotate(-10deg);
-        }
-
-        /* Content positioning - adjust these percentages to match your image */
+        /* Content positioning */
         .picture-content {
           top: 15%;
           left: 20%;
@@ -336,7 +457,6 @@ export default function ClippathSketchbook() {
           padding: 0.5rem;
           box-sizing: border-box;
         }
-
         .text-content {
           top: 17%;
           left: 48%;
@@ -346,13 +466,15 @@ export default function ClippathSketchbook() {
           box-sizing: border-box;
         }
 
+        /* Tabs area: row on desktop */
         .tabs-content {
-          top: 20%;
+          top: 13%;
           right: 5%;
-          width: 12%;
-          height: 50%;
           display: flex;
           flex-direction: column;
+          gap: var(--tab-gap, 8px);
+          align-items: center;
+          justify-content: center;
         }
 
         /* Carousel styles */
@@ -365,26 +487,65 @@ export default function ClippathSketchbook() {
           justify-content: center;
           gap: 0.5rem;
         }
-
         .image-container {
           position: relative;
           display: flex;
           align-items: center;
           gap: 0.5rem;
           justify-content: center;
-          overflow: hidden; /* ✅ enable clipping */
-          border-radius: 16px; /* ✅ round the frame */
-          aspect-ratio: 2 / 3; /* ✅ control the frame’s shape */
+          overflow: hidden;
+          border-radius: 16px;
+          aspect-ratio: 2 / 3;
+          outline: none;
         }
-
         .sketch-image {
           width: 100%;
           height: 100%;
-          object-fit: cover; /* Fills container properly */
-          border-radius: 16px; /* Matches container */
+          object-fit: cover;
+          border-radius: 16px;
           max-height: 100%;
           filter: sepia(15%) contrast(1.1);
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+          user-select: none;
+          -webkit-user-drag: none;
+          pointer-events: none;
+        }
+
+        .coming-soon {
+          position: absolute;
+          bottom: -15px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(255, 255, 255, 0.95);
+          padding: 0.2rem 0.6rem;
+          border-radius: 8px;
+          color: #666;
+          z-index: 4;
+          font-weight: 600;
+        }
+
+        .tap-zone {
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          width: 50%;
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          z-index: 3;
+        }
+        .tap-zone.left {
+          left: 0;
+        }
+        .tap-zone.right {
+          right: 0;
+        }
+        .tap-zone:hover {
+          background: rgba(0, 0, 0, 0.03);
+        }
+        .tap-zone:disabled {
+          cursor: not-allowed;
+          opacity: 0.3;
         }
 
         .nav-controls {
@@ -399,8 +560,8 @@ export default function ClippathSketchbook() {
           background: rgba(255, 255, 255, 0.9);
           padding: 0.2rem 0.5rem;
           border-radius: 12px;
+          z-index: 4;
         }
-
         .nav-btn {
           background: none;
           border: none;
@@ -408,17 +569,16 @@ export default function ClippathSketchbook() {
           padding: 0.1rem 0.3rem;
           border-radius: 3px;
           transition: background 0.2s;
+          font-size: 1.25rem;
+          line-height: 1;
         }
-
         .nav-btn:hover:not(:disabled) {
           background: rgba(0, 0, 0, 0.1);
         }
-
         .nav-btn:disabled {
           opacity: 0.3;
           cursor: not-allowed;
         }
-
         .counter {
           color: #666;
           white-space: nowrap;
@@ -430,52 +590,47 @@ export default function ClippathSketchbook() {
           color: #555;
           line-height: 1.3;
         }
-
         .service-description h3 {
           margin: 0 0 0.5rem 0;
-
           color: #333;
           transform: rotate(-0.3deg);
         }
-
         .service-description p {
           margin: 0 0 0.8rem 0;
           font-style: italic;
         }
-
         .features {
           display: flex;
           flex-direction: column;
           gap: 0.2rem;
         }
-
         .feature {
           color: #666;
         }
 
-        /* Tab buttons */
+        /* Tab button styling */
         .tab-btn {
-          flex: 1;
-          background: rgba(240, 240, 240, 0.8);
+          background: rgba(240, 240, 240, 0.95);
           border: 1px solid #ccc;
           font-weight: bold;
           color: #666;
           cursor: pointer;
-          transition: all 0.3s;
-          border-radius: 0;
+          transition: all 0.2s ease;
+          border-radius: 6px;
+          height: 100%;
+          width: 100%;
+          padding: 0.35rem 0.6rem;
+          text-align: center;
+          white-space: nowrap;
         }
-
-        .tab-btn:first-child {
-          border-top-right-radius: 4px;
-        }
-
-        .tab-btn:last-child {
-          border-bottom-right-radius: 4px;
-        }
-
         .tab-btn:hover {
-          background: rgba(212, 175, 55, 0.3);
+          background: rgba(212, 175, 55, 0.25);
           transform: translateX(2px);
+        }
+        .tab-btn.active {
+          background: #d4af37;
+          color: white;
+          border-color: #b38f20;
         }
 
         /* Responsive design */
@@ -484,25 +639,9 @@ export default function ClippathSketchbook() {
             --header-spacing: clamp(2rem, 6vh, 4rem);
             --header-height: clamp(80px, 12vh, 120px);
           }
-
           .sketchbook-container {
             overflow-y: hidden;
             aspect-ratio: 4/3;
-          }
-
-          .service-description {
-          }
-
-          .service-description h3 {
-          }
-
-          .service-description p {
-          }
-
-          .feature {
-          }
-
-          .tab-btn {
           }
         }
 
@@ -510,36 +649,27 @@ export default function ClippathSketchbook() {
           .picture-content {
             padding: 0.25rem;
           }
-
           .text-content {
             padding: 0.5rem;
           }
-
-          .service-description {
-          }
-
-          .service-description h3 {
-          }
-
-          .counter {
-          }
         }
+
         @media (max-width: 600px) {
           .sketch-services {
             height: 90vh;
-            overflow: hidden; /* Prevent horizontal scroll */
+            overflow: hidden;
             position: relative;
             --mobile-header-total: calc(
               var(--header-height) + var(--header-spacing) + 3rem
-            ); /* Total header space needed */
+            );
           }
           .sketchbook-container {
-            top: var(--mobile-header-total); /* Use calculated header space */
+            top: var(--mobile-header-total);
             position: absolute;
-            width: 100vw; /* Use full viewport width */
+            width: 100vw;
             height: 70vh;
             left: 50%;
-            transform: translateX(-50%); /* Center properly */
+            transform: translateX(-50%);
           }
 
           /* Rotate only the background image */
@@ -548,7 +678,7 @@ export default function ClippathSketchbook() {
             width: 150%;
             height: 100%;
             left: -35%;
-            top: 0; /* Ensure it starts from the container top */
+            top: 0;
             object-fit: cover;
           }
 
@@ -558,24 +688,34 @@ export default function ClippathSketchbook() {
             left: 27%;
             width: 50%;
           }
-
           .text-content {
             top: 55%;
             left: 27%;
             height: 20%;
             width: 50%;
           }
-
           .image-container {
             gap: 0.3rem;
-            aspect-ratio: 3 / 4; /* pick the portrait frame you want on mobile */
+            aspect-ratio: 3 / 4;
           }
-
           .sketch-image {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transform-origin: center center; /* keep it centered */
+            transform-origin: center center;
+          }
+
+          /* Tabs become a column on mobile */
+          .tabs-content {
+            top: 85%;
+            right: 8%;
+            flex-direction: row-reverse;
+            gap: var(--tab-gap, 6px);
+            align-items: stretch;
+          }
+
+          .tap-zone:hover {
+            background: transparent;
           }
         }
       `}</style>

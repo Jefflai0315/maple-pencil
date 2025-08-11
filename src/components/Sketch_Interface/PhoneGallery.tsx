@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 
 const FEED = [
   {
@@ -36,81 +36,37 @@ const FEED = [
 ];
 
 export default function PhoneGallery() {
-  const outerRef = useRef<HTMLDivElement>(null);
-  const innerRef = useRef<HTMLDivElement>(null);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    const outer = outerRef.current!;
-    const inner = innerRef.current!;
-    if (!outer || !inner) return;
-
-    function onScroll() {
-      const rect = outer.getBoundingClientRect();
-      const vh = window.innerHeight;
-      // progress while the section is in view
-      //   const visible = Math.min(
-      //     vh,
-      //     Math.max(0, vh - Math.abs(rect.top - vh * 0.4))
-      //   );
-      const progress = Math.max(
-        0,
-        Math.min(1, (vh - rect.top) / (vh + rect.height))
-      );
-      const maxScroll = inner.scrollHeight - inner.clientHeight;
-      inner.scrollTop = progress * maxScroll;
-    }
-
-    const io = new IntersectionObserver(
-      (entries) => {
-        const e = entries[0];
-        setReady(e.isIntersecting);
-      },
-      { threshold: [0, 1] }
-    );
-
-    io.observe(outer);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-
-    return () => {
-      io.disconnect();
-      window.removeEventListener("scroll", onScroll);
-    };
-
-    // I also not sure what ready is for, can delete next time
-    if (ready) {
-      onScroll();
-    }
-  }, []);
+  const screenRef = useRef<HTMLDivElement>(null);
 
   return (
     <section id="moments" className="wrap">
       <h2>My Gallery</h2>
       <h3>Sketching strangers & moments</h3>
       <div className="stage">
-        {/* Background layer - hand + phone image */}
-        <div className="background-layer">
+        {/* Phone and screen share the same wrapper so they stay aligned */}
+        <div className="phone-wrapper">
           <img
             src="/sketch/phone.png"
             className="hand-img"
             alt=""
             aria-hidden
           />
-        </div>
 
-        {/* Content layer - phone screen positioned relative to background */}
-        <div className="content-layer phone-content" ref={outerRef}>
-          <div className="screen" ref={innerRef}>
-            {FEED.map((item, i) => (
-              <div key={i} className="feed-item">
-                <img src={item.image} alt={item.title} />
-                <div className="feed-content">
-                  <h4>{item.title}</h4>
-                  <p>{item.description}</p>
+          {/* Screen overlay precisely positioned in phone frame */}
+          <div className="screen" ref={screenRef}>
+            <div className="screen-scroll">
+              {FEED.map((item, i) => (
+                <div key={i} className="feed-item">
+                  <img src={item.image} alt={item.title} />
+                  <div className="feed-content">
+                    <h4>{item.title}</h4>
+                    <p>{item.description}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+            <div className="screen-fade top" aria-hidden />
+            <div className="screen-fade bottom" aria-hidden />
           </div>
         </div>
       </div>
@@ -128,6 +84,7 @@ export default function PhoneGallery() {
           --header-height: clamp(80px, 15vh, 100px);
           --header-spacing: clamp(2rem, 4vh, 3rem);
           --stage-height: clamp(40vh, 80vh, 90vh);
+          --phone-width: 90%;
           min-height: calc(
             var(--header-height) + var(--header-spacing) + var(--stage-height) +
               4rem
@@ -180,95 +137,90 @@ export default function PhoneGallery() {
           min-height: 60vh;
         }
 
-        /* Background layer */
-        .background-layer {
+        /* Shared wrapper keeps image and screen in perfect sync */
+        .phone-wrapper {
+          --screen-top: 10.5%;
+          --screen-left: 33%;
+          --screen-width: 35%;
+          --screen-height: 55%;
+          --fade-size: 8%;
+
           position: absolute;
-          inset: 0;
-          z-index: 1;
+          top: 15%;
+          left: 51%;
+          width: var(--phone-width, 36%);
+          transform: translate(-50%, 0);
+          transform-origin: center;
+          pointer-events: none; /* default off; screen turns its own on */
         }
 
         .hand-img {
           width: 100%;
+          height: auto;
           object-fit: contain;
-          pointer-events: none;
+          max-width: 100%;
+          filter: none;
           opacity: 0.95;
+          display: block;
+          pointer-events: none;
         }
 
-        /* Content layer */
-        .content-layer {
+        /* Screen positioned relative to the phone-wrapper (same transform) */
+        .screen {
           position: absolute;
+          top: var(--screen-top);
+          left: var(--screen-left);
+          width: var(--screen-width);
+          height: var(--screen-height);
+          border-radius: 14px;
+          background: #fff;
           z-index: 2;
-          pointer-events: auto;
+          /* rotation inherited from wrapper */
+          transform: rotate(25deg);
+          pointer-events: auto; /* re-enable interactions only on screen */
+          overflow: hidden; /* clip fades */
         }
 
-        .phone-content {
-          top: 15%;
-          left: 51%;
-          width: 36%;
-          aspect-ratio: 2/3.5;
-          transform: translate(-50%, 0) rotate(25deg);
-          position: relative;
-        }
-
-        .phone-content::before {
-          content: "";
+        .screen-scroll {
           position: absolute;
-          top: 0;
+          inset: 0;
+          overflow: auto;
+          border-radius: inherit;
+          scrollbar-width: thin;
+          scrollbar-color: #ccc transparent;
+          overscroll-behavior: contain;
+          -webkit-overflow-scrolling: touch;
+          touch-action: pan-y;
+        }
+
+        .screen-fade {
+          position: absolute;
           left: 0;
           right: 0;
-          height: 20px;
+          height: var(--fade-size);
+          z-index: 3;
+          pointer-events: none;
+          border-radius: inherit;
+        }
+        .screen-fade.top {
+          top: 0;
           background: linear-gradient(
             to bottom,
             rgba(255, 255, 255, 0.9) 0%,
             rgba(255, 255, 255, 0.5) 20%,
             transparent 100%
           );
-          z-index: 10;
-          pointer-events: none;
         }
-
-        .phone-content::after {
-          content: "";
-          position: absolute;
+        .screen-fade.bottom {
           bottom: 0;
-          left: 0;
-          right: 0;
-          height: 20px;
           background: linear-gradient(
             to top,
             rgba(255, 255, 255, 0.9) 0%,
             rgba(255, 255, 255, 0.5) 20%,
             transparent 100%
           );
-          z-index: 10;
-          pointer-events: none;
-        }
-        .screen {
-          position: relative;
-          aspect-ratio: 2/3.5;
-          overflow: hidden auto;
-          border-radius: 14px;
-          background: #fff;
-          scrollbar-width: thin;
-          scrollbar-color: #ccc transparent;
         }
 
-        .screen::-webkit-scrollbar {
-          width: 4px;
-        }
-
-        .screen::-webkit-scrollbar-track {
-          background: transparent;
-        }
-
-        .screen::-webkit-scrollbar-thumb {
-          background: #ccc;
-          border-radius: 2px;
-        }
-
-        .screen::-webkit-scrollbar-thumb:hover {
-          background: #999;
-        }
         .feed-item {
           width: 100%;
           margin-bottom: 1rem;
@@ -299,29 +251,19 @@ export default function PhoneGallery() {
           margin: 0;
           color: #666;
         }
-        .frame {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          pointer-events: none;
-        }
+
         @media (max-width: 768px) {
           .stage {
             aspect-ratio: 4/3;
             min-height: 50vh;
           }
-
-          .phone-content {
-            top: 13%;
-            width: 30%;
-            left: 43%;
-            aspect-ratio: 2/3.5;
-            transform: translate(-50%, 0) rotate(25deg);
-          }
-
-          .hand-img {
-            max-width: 600px;
+          .phone-wrapper {
+            top: 10%;
+            --phone-width: 120%;
+            width: var(--phone-width, 36%);
+            left: 50.5%;
+            transform: translate(-50%, 0);
+            /* Override screen box if needed for mobile */
           }
         }
 
@@ -330,13 +272,6 @@ export default function PhoneGallery() {
             padding: 5vw;
             padding-top: 60px;
             --stage-height: clamp(30vh, 40vh, 50vh);
-          }
-
-          .phone-content {
-            top: 10%;
-            width: 36%;
-            left: 50.5%;
-            transform: translate(-50%, 0) rotate(25deg);
           }
         }
       `}</style>
