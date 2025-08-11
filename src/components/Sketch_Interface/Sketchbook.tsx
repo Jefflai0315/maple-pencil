@@ -96,14 +96,13 @@ const ImageCarousel = ({ items }: ImageCarouselProps) => {
         aria-roledescription="carousel"
         aria-label="Sketch carousel"
       >
-        <img
-          src={items[currentIndex]?.image || "/api/placeholder/120/150"}
-          alt={
-            items[currentIndex]?.alt ||
-            (hasItems ? "Sketch" : "Coming soon placeholder")
-          }
-          className="sketch-image rounded-lg aspect-square object-cover"
-        />
+        {hasItems && (
+          <img
+            src={items[currentIndex]?.image}
+            alt={items[currentIndex]?.alt || "Sketch"}
+            className="sketch-image rounded-lg aspect-square object-cover"
+          />
+        )}
 
         {hasItems && (
           <>
@@ -210,7 +209,7 @@ export default function ClippathSketchbook() {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const base = isMobile ? rect.width : rect.height; // align with visual orientation
-      const gapPx = Math.max(30, Math.min(80, base * 0.09));
+      const gapPx = Math.max(10, Math.min(80, base * 0.09));
       containerRef.current.style.setProperty("--tab-gap", `${gapPx}px`);
     };
 
@@ -340,7 +339,7 @@ export default function ClippathSketchbook() {
             onClick={() => setMode("quick")}
             title="QUICK"
           >
-            QUICK
+            QU
           </button>
           <button
             className={`tab-btn ${mode === "detailed" ? "active" : ""}`}
@@ -350,7 +349,7 @@ export default function ClippathSketchbook() {
             onClick={() => setMode("detailed")}
             title="DETAIL"
           >
-            DETAIL
+            DE
           </button>
           <button
             className={`tab-btn ${mode === "big" ? "active" : ""}`}
@@ -360,7 +359,7 @@ export default function ClippathSketchbook() {
             onClick={() => setMode("big")}
             title="BIG"
           >
-            BIG
+            BI
           </button>
           <button
             className={`tab-btn ${mode === "comingSoon" ? "active" : ""}`}
@@ -370,7 +369,7 @@ export default function ClippathSketchbook() {
             onClick={() => setMode("comingSoon")}
             title="SOON"
           >
-            SOON
+            SO
           </button>
         </div>
       </div>
@@ -610,27 +609,56 @@ export default function ClippathSketchbook() {
 
         /* Tab button styling */
         .tab-btn {
-          background: rgba(240, 240, 240, 0.95);
-          border: 1px solid #ccc;
-          font-weight: bold;
-          color: #666;
+          position: relative;
+          background: transparent;
+          border: none;
+          color: transparent;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: outline-color 0.15s ease, box-shadow 0.15s ease;
           border-radius: 6px;
-          height: 100%;
-          width: 100%;
-          padding: 0.35rem 0.6rem;
+          width: clamp(60px, 8vw, 100px);
+          height: clamp(20px, 3.2vh, 40px);
+          padding: 0;
           text-align: center;
           white-space: nowrap;
         }
         .tab-btn:hover {
-          background: rgba(212, 175, 55, 0.25);
-          transform: translateX(2px);
+          outline: 2px dashed rgba(212, 175, 55, 0.1);
+          outline-offset: 2px;
+        }
+        .tab-btn:focus-visible {
+          outline: 2px solid rgba(212, 175, 55, 0.1);
+          outline-offset: 2px;
+        }
+        .tab-btn:active {
+          transform: translateY(1px);
         }
         .tab-btn.active {
-          background: #d4af37;
-          color: white;
-          border-color: #b38f20;
+          outline: 2px solid rgba(212, 175, 55, 0.1);
+          outline-offset: 2px;
+        }
+        /* Lightweight tooltip on desktop only */
+        @media (hover: hover) and (pointer: fine) {
+          .tab-btn::after {
+            content: attr(title);
+            position: absolute;
+            bottom: 100%;
+            right: 0;
+            transform: translateY(-6px);
+            font-size: 0.7rem;
+            color: #555;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 6px;
+            padding: 2px 6px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+          }
+          .tab-btn:hover::after,
+          .tab-btn:focus-visible::after {
+            opacity: 1;
+          }
         }
 
         /* Responsive design */
@@ -642,6 +670,10 @@ export default function ClippathSketchbook() {
           .sketchbook-container {
             overflow-y: hidden;
             aspect-ratio: 4/3;
+          }
+          .tab-btn {
+            height: clamp(60px, 8vw, 100px);
+            width: clamp(18px, 3.2vh, 28px);
           }
         }
 
@@ -707,8 +739,8 @@ export default function ClippathSketchbook() {
 
           /* Tabs become a column on mobile */
           .tabs-content {
-            top: 85%;
-            right: 8%;
+            top: 82%;
+            right: 22%;
             flex-direction: row-reverse;
             gap: var(--tab-gap, 6px);
             align-items: stretch;
