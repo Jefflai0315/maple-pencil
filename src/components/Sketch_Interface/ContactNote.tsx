@@ -221,10 +221,10 @@ export default function ContactNote() {
         }
         .note-container {
           position: relative;
-          width: min(960px, 94vw);
+          width: min(780px, 90vw);
           margin: 0 auto;
           min-height: var(--note-height);
-          --note-width: min(960px, 94vw);
+          --note-width: min(780px, 90vw);
           --send-button-size: calc(var(--note-width));
         }
         .note-background {
@@ -418,9 +418,10 @@ export default function ContactNote() {
         }
         @media (max-width: 700px) {
           .wrap {
-            --note-height: clamp(500px, 60vh, 700px);
+            --note-height: clamp(400px, 60vh, 500px);
             --info-height: clamp(100px, 12vh, 150px);
             gap: 10rem;
+            margin-top: 5rem;
           }
           .form-content {
             width: 80%;
@@ -429,7 +430,7 @@ export default function ContactNote() {
         }
         @media (max-width: 500px) {
           .wrap {
-            --note-height: clamp(400px, 50vh, 600px);
+            --note-height: clamp(350px, 50vh, 400px);
             --info-height: clamp(80px, 10vh, 120px);
             gap: 5rem;
             padding: 40px 5vw 80px;

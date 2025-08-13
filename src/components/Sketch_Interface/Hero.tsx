@@ -122,6 +122,7 @@ export default function Hero() {
           position: absolute;
           top: 15%;
           left: 0;
+          align-self: left;
           width: calc(100% - min(40vw, 520px));
           height: auto;
         }
@@ -133,6 +134,7 @@ export default function Hero() {
           left: 5%;
           height: auto;
           z-index: 10;
+          align-self: left;
         }
 
         .bg {
@@ -140,8 +142,7 @@ export default function Hero() {
           top: 0;
           left: 0;
           width: 100%;
-          max-height: 400px;
-          align-self: left;
+          max-height: 320px;
           object-fit: contain;
           opacity: 0.6;
           pointer-events: none;
@@ -308,8 +309,8 @@ export default function Hero() {
           }
           .mural-container {
             position: relative;
-            bottom: -8rem;
-
+            bottom: -10rem;
+            left: 0;
             width: 250px;
           }
           .hero {
