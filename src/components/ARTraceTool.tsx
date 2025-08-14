@@ -1,5 +1,22 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Box, Button, Slider, IconButton } from "@mui/material";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
+import {
+  Box,
+  Button,
+  Slider,
+  IconButton,
+  Drawer,
+  Typography,
+  FormControlLabel,
+  Switch,
+  ToggleButton,
+  ToggleButtonGroup,
+} from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import LockIcon from "@mui/icons-material/Lock";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
@@ -8,9 +25,21 @@ import FlashOffIcon from "@mui/icons-material/FlashOff";
 import VideocamIcon from "@mui/icons-material/Videocam";
 import StopIcon from "@mui/icons-material/Stop";
 import Moveable from "react-moveable";
+import PaletteIcon from "@mui/icons-material/Palette";
+import SkipPreviousIcon from "@mui/icons-material/SkipPrevious";
+import SkipNextIcon from "@mui/icons-material/SkipNext";
 
 interface ARTraceToolProps {
-  onClose: () => void;
+  onClose?: () => void | null;
+}
+
+// Define ColorLayer for layers UI
+interface ColorLayer {
+  id: number;
+  canvas: HTMLCanvasElement;
+  dominantColor: { r: number; g: number; b: number };
+  name: string;
+  pixelCount: number;
 }
 
 const isMobile =
@@ -27,6 +56,17 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   const [isFrontCamera, setIsFrontCamera] = useState<boolean>(false);
   const [strobeActive, setStrobeActive] = useState(false);
   const [strobeVisible, setStrobeVisible] = useState(true);
+
+  // New: keep original upload separate from display image
+  const [sourceImage, setSourceImage] = useState<string | null>(null);
+
+  // Layers state
+  const [viewMode, setViewMode] = useState<"original" | "layers">("original");
+  const [layers, setLayers] = useState<ColorLayer[]>([]);
+  const [currentLayerIndex, setCurrentLayerIndex] = useState<number>(0);
+  const [isProcessingLayers, setIsProcessingLayers] = useState<boolean>(false);
+  const [singleLayerMode, setSingleLayerMode] = useState<boolean>(false);
+  const [isLayersDrawerOpen, setIsLayersDrawerOpen] = useState<boolean>(false);
 
   // Video recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -285,29 +325,33 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && file.size <= 5 * 1024 * 1024) {
-      // 5MB limit
       const reader = new FileReader();
       reader.onload = (e) => {
         const imageData = e.target?.result as string;
+        setSourceImage(imageData);
         setImage(imageData);
         setIsFixed(false);
 
-        // Create a new image to get dimensions
+        // Reset layers state on new upload
+        setLayers([]);
+        setCurrentLayerIndex(0);
+        setViewMode("original");
+        setIsProcessingLayers(false);
+        setSingleLayerMode(false);
+
+        // Create a new image to get dimensions and center box
         const img = new Image();
         img.onload = () => {
           const imageWidth = img.naturalWidth;
           const imageHeight = img.naturalHeight;
           const ratio = imageWidth / imageHeight;
 
-          // Calculate dimensions maintaining aspect ratio with width = 400px
           const width = 400;
           const height = width / ratio;
 
-          // Calculate center position
           const centerX = (window.innerWidth - width) / 2;
           const centerY = (window.innerHeight - height) / 2;
 
-          //reset the box state to the center of the screen
           setBoxState({
             top: `${centerY}px`,
             left: `${centerX}px`,
@@ -322,6 +366,290 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
       reader.readAsDataURL(file);
     } else {
       alert("Please select an image under 5MB");
+    }
+  };
+
+  // ---------- Color Processing (ported from ar-tracking) ----------
+  const colorDistance = useCallback(
+    (
+      color1: { r: number; g: number; b: number },
+      color2: { r: number; g: number; b: number }
+    ) => {
+      const dr = color1.r - color2.r;
+      const dg = color1.g - color2.g;
+      const db = color1.b - color2.b;
+      return Math.sqrt(dr * dr + dg * dg + db * db);
+    },
+    []
+  );
+
+  const rgbToHsl = useCallback((r: number, g: number, b: number) => {
+    r /= 255;
+    g /= 255;
+    b /= 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h = 0,
+      s = 0;
+    const l = (max + min) / 2;
+
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r:
+          h = (g - b) / d + (g < b ? 6 : 0);
+          break;
+        case g:
+          h = (b - r) / d + 2;
+          break;
+        case b:
+          h = (r - g) / d + 4;
+          break;
+      }
+      h /= 6;
+    }
+    return { h: h * 360, s: s * 100, l: l * 100 };
+  }, []);
+
+  const extractDominantColors = useCallback(
+    (imageData: ImageData, numColors: number) => {
+      const pixels: { r: number; g: number; b: number }[] = [];
+      const data = imageData.data;
+
+      for (let i = 0; i < data.length; i += 16) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3];
+        if (a > 128) {
+          pixels.push({ r, g, b });
+        }
+      }
+
+      const centroids: { r: number; g: number; b: number }[] = [];
+      for (let i = 0; i < numColors; i++) {
+        const randomPixel = pixels[Math.floor(Math.random() * pixels.length)];
+        centroids.push({ ...randomPixel });
+      }
+
+      for (let iter = 0; iter < 10; iter++) {
+        const clusters: { r: number; g: number; b: number }[][] = Array(
+          numColors
+        )
+          .fill(null)
+          .map(() => []);
+
+        pixels.forEach((pixel) => {
+          let minDist = Infinity;
+          let clusterIndex = 0;
+          centroids.forEach((centroid, i) => {
+            const dist = colorDistance(pixel, centroid);
+            if (dist < minDist) {
+              minDist = dist;
+              clusterIndex = i;
+            }
+          });
+          clusters[clusterIndex].push(pixel);
+        });
+
+        clusters.forEach((cluster, i) => {
+          if (cluster.length > 0) {
+            const avgR =
+              cluster.reduce((sum, p) => sum + p.r, 0) / cluster.length;
+            const avgG =
+              cluster.reduce((sum, p) => sum + p.g, 0) / cluster.length;
+            const avgB =
+              cluster.reduce((sum, p) => sum + p.b, 0) / cluster.length;
+            centroids[i] = {
+              r: Math.round(avgR),
+              g: Math.round(avgG),
+              b: Math.round(avgB),
+            };
+          }
+        });
+      }
+
+      return centroids;
+    },
+    [colorDistance]
+  );
+
+  const createColorLayers = useCallback(
+    async (
+      imageData: ImageData,
+      dominantColors: { r: number; g: number; b: number }[]
+    ) => {
+      const width = imageData.width;
+      const height = imageData.height;
+      const data = imageData.data;
+      const newLayers: ColorLayer[] = [];
+      const colorThreshold = 35;
+      const minRegionSize = 100;
+
+      for (
+        let colorIndex = 0;
+        colorIndex < dominantColors.length;
+        colorIndex++
+      ) {
+        const dominantColor = dominantColors[colorIndex];
+        const layerCanvas = document.createElement("canvas");
+        layerCanvas.width = width;
+        layerCanvas.height = height;
+        const layerCtx = layerCanvas.getContext("2d")!;
+        const layerImageData = layerCtx.createImageData(width, height);
+        const layerData = layerImageData.data;
+
+        let pixelCount = 0;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const a = data[i + 3];
+
+          const pixelColor = { r, g, b };
+          const distance = colorDistance(pixelColor, dominantColor);
+
+          if (distance <= colorThreshold && a > 128) {
+            layerData[i] = r;
+            layerData[i + 1] = g;
+            layerData[i + 2] = b;
+            layerData[i + 3] = a;
+            pixelCount++;
+          } else {
+            layerData[i] = 0;
+            layerData[i + 1] = 0;
+            layerData[i + 2] = 0;
+            layerData[i + 3] = 0;
+          }
+        }
+
+        if (pixelCount > minRegionSize) {
+          layerCtx.putImageData(layerImageData, 0, 0);
+
+          const hsl = rgbToHsl(
+            dominantColor.r,
+            dominantColor.g,
+            dominantColor.b
+          );
+
+          newLayers.push({
+            id: colorIndex,
+            canvas: layerCanvas,
+            dominantColor,
+            pixelCount,
+            name: `${hsl.l < 50 ? "Dark" : "Light"} ${
+              hsl.s < 20
+                ? "Gray"
+                : hsl.h < 30
+                ? "Red"
+                : hsl.h < 90
+                ? "Yellow"
+                : hsl.h < 150
+                ? "Green"
+                : hsl.h < 210
+                ? "Cyan"
+                : hsl.h < 270
+                ? "Blue"
+                : hsl.h < 330
+                ? "Magenta"
+                : "Red"
+            }`,
+          });
+        }
+      }
+
+      newLayers.sort((a, b) => {
+        const hslA = rgbToHsl(
+          a.dominantColor.r,
+          a.dominantColor.g,
+          a.dominantColor.b
+        );
+        const hslB = rgbToHsl(
+          b.dominantColor.r,
+          b.dominantColor.g,
+          b.dominantColor.b
+        );
+        return hslA.l - hslB.l;
+      });
+
+      return newLayers;
+    },
+    [colorDistance, rgbToHsl]
+  );
+
+  const processImageLayers = useCallback(async () => {
+    if (!sourceImage) return;
+    setIsProcessingLayers(true);
+    try {
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d")!;
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+
+        const imageData = ctx.getImageData(0, 0, img.width, img.height);
+        const dominantColors = extractDominantColors(imageData, 6);
+        const newLayers = await createColorLayers(imageData, dominantColors);
+        setLayers(newLayers);
+        setCurrentLayerIndex(0);
+        setIsProcessingLayers(false);
+      };
+      img.src = sourceImage;
+    } catch (error) {
+      console.error("Error processing layers:", error);
+      setIsProcessingLayers(false);
+    }
+  }, [sourceImage, extractDominantColors, createColorLayers]);
+
+  const createCompositeImage = useCallback(
+    (layerIndex: number) => {
+      if (layers.length === 0) return null;
+      const first = layers[0];
+      const canvas = document.createElement("canvas");
+      canvas.width = first.canvas.width;
+      canvas.height = first.canvas.height;
+      const ctx = canvas.getContext("2d")!;
+
+      if (singleLayerMode) {
+        if (layers[layerIndex]) {
+          ctx.drawImage(layers[layerIndex].canvas, 0, 0);
+        }
+      } else {
+        for (let i = 0; i <= layerIndex; i++) {
+          if (layers[i]) ctx.drawImage(layers[i].canvas, 0, 0);
+        }
+      }
+      return canvas.toDataURL();
+    },
+    [layers, singleLayerMode]
+  );
+
+  const displayImage = useMemo(() => {
+    if (viewMode === "layers" && layers.length > 0) {
+      return createCompositeImage(currentLayerIndex) || image;
+    }
+    return image;
+  }, [viewMode, layers, currentLayerIndex, createCompositeImage, image]);
+
+  const handleViewModeChange = async (newMode: "original" | "layers") => {
+    if (newMode === "layers" && layers.length === 0 && sourceImage) {
+      await processImageLayers();
+    }
+    setViewMode(newMode);
+  };
+
+  const nextLayer = () => {
+    if (currentLayerIndex < layers.length - 1) {
+      setCurrentLayerIndex((i) => i + 1);
+    }
+  };
+  const prevLayer = () => {
+    if (currentLayerIndex > 0) {
+      setCurrentLayerIndex((i) => i - 1);
     }
   };
 
@@ -415,23 +743,25 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
       )}
 
       {/* Close Button */}
-      <IconButton
-        onClick={onClose}
-        sx={{
-          position: "absolute",
-          top: 16,
-          right: 16,
-          zIndex: 100013,
-          backgroundColor: "rgba(255, 255, 255, 0.8)",
-          "&:hover": {
-            backgroundColor: "rgba(255, 255, 255, 0.9)",
-          },
-          width: isMobile ? 48 : 40,
-          height: isMobile ? 48 : 40,
-        }}
-      >
-        <CloseIcon sx={{ fontSize: isMobile ? 24 : 20 }} />
-      </IconButton>
+      {onClose && (
+        <IconButton
+          onClick={onClose}
+          sx={{
+            position: "absolute",
+            top: 16,
+            right: 16,
+            zIndex: 100013,
+            backgroundColor: "rgba(255, 255, 255, 0.8)",
+            "&:hover": {
+              backgroundColor: "rgba(255, 255, 255, 0.9)",
+            },
+            width: isMobile ? 48 : 40,
+            height: isMobile ? 48 : 40,
+          }}
+        >
+          <CloseIcon sx={{ fontSize: isMobile ? 24 : 20 }} />
+        </IconButton>
+      )}
 
       {/* Camera/Video Background */}
       <Box
@@ -487,7 +817,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           onTouchEnd={handleTouchEnd}
         >
           <img
-            src={image}
+            src={displayImage || image || ""}
             alt="Trace"
             style={{
               width: "100%",
@@ -642,6 +972,21 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
               >
                 {strobeActive ? <FlashOnIcon /> : <FlashOffIcon />}
               </IconButton>
+
+              {/* Layers Drawer Toggle */}
+              <IconButton
+                onClick={() => setIsLayersDrawerOpen(true)}
+                sx={{
+                  backgroundColor: "#1976d2",
+                  color: "white",
+                  "&:hover": { backgroundColor: "#1565c0" },
+                  width: isMobile ? 40 : 40,
+                  height: isMobile ? 40 : 40,
+                }}
+                title="Layers"
+              >
+                <PaletteIcon />
+              </IconButton>
             </>
           )}
 
@@ -721,6 +1066,158 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           </Box>
         )}
       </Box>
+
+      {/* Layers Drawer */}
+      <Drawer
+        anchor="bottom"
+        open={isLayersDrawerOpen}
+        onClose={() => setIsLayersDrawerOpen(false)}
+        ModalProps={{ keepMounted: true }}
+        sx={{ zIndex: 100020 }}
+        PaperProps={{
+          sx: {
+            backgroundColor: "rgba(0,0,0,0.95)",
+            backdropFilter: "blur(10px)",
+            color: "white",
+            p: 2,
+          },
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            mb: 1,
+          }}
+        >
+          <Typography variant="subtitle1">Layers</Typography>
+          <IconButton
+            onClick={() => setIsLayersDrawerOpen(false)}
+            sx={{ color: "white" }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </Box>
+
+        {/* View mode toggle */}
+        <ToggleButtonGroup
+          value={viewMode}
+          exclusive
+          size="small"
+          onChange={(_, newMode) => newMode && handleViewModeChange(newMode)}
+          sx={{
+            mb: 2,
+            "& .MuiToggleButton-root": {
+              color: "white",
+              borderColor: "rgba(255,255,255,0.3)",
+            },
+          }}
+        >
+          <ToggleButton value="original">Original</ToggleButton>
+          <ToggleButton value="layers">
+            {isProcessingLayers ? "Processing..." : "Color layers"}
+          </ToggleButton>
+        </ToggleButtonGroup>
+
+        {viewMode === "layers" && (
+          <>
+            {isProcessingLayers && (
+              <Typography variant="body2" sx={{ color: "#90CAF9", mb: 1 }}>
+                Processing color layers...
+              </Typography>
+            )}
+
+            {!isProcessingLayers && layers.length > 0 && (
+              <>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 1,
+                    mb: 1,
+                  }}
+                >
+                  <IconButton
+                    onClick={prevLayer}
+                    disabled={currentLayerIndex === 0}
+                    sx={{ color: "white" }}
+                  >
+                    <SkipPreviousIcon />
+                  </IconButton>
+                  <Typography
+                    variant="body2"
+                    sx={{ color: "rgba(255,255,255,0.8)" }}
+                  >
+                    Step {currentLayerIndex + 1} of {layers.length}
+                  </Typography>
+                  <IconButton
+                    onClick={nextLayer}
+                    disabled={currentLayerIndex === layers.length - 1}
+                    sx={{ color: "white" }}
+                  >
+                    <SkipNextIcon />
+                  </IconButton>
+                </Box>
+
+                {/* Progress bars */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    gap: 1,
+                    justifyContent: "center",
+                    flexWrap: "wrap",
+                    mb: 1,
+                  }}
+                >
+                  {layers.map((layer, index) => (
+                    <Box
+                      key={layer.id}
+                      onClick={() => setCurrentLayerIndex(index)}
+                      sx={{
+                        width: 28,
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor:
+                          index <= currentLayerIndex
+                            ? `rgb(${layer.dominantColor.r}, ${layer.dominantColor.g}, ${layer.dominantColor.b})`
+                            : "rgba(255,255,255,0.2)",
+                        cursor: "pointer",
+                      }}
+                    />
+                  ))}
+                </Box>
+
+                {/* Single layer toggle */}
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={singleLayerMode}
+                      onChange={(_, v) => setSingleLayerMode(v)}
+                    />
+                  }
+                  label={singleLayerMode ? "Single layer" : "Cumulative"}
+                />
+
+                {/* Current layer info */}
+                {layers[currentLayerIndex] && (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      display: "block",
+                      color: "rgba(255,255,255,0.7)",
+                      mt: 1,
+                    }}
+                  >
+                    {layers[currentLayerIndex].name}
+                  </Typography>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </Drawer>
 
       {/* CSS for recording indicator animation */}
       <style jsx>{`
