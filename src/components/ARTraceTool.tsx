@@ -7,27 +7,27 @@ import React, {
 } from "react";
 import {
   Box,
-  Button,
   Slider,
   IconButton,
   Drawer,
   Typography,
   FormControlLabel,
   Switch,
-  ToggleButton,
-  ToggleButtonGroup,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
-import LockIcon from "@mui/icons-material/Lock";
-import LockOpenIcon from "@mui/icons-material/LockOpen";
-import FlashOnIcon from "@mui/icons-material/FlashOn";
-import FlashOffIcon from "@mui/icons-material/FlashOff";
-import VideocamIcon from "@mui/icons-material/Videocam";
-import StopIcon from "@mui/icons-material/Stop";
+import {
+  IconX,
+  IconLock,
+  IconLockOpen,
+  IconBolt,
+  IconBoltOff,
+  IconVideo,
+  IconPlayerStop,
+  IconPalette,
+  IconPlayerSkipBack,
+  IconPlayerSkipForward,
+  IconUpload,
+} from "@tabler/icons-react";
 import Moveable from "react-moveable";
-import PaletteIcon from "@mui/icons-material/Palette";
-import SkipPreviousIcon from "@mui/icons-material/SkipPrevious";
-import SkipNextIcon from "@mui/icons-material/SkipNext";
 
 interface ARTraceToolProps {
   onClose?: () => void | null;
@@ -61,7 +61,6 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   const [sourceImage, setSourceImage] = useState<string | null>(null);
 
   // Layers state
-  const [viewMode, setViewMode] = useState<"original" | "layers">("original");
   const [layers, setLayers] = useState<ColorLayer[]>([]);
   const [currentLayerIndex, setCurrentLayerIndex] = useState<number>(0);
   const [isProcessingLayers, setIsProcessingLayers] = useState<boolean>(false);
@@ -340,7 +339,6 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         // Reset layers state on new upload
         setLayers([]);
         setCurrentLayerIndex(0);
-        setViewMode("original");
         setIsProcessingLayers(false);
         setSingleLayerMode(false);
 
@@ -634,17 +632,17 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   );
 
   const displayImage = useMemo(() => {
-    if (viewMode === "layers" && layers.length > 0) {
+    if (layers.length > 0) {
       return createCompositeImage(currentLayerIndex) || image;
     }
     return image;
-  }, [viewMode, layers, currentLayerIndex, createCompositeImage, image]);
+  }, [layers, currentLayerIndex, createCompositeImage, image]);
 
-  const handleViewModeChange = async (newMode: "original" | "layers") => {
-    if (newMode === "layers" && layers.length === 0 && sourceImage) {
+  const handleLayersButtonClick = async () => {
+    if (layers.length === 0 && sourceImage && !isProcessingLayers) {
       await processImageLayers();
     }
-    setViewMode(newMode);
+    setIsLayersDrawerOpen(true);
   };
 
   const nextLayer = () => {
@@ -764,7 +762,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
             height: isMobile ? 48 : 40,
           }}
         >
-          <CloseIcon sx={{ fontSize: isMobile ? 24 : 20 }} />
+          <IconX size={isMobile ? 24 : 20} />
         </IconButton>
       )}
 
@@ -875,204 +873,394 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           />
         )}
 
-      {/* Bottom Toolbar - Mobile Optimized */}
+      {/* Bottom Toolbar - Minimalist Design */}
       <Box
         sx={{
           position: "absolute",
           bottom: 0,
           left: 0,
           right: 0,
-          padding: isMobile ? 1 : 2,
-          backgroundColor: "rgba(0, 0, 0, 0.8)",
-          display: "flex",
-          flexDirection: isMobile ? "column" : "row",
-          gap: isMobile ? 1 : 2,
-          alignItems: "center",
+          backgroundColor: "rgba(0,0,0,0.85)",
+          backdropFilter: "blur(8px)",
+          borderTop: "1px solid rgba(255,255,255,0.08)",
           zIndex: 100013,
         }}
       >
-        {/* Top row for mobile */}
+        {/* Main Controls */}
         <Box
           sx={{
             display: "flex",
-            flexDirection: "row",
-            gap: isMobile ? 1 : 2,
             alignItems: "center",
-            width: "100%",
             justifyContent: "space-between",
+            padding: { xs: "16px", sm: "20px" },
+            gap: { xs: 2, sm: 3 },
           }}
         >
-          <input
-            accept="image/*"
-            style={{ display: "none" }}
-            id="image-upload"
-            type="file"
-            onChange={handleImageUpload}
-          />
-          <label htmlFor="image-upload">
-            <Button
-              variant="contained"
-              component="span"
+          {/* Left Group - Upload & Recording */}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: { xs: 2, sm: 3 },
+            }}
+          >
+            {/* Upload Button */}
+            <Box
               sx={{
-                backgroundColor: "#1976d2",
-                "&:hover": {
-                  backgroundColor: "#1565c0",
-                },
-                minWidth: isMobile ? 80 : undefined,
-                padding: isMobile ? "8px 12px" : undefined,
-                fontSize: isMobile ? 12 : undefined,
-                height: isMobile ? 40 : undefined,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 0.5,
               }}
             >
-              {isMobile ? "Upload" : "Upload Image"}
-            </Button>
-          </label>
+              <input
+                accept="image/*"
+                style={{ display: "none" }}
+                id="image-upload"
+                type="file"
+                onChange={handleImageUpload}
+              />
+              <label htmlFor="image-upload">
+                <IconButton
+                  component="span"
+                  sx={{
+                    backgroundColor: "transparent",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                    color: "rgba(255,255,255,0.9)",
+                    "&:hover": {
+                      backgroundColor: "rgba(255,255,255,0.05)",
+                      borderColor: "rgba(255,255,255,0.3)",
+                    },
+                    width: 40,
+                    height: 40,
+                  }}
+                >
+                  <IconUpload size={18} />
+                </IconButton>
+              </label>
+              <Typography
+                variant="caption"
+                sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.7rem" }}
+              >
+                Upload
+              </Typography>
+            </Box>
 
-          {/* Recording Button */}
-          <IconButton
-            onClick={isRecording ? stopRecording : startRecording}
-            sx={{
-              backgroundColor: isRecording ? "#d32f2f" : "#1976d2",
-              color: "white",
-              "&:hover": {
-                backgroundColor: isRecording ? "#c62828" : "#1565c0",
-              },
-              width: isMobile ? 40 : 40,
-              height: isMobile ? 40 : 40,
-            }}
-            title={isRecording ? "Stop Recording" : "Start Recording"}
-          >
-            {isRecording ? <StopIcon /> : <VideocamIcon />}
-          </IconButton>
+            {/* Recording Button */}
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 0.5,
+              }}
+            >
+              <IconButton
+                onClick={isRecording ? stopRecording : startRecording}
+                sx={{
+                  backgroundColor: isRecording
+                    ? "rgba(244,67,54,0.15)"
+                    : "transparent",
+                  border: `1px solid ${
+                    isRecording
+                      ? "rgba(244,67,54,0.3)"
+                      : "rgba(255,255,255,0.2)"
+                  }`,
+                  color: isRecording ? "#f44336" : "rgba(255,255,255,0.9)",
+                  "&:hover": {
+                    backgroundColor: isRecording
+                      ? "rgba(244,67,54,0.2)"
+                      : "rgba(255,255,255,0.05)",
+                    borderColor: isRecording
+                      ? "rgba(244,67,54,0.4)"
+                      : "rgba(255,255,255,0.3)",
+                  },
+                  width: 40,
+                  height: 40,
+                }}
+              >
+                {isRecording ? (
+                  <IconPlayerStop size={18} />
+                ) : (
+                  <IconVideo size={18} />
+                )}
+              </IconButton>
+              <Typography
+                variant="caption"
+                sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.7rem" }}
+              >
+                {isRecording ? "Stop" : "Record"}
+              </Typography>
+            </Box>
+          </Box>
 
+          {/* Center Group - Image Controls */}
           {image && (
-            <>
-              <IconButton
-                onClick={() => setIsFixed(!isFixed)}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: { xs: 2, sm: 3 },
+              }}
+            >
+              {/* Lock/Unlock */}
+              <Box
                 sx={{
-                  backgroundColor: "#1976d2",
-                  color: "white",
-                  "&:hover": {
-                    backgroundColor: "#1565c0",
-                  },
-                  width: isMobile ? 40 : 40,
-                  height: isMobile ? 40 : 40,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 0.5,
                 }}
               >
-                {isFixed ? <LockIcon /> : <LockOpenIcon />}
-              </IconButton>
+                <IconButton
+                  onClick={() => setIsFixed(!isFixed)}
+                  sx={{
+                    backgroundColor: isFixed
+                      ? "rgba(244,67,54,0.15)"
+                      : "rgba(76,175,80,0.15)",
+                    border: `1px solid ${
+                      isFixed ? "rgba(244,67,54,0.3)" : "rgba(76,175,80,0.3)"
+                    }`,
+                    color: isFixed ? "#f44336" : "#4caf50",
+                    "&:hover": {
+                      backgroundColor: isFixed
+                        ? "rgba(244,67,54,0.2)"
+                        : "rgba(76,175,80,0.2)",
+                      borderColor: isFixed
+                        ? "rgba(244,67,54,0.4)"
+                        : "rgba(76,175,80,0.4)",
+                    },
+                    width: 36,
+                    height: 36,
+                  }}
+                >
+                  {isFixed ? (
+                    <IconLock size={16} />
+                  ) : (
+                    <IconLockOpen size={16} />
+                  )}
+                </IconButton>
+                <Typography
+                  variant="caption"
+                  sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.65rem" }}
+                >
+                  {isFixed ? "Locked" : "Move"}
+                </Typography>
+              </Box>
 
-              <IconButton
-                onClick={() => setStrobeActive((v) => !v)}
+              {/* Strobe */}
+              <Box
                 sx={{
-                  backgroundColor: strobeActive ? "#ffd600" : "#1976d2",
-                  color: strobeActive ? "#333" : "white",
-                  "&:hover": {
-                    backgroundColor: strobeActive ? "#ffea00" : "#1565c0",
-                  },
-                  width: isMobile ? 40 : 40,
-                  height: isMobile ? 40 : 40,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 0.5,
                 }}
-                title={strobeActive ? "Disable Strobe" : "Enable Strobe"}
               >
-                {strobeActive ? <FlashOnIcon /> : <FlashOffIcon />}
-              </IconButton>
+                <IconButton
+                  onClick={() => setStrobeActive((v) => !v)}
+                  sx={{
+                    backgroundColor: strobeActive
+                      ? "rgba(255,193,7,0.2)"
+                      : "transparent",
+                    border: `1px solid ${
+                      strobeActive
+                        ? "rgba(255,193,7,0.4)"
+                        : "rgba(255,255,255,0.2)"
+                    }`,
+                    color: strobeActive ? "#ffc107" : "rgba(255,255,255,0.9)",
+                    "&:hover": {
+                      backgroundColor: strobeActive
+                        ? "rgba(255,193,7,0.25)"
+                        : "rgba(255,255,255,0.05)",
+                      borderColor: strobeActive
+                        ? "rgba(255,193,7,0.5)"
+                        : "rgba(255,255,255,0.3)",
+                    },
+                    width: 36,
+                    height: 36,
+                  }}
+                >
+                  {strobeActive ? (
+                    <IconBolt size={16} />
+                  ) : (
+                    <IconBoltOff size={16} />
+                  )}
+                </IconButton>
+                <Typography
+                  variant="caption"
+                  sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.65rem" }}
+                >
+                  Strobe
+                </Typography>
+              </Box>
 
-              {/* Layers Drawer Toggle */}
-              <IconButton
-                onClick={() => setIsLayersDrawerOpen(true)}
+              {/* Layers */}
+              <Box
                 sx={{
-                  backgroundColor: "#1976d2",
-                  color: "white",
-                  "&:hover": { backgroundColor: "#1565c0" },
-                  width: isMobile ? 40 : 40,
-                  height: isMobile ? 40 : 40,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 0.5,
                 }}
-                title="Layers"
               >
-                <PaletteIcon />
-              </IconButton>
-            </>
+                <IconButton
+                  onClick={handleLayersButtonClick}
+                  sx={{
+                    backgroundColor:
+                      layers.length > 0
+                        ? "rgba(156,39,176,0.2)"
+                        : "transparent",
+                    border: `1px solid ${
+                      layers.length > 0
+                        ? "rgba(156,39,176,0.4)"
+                        : "rgba(255,255,255,0.2)"
+                    }`,
+                    color:
+                      layers.length > 0 ? "#9c27b0" : "rgba(255,255,255,0.9)",
+                    "&:hover": {
+                      backgroundColor:
+                        layers.length > 0
+                          ? "rgba(156,39,176,0.25)"
+                          : "rgba(255,255,255,0.05)",
+                      borderColor:
+                        layers.length > 0
+                          ? "rgba(156,39,176,0.5)"
+                          : "rgba(255,255,255,0.3)",
+                    },
+                    width: 36,
+                    height: 36,
+                  }}
+                >
+                  <IconPalette size={16} />
+                </IconButton>
+                <Typography
+                  variant="caption"
+                  sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.65rem" }}
+                >
+                  Layers
+                </Typography>
+              </Box>
+            </Box>
           )}
 
-          {/* <IconButton
-            onClick={toggleCamera}
-            sx={{
-              backgroundColor: isCameraActive ? "#d32f2f" : "#1976d2",
-              color: "white",
-              "&:hover": {
-                backgroundColor: isCameraActive ? "#c62828" : "#1565c0",
-              },
-              width: isMobile ? 40 : 40,
-              height: isMobile ? 40 : 40,
-            }}
-          >
-            <CameraAltIcon />
-          </IconButton> */}
-        </Box>
-
-        {/* Bottom row for opacity slider on mobile */}
-        {image && isMobile && (
-          <Box sx={{ width: "100%", color: "white", px: 1 }}>
-            <div
-              style={{
-                color: "white",
-                fontSize: "12px",
-                marginBottom: "4px",
-                textAlign: "center",
+          {/* Right Group - Close */}
+          {onClose && (
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 0.5,
               }}
             >
-              Opacity
-            </div>
-            <Slider
-              value={opacity}
-              onChange={(_, value) => setOpacity(value as number)}
-              min={0}
-              max={1}
-              step={0.1}
-              sx={{
-                color: "#1976d2",
-                "& .MuiSlider-thumb": {
-                  backgroundColor: "#fff",
-                  width: 20,
-                  height: 20,
-                },
-                "& .MuiSlider-track": {
-                  backgroundColor: "#1976d2",
+              <IconButton
+                onClick={onClose}
+                sx={{
+                  backgroundColor: "transparent",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  color: "rgba(255,255,255,0.7)",
+                  "&:hover": {
+                    backgroundColor: "rgba(255,255,255,0.05)",
+                    borderColor: "rgba(255,255,255,0.25)",
+                    color: "rgba(255,255,255,0.9)",
+                  },
+                  width: 36,
+                  height: 36,
+                }}
+              >
+                <IconX size={16} />
+              </IconButton>
+              <Typography
+                variant="caption"
+                sx={{ color: "rgba(255,255,255,0.5)", fontSize: "0.65rem" }}
+              >
+                Close
+              </Typography>
+            </Box>
+          )}
+        </Box>
+
+        {/* Opacity Slider */}
+        {image && !isFixed && (
+          <Box
+            sx={{
+              borderTop: "1px solid rgba(255,255,255,0.05)",
+              padding: { xs: "12px 16px 16px", sm: "16px 20px 20px" },
+            }}
+          >
+            <Box sx={{ maxWidth: 280, margin: "0 auto" }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  mb: 1,
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  sx={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.7)" }}
+                >
+                  Opacity
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.9)" }}
+                >
+                  {Math.round(opacity * 100)}%
+                </Typography>
+              </Box>
+              <Slider
+                value={opacity}
+                onChange={(_, value) => setOpacity(value as number)}
+                min={0}
+                max={1}
+                step={0.05}
+                sx={{
+                  color: "rgba(255,255,255,0.9)",
                   height: 4,
-                },
-                "& .MuiSlider-rail": {
-                  height: 4,
-                },
-              }}
-            />
+                  "& .MuiSlider-thumb": {
+                    backgroundColor: "#fff",
+                    width: 12,
+                    height: 12,
+                    border: "1px solid rgba(0,0,0,0.1)",
+                    "&:hover": {
+                      boxShadow: "0 0 0 6px rgba(255,255,255,0.1)",
+                    },
+                  },
+                  "& .MuiSlider-track": {
+                    backgroundColor: "rgba(255,255,255,0.9)",
+                    height: 4,
+                    border: "none",
+                  },
+                  "& .MuiSlider-rail": {
+                    backgroundColor: "rgba(255,255,255,0.2)",
+                    height: 4,
+                  },
+                }}
+              />
+            </Box>
           </Box>
         )}
 
-        {/* Desktop opacity slider */}
-        {image && !isMobile && (
-          <Box sx={{ width: 200, color: "white" }}>
-            <Slider
-              value={opacity}
-              onChange={(_, value) => setOpacity(value as number)}
-              min={0}
-              max={1}
-              step={0.1}
+        {/* Minimal Help Text */}
+        {image && !isFixed && (
+          <Box sx={{ textAlign: "center", pb: 1 }}>
+            <Typography
+              variant="caption"
               sx={{
-                color: "#1976d2",
-                "& .MuiSlider-thumb": {
-                  backgroundColor: "#fff",
-                },
-                "& .MuiSlider-track": {
-                  backgroundColor: "#1976d2",
-                },
+                color: "rgba(255,255,255,0.4)",
+                fontSize: "0.65rem",
               }}
-            />
+            >
+              Drag to reposition • Pinch to resize
+            </Typography>
           </Box>
         )}
       </Box>
 
-      {/* Layers Drawer */}
+      {/* Layers Drawer - Minimalist Design */}
       <Drawer
         anchor="bottom"
         open={isLayersDrawerOpen}
@@ -1081,99 +1269,191 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         sx={{ zIndex: 100020 }}
         PaperProps={{
           sx: {
-            backgroundColor: "rgba(0,0,0,0.95)",
-            backdropFilter: "blur(10px)",
+            backgroundColor: "rgba(0,0,0,0.9)",
+            backdropFilter: "blur(12px)",
             color: "white",
-            p: 2,
+            borderTopLeftRadius: 8,
+            borderTopRightRadius: 8,
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderBottom: "none",
+            maxHeight: "60vh",
           },
         }}
       >
+        {/* Header */}
         <Box
           sx={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            mb: 1,
+            p: 3,
+            borderBottom: "1px solid rgba(255,255,255,0.05)",
           }}
         >
-          <Typography variant="subtitle1">Layers</Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <IconPalette size={20} color="rgba(255,255,255,0.8)" />
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 500, color: "rgba(255,255,255,0.9)" }}
+            >
+              Layers
+            </Typography>
+          </Box>
           <IconButton
             onClick={() => setIsLayersDrawerOpen(false)}
-            sx={{ color: "white" }}
+            sx={{
+              color: "rgba(255,255,255,0.6)",
+              "&:hover": {
+                backgroundColor: "rgba(255,255,255,0.05)",
+                color: "rgba(255,255,255,0.8)",
+              },
+            }}
           >
-            <CloseIcon />
+            <IconX size={18} />
           </IconButton>
         </Box>
 
-        {/* View mode toggle */}
-        <ToggleButtonGroup
-          value={viewMode}
-          exclusive
-          size="small"
-          onChange={(_, newMode) => newMode && handleViewModeChange(newMode)}
-          sx={{
-            mb: 2,
-            "& .MuiToggleButton-root": {
-              color: "white",
-              borderColor: "rgba(255,255,255,0.3)",
-            },
-          }}
-        >
-          <ToggleButton value="original">Original</ToggleButton>
-          <ToggleButton value="layers">
-            {isProcessingLayers ? "Processing..." : "Color layers"}
-          </ToggleButton>
-        </ToggleButtonGroup>
-
-        {viewMode === "layers" && (
-          <>
-            {isProcessingLayers && (
-              <Typography variant="body2" sx={{ color: "#90CAF9", mb: 1 }}>
-                Processing color layers...
+        <Box sx={{ p: 3 }}>
+          {/* Processing indicator */}
+          {isProcessingLayers && (
+            <Box
+              sx={{
+                textAlign: "center",
+                py: 4,
+                borderRadius: 1,
+                backgroundColor: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.05)",
+              }}
+            >
+              <Box
+                sx={{
+                  width: 24,
+                  height: 24,
+                  border: "2px solid rgba(255,255,255,0.2)",
+                  borderTop: "2px solid rgba(255,255,255,0.8)",
+                  borderRadius: "50%",
+                  animation: "spin 1s linear infinite",
+                  margin: "0 auto 12px",
+                  "@keyframes spin": {
+                    "0%": { transform: "rotate(0deg)" },
+                    "100%": { transform: "rotate(360deg)" },
+                  },
+                }}
+              />
+              <Typography
+                variant="body2"
+                sx={{ color: "rgba(255,255,255,0.8)" }}
+              >
+                Processing layers...
               </Typography>
-            )}
+            </Box>
+          )}
 
-            {!isProcessingLayers && layers.length > 0 && (
-              <>
+          {/* Layer controls */}
+          {layers.length > 0 && (
+            <>
+              {/* Layer navigation */}
+              <Box sx={{ mb: 3 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    mb: 2,
+                    color: "rgba(255,255,255,0.7)",
+                    fontWeight: 500,
+                  }}
+                >
+                  Step Through
+                </Typography>
                 <Box
                   sx={{
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: 1,
-                    mb: 1,
+                    gap: 2,
+                    backgroundColor: "rgba(255,255,255,0.03)",
+                    borderRadius: 1,
+                    p: 2,
                   }}
                 >
                   <IconButton
                     onClick={prevLayer}
                     disabled={currentLayerIndex === 0}
-                    sx={{ color: "white" }}
+                    sx={{
+                      color: "rgba(255,255,255,0.8)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      width: 32,
+                      height: 32,
+                      "&:hover": {
+                        backgroundColor: "rgba(255,255,255,0.05)",
+                      },
+                      "&:disabled": {
+                        color: "rgba(255,255,255,0.3)",
+                        borderColor: "rgba(255,255,255,0.05)",
+                      },
+                    }}
                   >
-                    <SkipPreviousIcon />
+                    <IconPlayerSkipBack size={16} />
                   </IconButton>
-                  <Typography
-                    variant="body2"
-                    sx={{ color: "rgba(255,255,255,0.8)" }}
-                  >
-                    Step {currentLayerIndex + 1} of {layers.length}
-                  </Typography>
+
+                  <Box sx={{ textAlign: "center", minWidth: 100 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{ color: "white", mb: 0.5 }}
+                    >
+                      {currentLayerIndex + 1} / {layers.length}
+                    </Typography>
+                    {layers[currentLayerIndex] && (
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: `rgb(${layers[currentLayerIndex].dominantColor.r}, ${layers[currentLayerIndex].dominantColor.g}, ${layers[currentLayerIndex].dominantColor.b})`,
+                        }}
+                      >
+                        {layers[currentLayerIndex].name}
+                      </Typography>
+                    )}
+                  </Box>
+
                   <IconButton
                     onClick={nextLayer}
                     disabled={currentLayerIndex === layers.length - 1}
-                    sx={{ color: "white" }}
+                    sx={{
+                      color: "rgba(255,255,255,0.8)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      width: 32,
+                      height: 32,
+                      "&:hover": {
+                        backgroundColor: "rgba(255,255,255,0.05)",
+                      },
+                      "&:disabled": {
+                        color: "rgba(255,255,255,0.3)",
+                        borderColor: "rgba(255,255,255,0.05)",
+                      },
+                    }}
                   >
-                    <SkipNextIcon />
+                    <IconPlayerSkipForward size={16} />
                   </IconButton>
                 </Box>
+              </Box>
 
-                {/* Progress bars */}
+              {/* Progress visualization */}
+              <Box sx={{ mb: 3 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    mb: 2,
+                    color: "rgba(255,255,255,0.7)",
+                    fontWeight: 500,
+                  }}
+                >
+                  Progress
+                </Typography>
                 <Box
                   sx={{
                     display: "flex",
-                    gap: 1,
+                    gap: 0.5,
                     justifyContent: "center",
                     flexWrap: "wrap",
-                    mb: 1,
                   }}
                 >
                   {layers.map((layer, index) => (
@@ -1181,47 +1461,97 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
                       key={layer.id}
                       onClick={() => setCurrentLayerIndex(index)}
                       sx={{
-                        width: 28,
+                        width: 32,
                         height: 8,
                         borderRadius: 4,
                         backgroundColor:
                           index <= currentLayerIndex
                             ? `rgb(${layer.dominantColor.r}, ${layer.dominantColor.g}, ${layer.dominantColor.b})`
-                            : "rgba(255,255,255,0.2)",
+                            : "rgba(255,255,255,0.15)",
                         cursor: "pointer",
+                        transition: "all 0.2s ease",
+                        border:
+                          index === currentLayerIndex
+                            ? "1px solid rgba(255,255,255,0.3)"
+                            : "1px solid transparent",
+                        "&:hover": {
+                          transform: "scaleY(1.5)",
+                          opacity: 0.8,
+                        },
                       }}
+                      title={layer.name}
                     />
                   ))}
                 </Box>
+              </Box>
 
-                {/* Single layer toggle */}
+              {/* Display mode toggle */}
+              <Box>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    mb: 2,
+                    color: "rgba(255,255,255,0.7)",
+                    fontWeight: 500,
+                  }}
+                >
+                  Display
+                </Typography>
                 <FormControlLabel
                   control={
                     <Switch
                       checked={singleLayerMode}
                       onChange={(_, v) => setSingleLayerMode(v)}
+                      sx={{
+                        "& .MuiSwitch-switchBase.Mui-checked": {
+                          color: "rgba(255,255,255,0.9)",
+                        },
+                        "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track":
+                          {
+                            backgroundColor: "rgba(255,255,255,0.3)",
+                          },
+                        "& .MuiSwitch-track": {
+                          backgroundColor: "rgba(255,255,255,0.1)",
+                        },
+                      }}
                     />
                   }
-                  label={singleLayerMode ? "Single layer" : "Cumulative"}
+                  label={
+                    <Typography
+                      variant="body2"
+                      sx={{ color: "rgba(255,255,255,0.8)" }}
+                    >
+                      {singleLayerMode
+                        ? "Single layer only"
+                        : "Cumulative layers"}
+                    </Typography>
+                  }
                 />
+              </Box>
+            </>
+          )}
 
-                {/* Current layer info */}
-                {layers[currentLayerIndex] && (
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      display: "block",
-                      color: "rgba(255,255,255,0.7)",
-                      mt: 1,
-                    }}
-                  >
-                    {layers[currentLayerIndex].name}
-                  </Typography>
-                )}
-              </>
-            )}
-          </>
-        )}
+          {/* Empty state */}
+          {layers.length === 0 && (
+            <Box
+              sx={{
+                textAlign: "center",
+                py: 4,
+                color: "rgba(255,255,255,0.5)",
+              }}
+            >
+              <Box sx={{ mb: 2, opacity: 0.3 }}>
+                <IconPalette size={40} />
+              </Box>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                No layers yet
+              </Typography>
+              <Typography variant="caption">
+                Switch to Color Layers to process
+              </Typography>
+            </Box>
+          )}
+        </Box>
       </Drawer>
 
       {/* CSS for recording indicator animation */}
