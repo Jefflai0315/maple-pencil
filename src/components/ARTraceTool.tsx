@@ -26,6 +26,8 @@ import {
   IconPlayerSkipBack,
   IconPlayerSkipForward,
   IconUpload,
+  IconMinus,
+  IconMaximize,
 } from "@tabler/icons-react";
 import Moveable from "react-moveable";
 
@@ -66,6 +68,8 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   const [isProcessingLayers, setIsProcessingLayers] = useState<boolean>(false);
   const [singleLayerMode, setSingleLayerMode] = useState<boolean>(false);
   const [isLayersDrawerOpen, setIsLayersDrawerOpen] = useState<boolean>(false);
+  const [showLayers, setShowLayers] = useState<boolean>(false);
+  const [isLayersMinimized, setIsLayersMinimized] = useState<boolean>(false);
 
   // Video recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -341,6 +345,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         setCurrentLayerIndex(0);
         setIsProcessingLayers(false);
         setSingleLayerMode(false);
+        setShowLayers(false);
 
         // Create a new image to get dimensions and center box
         const img = new Image();
@@ -632,17 +637,32 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   );
 
   const displayImage = useMemo(() => {
-    if (layers.length > 0) {
+    if (showLayers && layers.length > 0) {
       return createCompositeImage(currentLayerIndex) || image;
     }
     return image;
-  }, [layers, currentLayerIndex, createCompositeImage, image]);
+  }, [showLayers, layers, currentLayerIndex, createCompositeImage, image]);
 
   const handleLayersButtonClick = async () => {
     if (layers.length === 0 && sourceImage && !isProcessingLayers) {
       await processImageLayers();
     }
+    setShowLayers(true);
     setIsLayersDrawerOpen(true);
+  };
+
+  const handleLayersDrawerClose = () => {
+    setShowLayers(false);
+    setIsLayersDrawerOpen(false);
+    setIsLayersMinimized(false);
+  };
+
+  const handleMinimizeDrawer = () => {
+    setIsLayersMinimized(true);
+  };
+
+  const handleMaximizeDrawer = () => {
+    setIsLayersMinimized(false);
   };
 
   const nextLayer = () => {
@@ -1107,26 +1127,22 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
                 <IconButton
                   onClick={handleLayersButtonClick}
                   sx={{
-                    backgroundColor:
-                      layers.length > 0
-                        ? "rgba(156,39,176,0.2)"
-                        : "transparent",
+                    backgroundColor: showLayers
+                      ? "rgba(156,39,176,0.2)"
+                      : "transparent",
                     border: `1px solid ${
-                      layers.length > 0
+                      showLayers
                         ? "rgba(156,39,176,0.4)"
                         : "rgba(255,255,255,0.2)"
                     }`,
-                    color:
-                      layers.length > 0 ? "#9c27b0" : "rgba(255,255,255,0.9)",
+                    color: showLayers ? "#9c27b0" : "rgba(255,255,255,0.9)",
                     "&:hover": {
-                      backgroundColor:
-                        layers.length > 0
-                          ? "rgba(156,39,176,0.25)"
-                          : "rgba(255,255,255,0.05)",
-                      borderColor:
-                        layers.length > 0
-                          ? "rgba(156,39,176,0.5)"
-                          : "rgba(255,255,255,0.3)",
+                      backgroundColor: showLayers
+                        ? "rgba(156,39,176,0.25)"
+                        : "rgba(255,255,255,0.05)",
+                      borderColor: showLayers
+                        ? "rgba(156,39,176,0.5)"
+                        : "rgba(255,255,255,0.3)",
                     },
                     width: 36,
                     height: 36,
@@ -1260,11 +1276,41 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         )}
       </Box>
 
+      {/* Floating Maximize Button - appears when drawer is minimized */}
+      {isLayersMinimized && showLayers && (
+        <Box
+          sx={{
+            position: "absolute",
+            bottom: "80px",
+            right: "20px",
+            zIndex: 100015,
+          }}
+        >
+          <IconButton
+            onClick={handleMaximizeDrawer}
+            sx={{
+              backgroundColor: "rgba(156,39,176,0.9)",
+              color: "white",
+              width: 48,
+              height: 48,
+              "&:hover": {
+                backgroundColor: "rgba(156,39,176,1)",
+                transform: "scale(1.05)",
+              },
+              boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+              transition: "all 0.2s ease",
+            }}
+          >
+            <IconMaximize size={20} />
+          </IconButton>
+        </Box>
+      )}
+
       {/* Layers Drawer - Minimalist Design */}
       <Drawer
         anchor="bottom"
-        open={isLayersDrawerOpen}
-        onClose={() => setIsLayersDrawerOpen(false)}
+        open={isLayersDrawerOpen && !isLayersMinimized}
+        onClose={handleLayersDrawerClose}
         ModalProps={{ keepMounted: true }}
         sx={{ zIndex: 100020 }}
         PaperProps={{
@@ -1299,18 +1345,32 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
               Layers
             </Typography>
           </Box>
-          <IconButton
-            onClick={() => setIsLayersDrawerOpen(false)}
-            sx={{
-              color: "rgba(255,255,255,0.6)",
-              "&:hover": {
-                backgroundColor: "rgba(255,255,255,0.05)",
-                color: "rgba(255,255,255,0.8)",
-              },
-            }}
-          >
-            <IconX size={18} />
-          </IconButton>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <IconButton
+              onClick={handleMinimizeDrawer}
+              sx={{
+                color: "rgba(255,255,255,0.6)",
+                "&:hover": {
+                  backgroundColor: "rgba(255,255,255,0.05)",
+                  color: "rgba(255,255,255,0.8)",
+                },
+              }}
+            >
+              <IconMinus size={18} />
+            </IconButton>
+            <IconButton
+              onClick={handleLayersDrawerClose}
+              sx={{
+                color: "rgba(255,255,255,0.6)",
+                "&:hover": {
+                  backgroundColor: "rgba(255,255,255,0.05)",
+                  color: "rgba(255,255,255,0.8)",
+                },
+              }}
+            >
+              <IconX size={18} />
+            </IconButton>
+          </Box>
         </Box>
 
         <Box sx={{ p: 3 }}>
