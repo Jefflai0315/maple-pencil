@@ -198,41 +198,113 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         const url = URL.createObjectURL(blob);
 
         if (isMobile) {
-          // For mobile devices, try to save to gallery
           try {
-            // Create a temporary link element
+            // Method 1: Try direct download first
             const link = document.createElement("a");
             link.href = url;
             link.download = `ar-trace-${Date.now()}.${fileExtension}`;
+            link.style.display = "none";
+            document.body.appendChild(link);
 
-            // For iOS Safari, we need to trigger download differently
+            // For iOS Safari, try different approaches
             if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-              // iOS Safari doesn't support direct download, so we'll open in new tab
-              window.open(url, "_blank");
+              // iOS Safari - try to trigger download, fallback to new tab
+              try {
+                link.click();
+                setTimeout(() => {
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(url);
+                }, 1000);
+
+                // Show user instructions for iOS
+                setTimeout(() => {
+                  alert(
+                    "Video recorded! If download didn't start automatically:\n1. Tap the video in the new tab\n2. Tap the share button\n3. Select 'Save to Photos'"
+                  );
+                }, 2000);
+              } catch (iosError) {
+                console.warn(
+                  "iOS direct download failed, opening in new tab:",
+                  iosError
+                );
+                window.open(url, "_blank");
+                document.body.removeChild(link);
+                setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+                alert(
+                  "Video opened in new tab. Tap and hold the video, then select 'Save to Photos' or 'Download'."
+                );
+              }
             } else {
-              // For Android and other mobile browsers
-              link.click();
+              // Android and other mobile browsers
+              try {
+                link.click();
+                setTimeout(() => {
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(url);
+                }, 1000);
+
+                alert(
+                  "Video saved! Check your Downloads folder or Gallery app."
+                );
+              } catch (androidError) {
+                console.warn("Android direct download failed:", androidError);
+
+                // Fallback: Try opening in new tab
+                window.open(url, "_blank");
+                document.body.removeChild(link);
+                setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+                alert(
+                  "Download blocked by browser. Video opened in new tab - please save manually using browser's download option."
+                );
+              }
+            }
+          } catch (error) {
+            console.error("Mobile download error:", error);
+
+            // Final fallback: Show blob URL to user
+            const fallbackMsg = `Recording saved but download was blocked by your browser or ad blocker.\n\nTo save the video:\n1. Copy this URL: ${url}\n2. Paste it in a new browser tab\n3. Right-click the video and select 'Save video as'`;
+
+            if (
+              confirm(fallbackMsg + "\n\nWould you like to copy the URL now?")
+            ) {
+              try {
+                await navigator.clipboard.writeText(url);
+                alert(
+                  "URL copied to clipboard! Paste it in a new tab to access your video."
+                );
+              } catch (clipboardError) {
+                console.warn("Clipboard access denied:", clipboardError);
+                prompt("Copy this URL to access your video:", url);
+              }
             }
 
-            // Clean up
-            setTimeout(() => URL.revokeObjectURL(url), 1000);
-
-            alert("Video saved! Check your downloads or gallery.");
-          } catch (error) {
-            console.error("Error saving video:", error);
-            alert(
-              "Video recorded but couldn't save automatically. Check your browser downloads."
-            );
+            // Keep URL alive longer for manual access
+            setTimeout(() => URL.revokeObjectURL(url), 30000);
           }
         } else {
-          // For desktop, trigger download
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = `ar-trace-${Date.now()}.${fileExtension}`;
-          link.click();
+          // Desktop - standard download
+          try {
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `ar-trace-${Date.now()}.${fileExtension}`;
+            link.style.display = "none";
+            document.body.appendChild(link);
+            link.click();
 
-          // Clean up
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
+            setTimeout(() => {
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+            }, 1000);
+
+            alert("Video saved to your Downloads folder!");
+          } catch (desktopError) {
+            console.error("Desktop download error:", desktopError);
+            alert(
+              "Download failed. Please check your browser's download settings and try again."
+            );
+          }
         }
       };
 
@@ -247,7 +319,9 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
       }, 1000);
     } catch (error) {
       console.error("Error starting recording:", error);
-      alert("Could not start recording. Please try again.");
+      alert(
+        "Could not start recording. Please check camera permissions and try again."
+      );
     }
   };
 
