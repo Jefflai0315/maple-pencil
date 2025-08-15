@@ -162,8 +162,12 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
     }
 
     try {
-      // Create a new MediaRecorder with the current stream
-      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+      // Create a new MediaRecorder with the current stream - prioritize MP4
+      const mimeType = MediaRecorder.isTypeSupported("video/mp4")
+        ? "video/mp4"
+        : MediaRecorder.isTypeSupported("video/mp4;codecs=h264")
+        ? "video/mp4;codecs=h264"
+        : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
         ? "video/webm;codecs=vp9"
         : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
         ? "video/webm;codecs=vp8"
@@ -184,7 +188,8 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
       };
 
       mediaRecorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: "video/webm" });
+        const blob = new Blob(chunks, { type: mimeType });
+        const fileExtension = mimeType.includes("mp4") ? "mp4" : "webm";
 
         // Create download link for mobile devices
         const url = URL.createObjectURL(blob);
@@ -195,7 +200,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
             // Create a temporary link element
             const link = document.createElement("a");
             link.href = url;
-            link.download = `ar-trace-${Date.now()}.webm`;
+            link.download = `ar-trace-${Date.now()}.${fileExtension}`;
 
             // For iOS Safari, we need to trigger download differently
             if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
@@ -220,7 +225,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           // For desktop, trigger download
           const link = document.createElement("a");
           link.href = url;
-          link.download = `ar-trace-${Date.now()}.webm`;
+          link.download = `ar-trace-${Date.now()}.${fileExtension}`;
           link.click();
 
           // Clean up
