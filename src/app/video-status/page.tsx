@@ -8,34 +8,111 @@ import {
   IconCheck,
   IconClock,
   IconLoader2,
+  IconLogin,
 } from "@tabler/icons-react";
 import Link from "next/link";
+import { useSession, signOut } from "next-auth/react";
 import {
   VideoGenerationTask,
   getUserVideoTasks,
   checkVideoGenerationStatus,
 } from "../utils/videoGeneration";
 
+interface MuralItem {
+  _id?: string;
+  imageUrl: string;
+  videoUrl: string;
+  fallbackVideoUrl?: string;
+  gridPosition: number;
+  timestamp: string;
+  userDetails: {
+    name: string;
+    description: string;
+    email: string;
+    sessionId?: string;
+    userId?: string;
+    ipAddress?: string;
+  };
+  metadata?: {
+    originalFileName: string;
+    fileSize: number;
+    uploadSource: "camera" | "file" | "drag-drop";
+    browserInfo?: string;
+    prompt?: string;
+  };
+}
+
 export default function VideoStatusPage() {
+  const { data: session, status } = useSession();
   const [tasks, setTasks] = useState<VideoGenerationTask[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [userName, setUserName] = useState("");
   const [showUserInput, setShowUserInput] = useState(true);
   const [pollingTasks, setPollingTasks] = useState<Set<string>>(new Set());
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [notification, setNotification] = useState<null | {
     taskId: string;
     status: string;
   }>(null);
 
   useEffect(() => {
-    // Check if user name is stored in localStorage
-    const storedUserName = localStorage.getItem("mural-user-name");
-    if (storedUserName) {
-      setUserName(storedUserName);
+    // If user is signed in, use their email to fetch tasks
+    if (session?.user?.email) {
+      setUserName(session.user.name || session.user.email);
       setShowUserInput(false);
-      loadUserTasks(storedUserName);
+      loadUserTasksByEmail(session.user.email);
+    } else if (status === "unauthenticated") {
+      // Fallback to localStorage for non-authenticated users
+      const storedUserName = localStorage.getItem("mural-user-name");
+      if (storedUserName) {
+        setUserName(storedUserName);
+        setShowUserInput(false);
+        loadUserTasks(storedUserName);
+      }
     }
-  }, []);
+  }, [session, status]);
+
+  const loadUserTasksByEmail = async (email: string) => {
+    setIsLoading(true);
+    try {
+      // Fetch mural items by email from our new API
+      const response = await fetch(
+        `/api/user-mural-items?email=${encodeURIComponent(email)}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch user mural items");
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        // Convert mural items to video generation tasks format
+        const userTasks: VideoGenerationTask[] = result.data.map(
+          (item: MuralItem) => ({
+            taskId: item._id?.toString() || `task-${Date.now()}`,
+            status: "success" as const, // Since these are completed uploads
+            imageUrl: item.imageUrl,
+            videoUrl: item.videoUrl,
+            prompt: item.metadata?.prompt || "",
+            model: "mural-upload",
+            duration: 0,
+            resolution: "auto",
+            userDetails: {
+              name: item.userDetails.name,
+              description: item.userDetails.description,
+            },
+            createdAt: new Date(item.timestamp),
+            updatedAt: new Date(item.timestamp),
+          })
+        );
+
+        setTasks(userTasks);
+      }
+    } catch (error) {
+      console.error("Failed to load user tasks by email:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const loadUserTasks = async (name: string) => {
     setIsLoading(true);
@@ -186,6 +263,17 @@ export default function VideoStatusPage() {
             <p className="text-lg text-gray-600">
               Track your video generation tasks and download completed videos.
             </p>
+            {status === "loading" && (
+              <p className="text-sm text-blue-600 mt-2">
+                Loading authentication...
+              </p>
+            )}
+            {status === "unauthenticated" && (
+              <p className="text-sm text-gray-600 mt-2">
+                Sign in to automatically view your tasks, or enter your name
+                below.
+              </p>
+            )}
           </div>
 
           <div className="bg-white rounded-2xl shadow-xl p-8">
@@ -209,10 +297,23 @@ export default function VideoStatusPage() {
               </div>
               <button
                 type="submit"
-                className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mb-4"
               >
                 View My Tasks
               </button>
+
+              {status === "unauthenticated" && (
+                <div className="text-center">
+                  <p className="text-sm text-gray-500 mb-3">or</p>
+                  <Link
+                    href="/api/auth/signin"
+                    className="inline-flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <IconLogin className="h-4 w-4" />
+                    <span>Sign in with Google</span>
+                  </Link>
+                </div>
+              )}
             </form>
           </div>
         </div>
@@ -221,7 +322,40 @@ export default function VideoStatusPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100">
+      {/* Simple User Profile Icon */}
+      {session && (
+        <div className="flex justify-end mr-4 pt-2">
+          <div className="relative">
+            <button
+              onClick={() => setShowProfileMenu(!showProfileMenu)}
+              className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white hover:bg-blue-700 transition-colors"
+            >
+              {session.user?.name?.[0]?.toUpperCase() ||
+                session.user?.email?.[0]?.toUpperCase() ||
+                "U"}
+            </button>
+
+            {/* Profile Dropdown */}
+            {showProfileMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                <div className="p-3 border-b border-gray-100">
+                  <p className="text-sm font-medium text-gray-900">
+                    {session.user?.name || "User"}
+                  </p>
+                  <p className="text-xs text-gray-500">{session.user?.email}</p>
+                </div>
+                <button
+                  onClick={() => signOut()}
+                  className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-b-lg transition-colors"
+                >
+                  Sign Out
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {notification && (
         <div
           className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-lg text-white font-semibold ${
@@ -241,7 +375,13 @@ export default function VideoStatusPage() {
           </h1>
           <p className="text-lg text-gray-600 mb-4">
             Welcome back, <span className="font-semibold">{userName}</span>
+            {session?.user?.email && (
+              <span className="block text-sm text-gray-500">
+                ({session.user.email})
+              </span>
+            )}
           </p>
+
           <div className="flex justify-center space-x-4">
             <button
               onClick={handleRefresh}
@@ -331,6 +471,11 @@ export default function VideoStatusPage() {
                           <p className="text-sm text-gray-600">
                             Description: {task.userDetails.description}
                           </p>
+                          {session?.user?.email && (
+                            <p className="text-sm text-gray-600">
+                              Email: {session.user.email}
+                            </p>
+                          )}
                         </div>
                       </div>
 

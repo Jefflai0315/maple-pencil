@@ -31,6 +31,7 @@ interface MuralItem {
   userDetails: {
     name: string;
     description: string;
+    email: string; // Add email field
     sessionId?: string;
     userId?: string;
     ipAddress?: string;
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
     const description = formData.get("description") as string;
     const videoUrlFromForm = formData.get("videoUrl") as string;
     const uploadSource = (formData.get("uploadSource") as string) || "file";
+    const userEmail = formData.get("userEmail") as string;
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -179,6 +181,7 @@ export async function POST(request: NextRequest) {
       userDetails: {
         name: name || "Anonymous",
         description: description || "",
+        email: userEmail || "", // Add user email
         sessionId: `session_${Date.now()}`,
         ipAddress: ipAddress,
       },

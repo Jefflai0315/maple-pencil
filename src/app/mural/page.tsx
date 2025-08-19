@@ -482,6 +482,19 @@ export default function MuralPage() {
             transform: translateY(0) scale(1) rotate(var(--rotate, 0deg));
           }
         }
+
+        @keyframes scroll-text {
+          0% {
+            transform: translateX(50%);
+          }
+          100% {
+            transform: translateX(-260%);
+          }
+        }
+
+        .animate-scroll-text {
+          animation: scroll-text 25s linear infinite;
+        }
       `}</style>
       <div
         className="min-h-screen bg-gradient-to-b from-blue-200 to-blue-500 py-4 md:py-8 relative"
@@ -635,12 +648,27 @@ export default function MuralPage() {
           }}
           src="/videos/mural-background.mp4"
         />
+
+        {/* Scrolling Project Banner */}
+        <div className="fixed top-0 left-0 right-0 z-30 bg-black/60 backdrop-blur-sm border-b border-white/20">
+          <div className="overflow-hidden whitespace-nowrap py-2">
+            <div className="animate-scroll-text text-white text-sm md:text-base font-medium tracking-wide">
+              🎨 This is a project with Sebawang West, hosted at Woodlands
+              Galaxy CC • Let kids draw their city and dreams and animate it
+              into art
+            </div>
+          </div>
+        </div>
+
         <div
           className="max-w-7xl mx-auto px-2 md:px-4"
           style={{ position: "relative" }}
         >
           {/* Header - Responsive text sizing */}
-          <div className="text-center text-white p-2 md:p-4 m-2 md:m-8 lg:m-12">
+          <div
+            className="text-center text-white p-2 md:p-4 m-2 md:m-8 lg:m-12"
+            style={{ marginTop: "60px" }}
+          >
             <h1
               className="text-3xl sm:text-4xl md:text-6xl lg:text-8xl font-bold mb-2 tracking-wider md:tracking-widest"
               style={{
@@ -895,7 +923,7 @@ export default function MuralPage() {
           </div>
 
           {/* Stats - Mobile responsive grid */}
-          <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white/50 rounded-lg p-4 md:p-6 text-center">
               <div className="text-xl md:text-2xl font-bold text-blue-600 font-quicksand">
                 {muralItems.length}
@@ -920,7 +948,7 @@ export default function MuralPage() {
                 Wall of Wonder
               </div>
             </div>
-          </div>
+          </div> */}
           {/* Controls - Mobile responsive */}
           <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 space-y-4 md:space-y-0 mt-8">
             <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
@@ -935,18 +963,6 @@ export default function MuralPage() {
                 <span>
                   {isLoading ? "Sprinkling Magic..." : "Sprinkle Some Magic"}
                 </span>
-              </button>
-
-              <button
-                onClick={toggleMute}
-                className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm md:text-base font-quicksand"
-              >
-                {isMuted ? (
-                  <IconVolumeOff className="h-4 w-4" />
-                ) : (
-                  <IconVolume className="h-4 w-4" />
-                )}
-                <span>{isMuted ? "Shhh..." : "Let’s Hear It!"}</span>
               </button>
             </div>
 
