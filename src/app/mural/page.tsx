@@ -4,8 +4,6 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   IconRefresh,
   IconPlayerPlay,
-  IconVolume,
-  IconVolumeOff,
   IconX,
   IconBrush,
 } from "@tabler/icons-react";
@@ -332,13 +330,6 @@ export default function MuralPage() {
       video.pause();
       video.remove();
       preloadedVideosRef.current.delete(item.videoUrl);
-    }
-  };
-
-  const toggleMute = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = !isMuted;
-      setIsMuted(!isMuted);
     }
   };
 
