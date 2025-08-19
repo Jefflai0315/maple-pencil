@@ -57,7 +57,6 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   const [isFixed, setIsFixed] = useState<boolean>(false);
   const [isFrontCamera, setIsFrontCamera] = useState<boolean>(false);
   const [strobeActive, setStrobeActive] = useState(false);
-  const [strobeVisible, setStrobeVisible] = useState(true);
 
   // New: keep original upload separate from display image
   const [sourceImage, setSourceImage] = useState<string | null>(null);
@@ -388,19 +387,13 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
     }
   }, [image]);
 
-  // Strobe effect: toggles overlay visibility at interval when strobeActive
+  // Strobe effect: smooth pulsing animation when strobeActive
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
     if (strobeActive) {
-      interval = setInterval(() => {
-        setStrobeVisible((v) => !v);
-      }, 350); // Flicker every 350ms
+      // Enable smooth pulsing - CSS animation will handle the fade in/out
     } else {
-      setStrobeVisible(true);
+      // Disable pulsing, show normal opacity
     }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
   }, [strobeActive]);
 
   // Handle image upload
@@ -428,7 +421,8 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           const imageHeight = img.naturalHeight;
           const ratio = imageWidth / imageHeight;
 
-          const width = 400;
+          // Use 80% of screen width, maintaining aspect ratio
+          const width = Math.min(window.innerWidth * 0.8, 600); // Max 600px for very wide screens
           const height = width / ratio;
 
           const centerX = (window.innerWidth - width) / 2;
@@ -916,14 +910,21 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           <img
             src={displayImage || image || ""}
             alt="Trace"
-            style={{
-              width: "100%",
-              height: "100%",
-              opacity: strobeActive ? (strobeVisible ? opacity : 0) : opacity,
-              userSelect: "none",
-              touchAction: "none",
-              pointerEvents: "none",
-            }}
+            style={
+              {
+                width: "100%",
+                height: "100%",
+                opacity: strobeActive ? opacity : opacity,
+                userSelect: "none",
+                touchAction: "none",
+                pointerEvents: "none",
+                animation: strobeActive
+                  ? "pulse-fade 3s ease-in-out infinite"
+                  : "none",
+                transition: strobeActive ? "none" : "opacity 0.3s ease",
+                "--max-opacity": opacity,
+              } as React.CSSProperties & { "--max-opacity": number }
+            }
             draggable={false}
           />
         </Box>
@@ -986,7 +987,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: { xs: "16px", sm: "20px" },
+            padding: { xs: "8px 14px 8px 14px", sm: "12px 18px 12px 18px" },
             gap: { xs: 2, sm: 3 },
           }}
         >
@@ -1276,31 +1277,26 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           <Box
             sx={{
               borderTop: "1px solid rgba(255,255,255,0.05)",
-              padding: { xs: "12px 16px 16px", sm: "16px 20px 20px" },
+              padding: "12px 10px 10px",
             }}
           >
-            <Box sx={{ maxWidth: 280, margin: "0 auto" }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  mb: 1,
-                }}
+            <Box
+              sx={{
+                maxWidth: 320,
+                margin: "0 auto",
+                display: "flex",
+                flexDirection: "row",
+                gap: 2,
+                alignItems: "center",
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.7)" }}
               >
-                <Typography
-                  variant="caption"
-                  sx={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.7)" }}
-                >
-                  Opacity
-                </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.9)" }}
-                >
-                  {Math.round(opacity * 100)}%
-                </Typography>
-              </Box>
+                Opacity
+              </Typography>
+
               <Slider
                 value={opacity}
                 onChange={(_, value) => setOpacity(value as number)}
@@ -1330,22 +1326,13 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
                   },
                 }}
               />
+              <Typography
+                variant="caption"
+                sx={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.9)" }}
+              >
+                {Math.round(opacity * 100)}%
+              </Typography>
             </Box>
-          </Box>
-        )}
-
-        {/* Minimal Help Text */}
-        {image && !isFixed && (
-          <Box sx={{ textAlign: "center", pb: 1 }}>
-            <Typography
-              variant="caption"
-              sx={{
-                color: "rgba(255,255,255,0.4)",
-                fontSize: "0.65rem",
-              }}
-            >
-              Drag to reposition • Pinch to resize
-            </Typography>
           </Box>
         )}
       </Box>
@@ -1688,7 +1675,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         </Box>
       </Drawer>
 
-      {/* CSS for recording indicator animation */}
+      {/* CSS for animations */}
       <style jsx>{`
         @keyframes pulse {
           0% {
@@ -1699,6 +1686,18 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           }
           100% {
             opacity: 1;
+          }
+        }
+
+        @keyframes pulse-fade {
+          0% {
+            opacity: var(--max-opacity);
+          }
+          50% {
+            opacity: 0;
+          }
+          100% {
+            opacity: var(--max-opacity);
           }
         }
       `}</style>
