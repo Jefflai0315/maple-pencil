@@ -27,7 +27,6 @@ import {
   IconPlayerSkipForward,
   IconUpload,
   IconMinus,
-  IconMaximize,
 } from "@tabler/icons-react";
 import Moveable from "react-moveable";
 
@@ -42,6 +41,7 @@ interface ColorLayer {
   dominantColor: { r: number; g: number; b: number };
   name: string;
   pixelCount: number;
+  visible: boolean;
 }
 
 const isMobile =
@@ -465,8 +465,8 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
     b /= 255;
     const max = Math.max(r, g, b);
     const min = Math.min(r, g, b);
-    let h = 0,
-      s = 0;
+    let h = 0;
+    let s = 0;
     const l = (max + min) / 2;
 
     if (max !== min) {
@@ -485,7 +485,26 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
       }
       h /= 6;
     }
-    return { h: h * 360, s: s * 100, l: l * 100 };
+
+    return {
+      h: Math.round(h * 360),
+      s: Math.round(s * 100),
+      l: Math.round(l * 100),
+    };
+  }, []);
+
+  const getColorName = useCallback((h: number, s: number, l: number) => {
+    if (s < 20) return l < 30 ? "Dark Gray" : l < 70 ? "Gray" : "Light Gray";
+    if (l < 20) return "Dark";
+    if (l > 80) return "Light";
+
+    if (h < 30) return "Red";
+    if (h < 90) return "Yellow";
+    if (h < 150) return "Green";
+    if (h < 210) return "Cyan";
+    if (h < 270) return "Blue";
+    if (h < 330) return "Magenta";
+    return "Red";
   }, []);
 
   const extractDominantColors = useCallback(
@@ -503,13 +522,16 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         }
       }
 
+      // Use deterministic initial centroids instead of random
       const centroids: { r: number; g: number; b: number }[] = [];
       for (let i = 0; i < numColors; i++) {
-        const randomPixel = pixels[Math.floor(Math.random() * pixels.length)];
-        centroids.push({ ...randomPixel });
+        // Spread centroids evenly across the pixel array for consistency
+        const index = Math.floor((pixels.length / numColors) * i);
+        centroids.push({ ...pixels[index] });
       }
 
-      for (let iter = 0; iter < 10; iter++) {
+      // K-means clustering with fixed number of iterations
+      for (let iter = 0; iter < 15; iter++) {
         const clusters: { r: number; g: number; b: number }[][] = Array(
           numColors
         )
@@ -529,6 +551,8 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           clusters[clusterIndex].push(pixel);
         });
 
+        // Update centroids
+        let converged = true;
         clusters.forEach((cluster, i) => {
           if (cluster.length > 0) {
             const avgR =
@@ -537,122 +561,184 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
               cluster.reduce((sum, p) => sum + p.g, 0) / cluster.length;
             const avgB =
               cluster.reduce((sum, p) => sum + p.b, 0) / cluster.length;
-            centroids[i] = {
+
+            const newCentroid = {
               r: Math.round(avgR),
               g: Math.round(avgG),
               b: Math.round(avgB),
             };
+
+            // Check for convergence
+            if (colorDistance(centroids[i], newCentroid) > 1) {
+              converged = false;
+            }
+
+            centroids[i] = newCentroid;
           }
         });
+
+        // Early exit if converged
+        if (converged) {
+          console.log(`K-means converged after ${iter + 1} iterations`);
+          break;
+        }
       }
 
+      // Sort centroids by luminance for consistent ordering
+      centroids.sort((a, b) => {
+        const luminanceA = 0.299 * a.r + 0.587 * a.g + 0.114 * a.b;
+        const luminanceB = 0.299 * b.r + 0.587 * b.g + 0.114 * b.b;
+        return luminanceA - luminanceB;
+      });
+
+      console.log(
+        "Extracted colors:",
+        centroids.map((c) => `(${c.r},${c.g},${c.b})`).join(", ")
+      );
       return centroids;
     },
     [colorDistance]
   );
 
-  const createColorLayers = useCallback(
-    async (
-      imageData: ImageData,
-      dominantColors: { r: number; g: number; b: number }[]
+  const groupSimilarColors = useCallback(
+    (
+      colors: { r: number; g: number; b: number }[],
+      mergeThreshold: number = 5 // higher more aggressive merging
     ) => {
-      const width = imageData.width;
-      const height = imageData.height;
-      const data = imageData.data;
-      const newLayers: ColorLayer[] = [];
-      const colorThreshold = 35;
-      const minRegionSize = 100;
+      if (colors.length === 0) return [];
 
-      for (
-        let colorIndex = 0;
-        colorIndex < dominantColors.length;
-        colorIndex++
-      ) {
-        const dominantColor = dominantColors[colorIndex];
-        const layerCanvas = document.createElement("canvas");
-        layerCanvas.width = width;
-        layerCanvas.height = height;
-        const layerCtx = layerCanvas.getContext("2d")!;
-        const layerImageData = layerCtx.createImageData(width, height);
-        const layerData = layerImageData.data;
+      const groups: { r: number; g: number; b: number }[][] = [];
+
+      colors.forEach((color) => {
+        let foundGroup = false;
+        for (const group of groups) {
+          if (colorDistance(color, group[0]) < mergeThreshold) {
+            group.push(color);
+            foundGroup = true;
+            break;
+          }
+        }
+        if (!foundGroup) {
+          groups.push([color]);
+        }
+      });
+
+      // For each group, use the most representative color (first color which is most common from k-means)
+      // or compute the centroid if needed
+      const groupedColors = groups.map((group) => {
+        if (group.length === 1) {
+          return group[0];
+        }
+
+        // Use the first color as it's typically the most dominant from k-means
+        // But we could also compute average if needed
+        const representative = group[0];
+
+        console.log(
+          `Merged ${group.length} similar colors into (${representative.r},${representative.g},${representative.b})`
+        );
+        return representative;
+      });
+
+      console.log(
+        `Color grouping: ${colors.length} colors → ${groupedColors.length} groups`
+      );
+      return groupedColors;
+    },
+    [colorDistance]
+  );
+
+  const createColorLayers = useCallback(
+    (
+      imageData: ImageData,
+      dominantColors: { r: number; g: number; b: number }[],
+      minRegionSize: number
+    ) => {
+      const { width, height, data } = imageData;
+      const layers: ColorLayer[] = [];
+
+      dominantColors.forEach((targetColor, colorIndex) => {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d")!;
+        const layerImageData = ctx.createImageData(width, height);
 
         let pixelCount = 0;
 
+        // Process each pixel and assign to nearest color
         for (let i = 0; i < data.length; i += 4) {
           const r = data[i];
           const g = data[i + 1];
           const b = data[i + 2];
           const a = data[i + 3];
 
-          const pixelColor = { r, g, b };
-          const distance = colorDistance(pixelColor, dominantColor);
+          if (a > 128) {
+            const currentPixel = { r, g, b };
 
-          if (distance <= colorThreshold && a > 128) {
-            layerData[i] = r;
-            layerData[i + 1] = g;
-            layerData[i + 2] = b;
-            layerData[i + 3] = a;
-            pixelCount++;
+            // Find the closest dominant color to this pixel
+            let closestColor = dominantColors[0];
+            let minDistance = colorDistance(currentPixel, closestColor);
+
+            dominantColors.forEach((color) => {
+              const distance = colorDistance(currentPixel, color);
+              if (distance < minDistance) {
+                minDistance = distance;
+                closestColor = color;
+              }
+            });
+
+            // If this pixel belongs to the current target color layer
+            if (closestColor === targetColor) {
+              layerImageData.data[i] = r;
+              layerImageData.data[i + 1] = g;
+              layerImageData.data[i + 2] = b;
+              layerImageData.data[i + 3] = a;
+              pixelCount++;
+            } else {
+              // Make pixel transparent for this layer
+              layerImageData.data[i + 3] = 0;
+            }
           } else {
-            layerData[i] = 0;
-            layerData[i + 1] = 0;
-            layerData[i + 2] = 0;
-            layerData[i + 3] = 0;
+            // Transparent pixel
+            layerImageData.data[i + 3] = 0;
           }
         }
 
-        if (pixelCount > minRegionSize) {
-          layerCtx.putImageData(layerImageData, 0, 0);
-
-          const hsl = rgbToHsl(
-            dominantColor.r,
-            dominantColor.g,
-            dominantColor.b
+        // Only include layers that meet the minimum size requirement
+        if (pixelCount >= minRegionSize) {
+          ctx.putImageData(layerImageData, 0, 0);
+          const { h, s, l } = rgbToHsl(
+            targetColor.r,
+            targetColor.g,
+            targetColor.b
           );
 
-          newLayers.push({
+          layers.push({
             id: colorIndex,
-            canvas: layerCanvas,
-            dominantColor,
+            name: `${getColorName(h, s, l)} Layer`,
+            canvas: canvas,
+            dominantColor: targetColor,
             pixelCount,
-            name: `${hsl.l < 50 ? "Dark" : "Light"} ${
-              hsl.s < 20
-                ? "Gray"
-                : hsl.h < 30
-                ? "Red"
-                : hsl.h < 90
-                ? "Yellow"
-                : hsl.h < 150
-                ? "Green"
-                : hsl.h < 210
-                ? "Cyan"
-                : hsl.h < 270
-                ? "Blue"
-                : hsl.h < 330
-                ? "Magenta"
-                : "Red"
-            }`,
+            visible: true,
           });
-        }
-      }
 
-      newLayers.sort((a, b) => {
-        const hslA = rgbToHsl(
-          a.dominantColor.r,
-          a.dominantColor.g,
-          a.dominantColor.b
-        );
-        const hslB = rgbToHsl(
-          b.dominantColor.r,
-          b.dominantColor.g,
-          b.dominantColor.b
-        );
-        return hslA.l - hslB.l;
+          console.log(
+            `Created layer "${getColorName(h, s, l)}" with ${pixelCount} pixels`
+          );
+        } else {
+          console.log(
+            `Skipped layer for color (${targetColor.r},${targetColor.g},${targetColor.b}) - only ${pixelCount} pixels (minimum: ${minRegionSize})`
+          );
+        }
       });
 
-      return newLayers;
+      console.log(
+        `Created ${layers.length} color layers from ${dominantColors.length} colors`
+      );
+      return layers;
     },
-    [colorDistance, rgbToHsl]
+    [colorDistance, rgbToHsl, getColorName]
   );
 
   const processImageLayers = useCallback(async () => {
@@ -668,8 +754,16 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         ctx.drawImage(img, 0, 0);
 
         const imageData = ctx.getImageData(0, 0, img.width, img.height);
-        const dominantColors = extractDominantColors(imageData, 6);
-        const newLayers = await createColorLayers(imageData, dominantColors);
+
+        // Adaptive color count: start with fewer colors for simpler images
+        const numColors = Math.min(
+          12,
+          Math.max(4, Math.floor(Math.sqrt(img.width * img.height) / 200))
+        );
+
+        const dominantColors = extractDominantColors(imageData, numColors);
+        const mergedColors = groupSimilarColors(dominantColors);
+        const newLayers = createColorLayers(imageData, mergedColors, 50); // Pass minRegionSize
         setLayers(newLayers);
         setCurrentLayerIndex(0);
         setIsProcessingLayers(false);
@@ -679,7 +773,12 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
       console.error("Error processing layers:", error);
       setIsProcessingLayers(false);
     }
-  }, [sourceImage, extractDominantColors, createColorLayers]);
+  }, [
+    sourceImage,
+    extractDominantColors,
+    createColorLayers,
+    groupSimilarColors,
+  ]);
 
   const createCompositeImage = useCallback(
     (layerIndex: number) => {
@@ -712,11 +811,18 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   }, [showLayers, layers, currentLayerIndex, createCompositeImage, image]);
 
   const handleLayersButtonClick = async () => {
-    if (layers.length === 0 && sourceImage && !isProcessingLayers) {
-      await processImageLayers();
+    if (isLayersMinimized) {
+      // If minimized, just restore the drawer
+      setIsLayersMinimized(false);
+    } else if (!isLayersDrawerOpen) {
+      // If closed, process layers if needed and open
+      if (layers.length === 0 && sourceImage && !isProcessingLayers) {
+        await processImageLayers();
+      }
+      setShowLayers(true);
+      setIsLayersDrawerOpen(true);
     }
-    setShowLayers(true);
-    setIsLayersDrawerOpen(true);
+    // If already open and not minimized, do nothing (or could close if preferred)
   };
 
   const handleLayersDrawerClose = () => {
@@ -727,10 +833,6 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
 
   const handleMinimizeDrawer = () => {
     setIsLayersMinimized(true);
-  };
-
-  const handleMaximizeDrawer = () => {
-    setIsLayersMinimized(false);
   };
 
   const nextLayer = () => {
@@ -1337,37 +1439,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         )}
       </Box>
 
-      {/* Floating Maximize Button - appears when drawer is minimized */}
-      {isLayersMinimized && showLayers && (
-        <Box
-          sx={{
-            position: "absolute",
-            bottom: "80px",
-            right: "20px",
-            zIndex: 100015,
-          }}
-        >
-          <IconButton
-            onClick={handleMaximizeDrawer}
-            sx={{
-              backgroundColor: "rgba(156,39,176,0.9)",
-              color: "white",
-              width: 48,
-              height: 48,
-              "&:hover": {
-                backgroundColor: "rgba(156,39,176,1)",
-                transform: "scale(1.05)",
-              },
-              boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-              transition: "all 0.2s ease",
-            }}
-          >
-            <IconMaximize size={20} />
-          </IconButton>
-        </Box>
-      )}
-
-      {/* Layers Drawer - Minimalist Design */}
+      {/* Layers Drawer - Compact Design */}
       <Drawer
         anchor="bottom"
         open={isLayersDrawerOpen && !isLayersMinimized}
@@ -1383,78 +1455,88 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
             borderTopRightRadius: 8,
             border: "1px solid rgba(255,255,255,0.08)",
             borderBottom: "none",
-            maxHeight: "60vh",
+            maxHeight: "40vh",
           },
         }}
       >
-        {/* Header */}
+        {/* Compact Header */}
         <Box
           sx={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            p: 3,
+            p: "8px 16px",
             borderBottom: "1px solid rgba(255,255,255,0.05)",
           }}
         >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <IconPalette size={20} color="rgba(255,255,255,0.8)" />
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <IconPalette size={16} color="rgba(255,255,255,0.8)" />
             <Typography
-              variant="h6"
-              sx={{ fontWeight: 500, color: "rgba(255,255,255,0.9)" }}
+              variant="subtitle1"
+              sx={{
+                fontWeight: 500,
+                color: "rgba(255,255,255,0.9)",
+                fontSize: "0.9rem",
+              }}
             >
               Layers
             </Typography>
           </Box>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <IconButton
               onClick={handleMinimizeDrawer}
               sx={{
                 color: "rgba(255,255,255,0.6)",
+                width: 28,
+                height: 28,
                 "&:hover": {
                   backgroundColor: "rgba(255,255,255,0.05)",
                   color: "rgba(255,255,255,0.8)",
                 },
               }}
             >
-              <IconMinus size={18} />
+              <IconMinus size={14} />
             </IconButton>
             <IconButton
               onClick={handleLayersDrawerClose}
               sx={{
                 color: "rgba(255,255,255,0.6)",
+                width: 28,
+                height: 28,
                 "&:hover": {
                   backgroundColor: "rgba(255,255,255,0.05)",
                   color: "rgba(255,255,255,0.8)",
                 },
               }}
             >
-              <IconX size={18} />
+              <IconX size={14} />
             </IconButton>
           </Box>
         </Box>
 
-        <Box sx={{ p: 3 }}>
-          {/* Processing indicator */}
+        <Box sx={{ p: "12px 16px 16px" }}>
+          {/* Compact Processing indicator */}
           {isProcessingLayers && (
             <Box
               sx={{
-                textAlign: "center",
-                py: 4,
-                borderRadius: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 1.5,
+                py: 2,
                 backgroundColor: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.05)",
+                borderRadius: 1,
+                mb: 2,
               }}
             >
               <Box
                 sx={{
-                  width: 24,
-                  height: 24,
+                  width: 16,
+                  height: 16,
                   border: "2px solid rgba(255,255,255,0.2)",
                   borderTop: "2px solid rgba(255,255,255,0.8)",
                   borderRadius: "50%",
                   animation: "spin 1s linear infinite",
-                  margin: "0 auto 12px",
                   "@keyframes spin": {
                     "0%": { transform: "rotate(0deg)" },
                     "100%": { transform: "rotate(360deg)" },
@@ -1463,112 +1545,89 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
               />
               <Typography
                 variant="body2"
-                sx={{ color: "rgba(255,255,255,0.8)" }}
+                sx={{ color: "rgba(255,255,255,0.8)", fontSize: "0.8rem" }}
               >
                 Processing layers...
               </Typography>
             </Box>
           )}
 
-          {/* Layer controls */}
+          {/* Compact Layer controls */}
           {layers.length > 0 && (
             <>
-              {/* Layer navigation */}
-              <Box sx={{ mb: 3 }}>
-                <Typography
-                  variant="body2"
+              {/* Inline Layer navigation and info */}
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  backgroundColor: "rgba(255,255,255,0.03)",
+                  borderRadius: 1,
+                  p: "8px 12px",
+                  mb: 1.5,
+                }}
+              >
+                <IconButton
+                  onClick={prevLayer}
+                  disabled={currentLayerIndex === 0}
                   sx={{
-                    mb: 2,
-                    color: "rgba(255,255,255,0.7)",
-                    fontWeight: 500,
+                    color: "rgba(255,255,255,0.8)",
+                    width: 24,
+                    height: 24,
+                    "&:hover": { backgroundColor: "rgba(255,255,255,0.05)" },
+                    "&:disabled": {
+                      color: "rgba(255,255,255,0.3)",
+                    },
                   }}
                 >
-                  Step Through
-                </Typography>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 2,
-                    backgroundColor: "rgba(255,255,255,0.03)",
-                    borderRadius: 1,
-                    p: 2,
-                  }}
-                >
-                  <IconButton
-                    onClick={prevLayer}
-                    disabled={currentLayerIndex === 0}
+                  <IconPlayerSkipBack size={12} />
+                </IconButton>
+
+                <Box sx={{ textAlign: "center", flex: 1 }}>
+                  <Typography
+                    variant="caption"
                     sx={{
-                      color: "rgba(255,255,255,0.8)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      width: 32,
-                      height: 32,
-                      "&:hover": {
-                        backgroundColor: "rgba(255,255,255,0.05)",
-                      },
-                      "&:disabled": {
-                        color: "rgba(255,255,255,0.3)",
-                        borderColor: "rgba(255,255,255,0.05)",
-                      },
+                      color: "white",
+                      fontSize: "0.75rem",
+                      fontWeight: 500,
                     }}
                   >
-                    <IconPlayerSkipBack size={16} />
-                  </IconButton>
-
-                  <Box sx={{ textAlign: "center", minWidth: 100 }}>
+                    {currentLayerIndex + 1} / {layers.length}
+                  </Typography>
+                  {layers[currentLayerIndex] && (
                     <Typography
-                      variant="body2"
-                      sx={{ color: "white", mb: 0.5 }}
+                      variant="caption"
+                      sx={{
+                        display: "block",
+                        color: `rgb(${layers[currentLayerIndex].dominantColor.r}, ${layers[currentLayerIndex].dominantColor.g}, ${layers[currentLayerIndex].dominantColor.b})`,
+                        fontSize: "0.65rem",
+                        mt: 0.25,
+                      }}
                     >
-                      {currentLayerIndex + 1} / {layers.length}
+                      {layers[currentLayerIndex].name}
                     </Typography>
-                    {layers[currentLayerIndex] && (
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: `rgb(${layers[currentLayerIndex].dominantColor.r}, ${layers[currentLayerIndex].dominantColor.g}, ${layers[currentLayerIndex].dominantColor.b})`,
-                        }}
-                      >
-                        {layers[currentLayerIndex].name}
-                      </Typography>
-                    )}
-                  </Box>
-
-                  <IconButton
-                    onClick={nextLayer}
-                    disabled={currentLayerIndex === layers.length - 1}
-                    sx={{
-                      color: "rgba(255,255,255,0.8)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      width: 32,
-                      height: 32,
-                      "&:hover": {
-                        backgroundColor: "rgba(255,255,255,0.05)",
-                      },
-                      "&:disabled": {
-                        color: "rgba(255,255,255,0.3)",
-                        borderColor: "rgba(255,255,255,0.05)",
-                      },
-                    }}
-                  >
-                    <IconPlayerSkipForward size={16} />
-                  </IconButton>
+                  )}
                 </Box>
+
+                <IconButton
+                  onClick={nextLayer}
+                  disabled={currentLayerIndex === layers.length - 1}
+                  sx={{
+                    color: "rgba(255,255,255,0.8)",
+                    width: 24,
+                    height: 24,
+                    "&:hover": { backgroundColor: "rgba(255,255,255,0.05)" },
+                    "&:disabled": {
+                      color: "rgba(255,255,255,0.3)",
+                    },
+                  }}
+                >
+                  <IconPlayerSkipForward size={12} />
+                </IconButton>
               </Box>
 
-              {/* Progress visualization */}
-              <Box sx={{ mb: 3 }}>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    mb: 2,
-                    color: "rgba(255,255,255,0.7)",
-                    fontWeight: 500,
-                  }}
-                >
-                  Progress
-                </Typography>
+              {/* Compact Progress visualization */}
+              <Box sx={{ mb: 1.5 }}>
                 <Box
                   sx={{
                     display: "flex",
@@ -1582,9 +1641,9 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
                       key={layer.id}
                       onClick={() => setCurrentLayerIndex(index)}
                       sx={{
-                        width: 32,
-                        height: 8,
-                        borderRadius: 4,
+                        width: 24,
+                        height: 6,
+                        borderRadius: 3,
                         backgroundColor:
                           index <= currentLayerIndex
                             ? `rgb(${layer.dominantColor.r}, ${layer.dominantColor.g}, ${layer.dominantColor.b})`
@@ -1593,7 +1652,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
                         transition: "all 0.2s ease",
                         border:
                           index === currentLayerIndex
-                            ? "1px solid rgba(255,255,255,0.3)"
+                            ? "1px solid rgba(255,255,255,0.4)"
                             : "1px solid transparent",
                         "&:hover": {
                           transform: "scaleY(1.5)",
@@ -1606,23 +1665,27 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
                 </Box>
               </Box>
 
-              {/* Display mode toggle */}
-              <Box>
+              {/* Compact Display mode toggle */}
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 1,
+                }}
+              >
                 <Typography
-                  variant="body2"
-                  sx={{
-                    mb: 2,
-                    color: "rgba(255,255,255,0.7)",
-                    fontWeight: 500,
-                  }}
+                  variant="caption"
+                  sx={{ color: "rgba(255,255,255,0.7)", fontSize: "0.7rem" }}
                 >
-                  Display
+                  Mode:
                 </Typography>
                 <FormControlLabel
                   control={
                     <Switch
                       checked={singleLayerMode}
                       onChange={(_, v) => setSingleLayerMode(v)}
+                      size="small"
                       sx={{
                         "& .MuiSwitch-switchBase.Mui-checked": {
                           color: "rgba(255,255,255,0.9)",
@@ -1639,36 +1702,35 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
                   }
                   label={
                     <Typography
-                      variant="body2"
-                      sx={{ color: "rgba(255,255,255,0.8)" }}
+                      variant="caption"
+                      sx={{
+                        color: "rgba(255,255,255,0.8)",
+                        fontSize: "0.7rem",
+                      }}
                     >
-                      {singleLayerMode
-                        ? "Single layer only"
-                        : "Cumulative layers"}
+                      {singleLayerMode ? "Single" : "Cumulative"}
                     </Typography>
                   }
+                  sx={{ margin: 0 }}
                 />
               </Box>
             </>
           )}
 
-          {/* Empty state */}
-          {layers.length === 0 && (
+          {/* Compact Empty state */}
+          {layers.length === 0 && !isProcessingLayers && (
             <Box
               sx={{
                 textAlign: "center",
-                py: 4,
+                py: 2,
                 color: "rgba(255,255,255,0.5)",
               }}
             >
-              <Box sx={{ mb: 2, opacity: 0.3 }}>
-                <IconPalette size={40} />
+              <Box sx={{ mb: 1, opacity: 0.3 }}>
+                <IconPalette size={24} />
               </Box>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                No layers yet
-              </Typography>
-              <Typography variant="caption">
-                Switch to Color Layers to process
+              <Typography variant="caption" sx={{ fontSize: "0.7rem" }}>
+                No layers yet. Processing starts automatically.
               </Typography>
             </Box>
           )}
