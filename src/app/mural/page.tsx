@@ -49,9 +49,7 @@ export default function MuralPage() {
     animationPhase: "idle",
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const animationContainerRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const bgVideoRef = useRef<HTMLVideoElement>(null);
@@ -719,7 +717,6 @@ export default function MuralPage() {
                           src={animationState.currentItem.videoUrl}
                           controls
                           autoPlay
-                          muted={isMuted}
                           className="w-full h-full object-contain rounded-lg"
                           style={{ background: "rgba(0, 0, 0, 0.30)" }}
                           onError={() => setVideoErrorState("main-failed")}
@@ -731,7 +728,6 @@ export default function MuralPage() {
                           src={animationState.currentItem.fallbackVideoUrl}
                           controls
                           autoPlay
-                          muted={isMuted}
                           className="w-full h-full object-contain rounded-lg"
                           style={{ background: "rgba(0, 0, 0, 0.30)" }}
                           onError={() => setVideoErrorState("fallback-failed")}
