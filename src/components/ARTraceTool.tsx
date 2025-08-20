@@ -13,6 +13,8 @@ import {
   Typography,
   FormControlLabel,
   Switch,
+  Button,
+  TextField,
 } from "@mui/material";
 import {
   IconX,
@@ -27,6 +29,10 @@ import {
   IconPlayerSkipForward,
   IconUpload,
   IconMinus,
+  IconWand,
+  IconSend,
+  IconCheck,
+  IconAlertCircle,
 } from "@tabler/icons-react";
 import Moveable from "react-moveable";
 
@@ -92,6 +98,16 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [moveableReady, setMoveableReady] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState<boolean>(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(false);
+  const [aiPromptText, setAiPromptText] = useState<string>(
+    "portrait sketch, high contrast line art, minimal background"
+  );
+  const [aiStatus, setAiStatus] = useState<
+    "idle" | "generating" | "success" | "error"
+  >("idle");
+  const [aiProgressText, setAiProgressText] = useState<string>("");
+  const [aiErrorMessage, setAiErrorMessage] = useState<string>("");
 
   // Custom pinch-to-zoom state
   const [isPinching, setIsPinching] = useState(false);
@@ -442,6 +458,81 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
       reader.readAsDataURL(file);
     } else {
       alert("Please select an image under 5MB");
+    }
+  };
+
+  // Generate image from text prompt using Wavespeed API
+  const handleAIGenerateImage = async (promptText: string) => {
+    try {
+      const prompt = promptText?.trim();
+      if (!prompt) return;
+
+      setIsGeneratingImage(true);
+      setAiStatus("generating");
+      setAiProgressText("Starting request...");
+      setAiErrorMessage("");
+
+      const res = await fetch("/api/generate-image-wavespeed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      setAiProgressText("Waiting for result...");
+      const data = await res.json();
+      if (!res.ok || !data?.imageUrl) {
+        const errMsg = data?.error || "Failed to generate image";
+        alert(errMsg);
+        setIsGeneratingImage(false);
+        setAiStatus("error");
+        setAiErrorMessage(errMsg);
+        return;
+      }
+
+      const generatedUrl: string = data.imageUrl;
+      setSourceImage(generatedUrl);
+      setImage(generatedUrl);
+      setIsFixed(false);
+
+      // Reset layers state on new image
+      setLayers([]);
+      setCurrentLayerIndex(0);
+      setIsProcessingLayers(false);
+      setSingleLayerMode(false);
+      setShowLayers(false);
+
+      // Center and size box based on generated image dimensions
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const imageWidth = img.naturalWidth;
+        const imageHeight = img.naturalHeight;
+        const ratio = imageWidth / imageHeight;
+
+        const width = Math.min(window.innerWidth * 0.8, 600);
+        const height = width / ratio;
+        const centerX = (window.innerWidth - width) / 2;
+        const centerY = (window.innerHeight - height) / 2;
+
+        setBoxState({
+          top: `${centerY}px`,
+          left: `${centerX}px`,
+          width: `${width}px`,
+          height: `${height}px`,
+          rotation: 0,
+        });
+      };
+      img.src = generatedUrl;
+      setAiStatus("success");
+      setAiProgressText("Image generated successfully");
+    } catch (err) {
+      console.error("AI image generation error:", err);
+      alert("Could not generate image. Please try again.");
+      setAiStatus("error");
+      setAiErrorMessage(
+        err instanceof Error ? err.message : "Unknown error occurred"
+      );
+    } finally {
+      setIsGeneratingImage(false);
     }
   };
 
@@ -1093,6 +1184,105 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
             gap: { xs: 2, sm: 3 },
           }}
         >
+          {/* AI Compact Input Bar (toggle with AI button) */}
+          {aiPanelOpen && (
+            <Box
+              sx={{
+                position: "absolute",
+                left: 12,
+                right: 12,
+                paddingX: 2,
+                bottom: image ? 150 : 100,
+                zIndex: 100022,
+                backgroundColor: "rgba(0,0,0,0.7)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                borderRadius: 999,
+                display: "flex",
+                alignItems: "center",
+                gap: 2,
+                backdropFilter: "blur(6px)",
+              }}
+            >
+              <TextField
+                value={aiPromptText}
+                onChange={(e) => setAiPromptText(e.target.value)}
+                placeholder="Describe the image to generate"
+                fullWidth
+                size="small"
+                onKeyDown={(e) => {
+                  if (
+                    e.key === "Enter" &&
+                    !isGeneratingImage &&
+                    aiPromptText.trim()
+                  ) {
+                    handleAIGenerateImage(aiPromptText);
+                  }
+                }}
+                sx={{
+                  flex: 1,
+                  "& .MuiInputBase-root": {
+                    color: "white",
+                    backgroundColor: "transparent",
+                  },
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "transparent",
+                  },
+                }}
+              />
+              <Box sx={{ display: "flex", alignItems: "center" }}>
+                {aiStatus === "generating" && (
+                  <Box
+                    sx={{
+                      width: 14,
+                      height: 14,
+                      border: "2px solid rgba(255,255,255,0.25)",
+                      borderTop: "2px solid rgba(255,255,255,0.9)",
+                      borderRadius: "50%",
+                      animation: "spin 1s linear infinite",
+                    }}
+                    title={aiProgressText || "Generating..."}
+                  />
+                )}
+                {aiStatus === "success" && (
+                  <IconCheck size={16} color="#66bb6a" title="Success" />
+                )}
+                {aiStatus === "error" && (
+                  <IconAlertCircle
+                    size={16}
+                    color="#ef5350"
+                    title={aiErrorMessage || "Failed"}
+                  />
+                )}
+                {aiStatus === "error" && (
+                  <Button
+                    size="small"
+                    onClick={() => handleAIGenerateImage(aiPromptText)}
+                    sx={{
+                      color: "rgba(255,255,255,0.9)",
+                      textTransform: "none",
+                      minWidth: 0,
+                      px: 8,
+                    }}
+                  >
+                    Retry
+                  </Button>
+                )}
+                <IconButton
+                  onClick={() => handleAIGenerateImage(aiPromptText)}
+                  disabled={isGeneratingImage || !aiPromptText.trim()}
+                  sx={{
+                    color: isGeneratingImage
+                      ? "rgba(255,255,255,0.6)"
+                      : "rgba(255,255,255,0.95)",
+                  }}
+                  title={isGeneratingImage ? "Generating..." : "Generate"}
+                >
+                  <IconSend size={18} />
+                </IconButton>
+              </Box>
+            </Box>
+          )}
+
           {/* Left Group - Upload & Recording */}
           <Box
             sx={{
@@ -1140,6 +1330,52 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
                 sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.7rem" }}
               >
                 Upload
+              </Typography>
+            </Box>
+
+            {/* AI Generate Button */}
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 0.5,
+              }}
+            >
+              <IconButton
+                onClick={() => setAiPanelOpen((v) => !v)}
+                disabled={isGeneratingImage}
+                sx={{
+                  backgroundColor: isGeneratingImage
+                    ? "rgba(156,39,176,0.15)"
+                    : "transparent",
+                  border: `1px solid ${
+                    isGeneratingImage
+                      ? "rgba(156,39,176,0.35)"
+                      : "rgba(255,255,255,0.2)"
+                  }`,
+                  color: isGeneratingImage
+                    ? "#9c27b0"
+                    : "rgba(255,255,255,0.9)",
+                  "&:hover": {
+                    backgroundColor: isGeneratingImage
+                      ? "rgba(156,39,176,0.2)"
+                      : "rgba(255,255,255,0.05)",
+                    borderColor: isGeneratingImage
+                      ? "rgba(156,39,176,0.45)"
+                      : "rgba(255,255,255,0.3)",
+                  },
+                  width: 40,
+                  height: 40,
+                }}
+              >
+                <IconWand size={18} />
+              </IconButton>
+              <Typography
+                variant="caption"
+                sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.7rem" }}
+              >
+                AI
               </Typography>
             </Box>
 
@@ -1760,6 +1996,14 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           }
           100% {
             opacity: var(--max-opacity);
+          }
+        }
+        @keyframes spin {
+          0% {
+            transform: rotate(0deg);
+          }
+          100% {
+            transform: rotate(360deg);
           }
         }
       `}</style>
