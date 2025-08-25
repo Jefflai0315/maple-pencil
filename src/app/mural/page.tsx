@@ -6,6 +6,7 @@ import {
   IconPlayerPlay,
   IconX,
   IconBrush,
+  IconLoader2,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { muralPromptThemes } from "../utils/constants";
@@ -62,6 +63,38 @@ export default function MuralPage() {
   const [videoErrorState, setVideoErrorState] = useState<
     "none" | "main-failed" | "fallback-failed"
   >("none");
+
+  // Add state to track video loading
+  const [videoLoadingState, setVideoLoadingState] = useState<
+    "loading" | "loaded" | "error"
+  >("loading");
+
+  // Add state to track if video has finished playing
+  const [videoFinished, setVideoFinished] = useState(false);
+
+  // Add timeout for video loading
+  const [videoLoadTimeout, setVideoLoadTimeout] =
+    useState<NodeJS.Timeout | null>(null);
+
+  // Add loading progress state
+  const [videoLoadProgress, setVideoLoadProgress] = useState(0);
+
+  // Function to check video format compatibility
+  const checkVideoCompatibility = (videoUrl: string): boolean => {
+    const supportedFormats = [".mp4", ".webm", ".ogg", ".mov"];
+    const url = videoUrl.toLowerCase();
+    return supportedFormats.some((format) => url.includes(format));
+  };
+
+  // Function to debug video loading issues
+  const debugVideoLoading = (videoUrl: string, error?: unknown) => {
+    console.group("Video Loading Debug");
+    console.log("Video URL:", videoUrl);
+    console.log("Format supported:", checkVideoCompatibility(videoUrl));
+    console.log("User Agent:", navigator.userAgent);
+    console.log("Error details:", error);
+    console.groupEnd();
+  };
 
   // Floating prompt words state
   const [floatingPrompts, setFloatingPrompts] = useState<
@@ -269,33 +302,8 @@ export default function MuralPage() {
         animationPhase: "video-playing",
       }));
 
-      // Simulate video playback (5s)
-      const t2 = window.setTimeout(() => {
-        setAnimationState((prev) => ({
-          ...prev,
-          animationPhase: "image-showing",
-        }));
-
-        // Show static image (0.3s)
-        const t3 = window.setTimeout(() => {
-          setAnimationState((prev) => ({
-            ...prev,
-            animationPhase: "shrinking",
-          }));
-
-          // Shrink back to grid (0.3s)
-          const t4 = window.setTimeout(() => {
-            setAnimationState({
-              isPlaying: false,
-              currentItem: null,
-              animationPhase: "idle",
-            });
-          }, 300);
-          animationTimeoutsRef.current.push(t4);
-        }, 300);
-        animationTimeoutsRef.current.push(t3);
-      }, 5000);
-      animationTimeoutsRef.current.push(t2);
+      // Don't auto-advance to next phase - let user control when to close
+      // The animation will stay in "video-playing" phase until user clicks close
     }, 300);
     animationTimeoutsRef.current.push(t1);
   };
@@ -386,7 +394,34 @@ export default function MuralPage() {
   useEffect(() => {
     if (animationState.isPlaying) {
       setVideoErrorState("none");
+      setVideoLoadingState("loading");
+      setVideoFinished(false);
+      setVideoLoadProgress(0);
+
+      // Set a timeout to prevent infinite loading
+      const timeout = setTimeout(() => {
+        if (videoLoadingState === "loading") {
+          console.warn(
+            "Video loading timeout - switching to fallback or image"
+          );
+          setVideoLoadingState("error");
+          if (animationState.currentItem?.fallbackVideoUrl) {
+            setVideoErrorState("main-failed");
+          } else {
+            setVideoErrorState("fallback-failed");
+          }
+        }
+      }, 15000); // 15 second timeout
+
+      setVideoLoadTimeout(timeout);
     }
+
+    return () => {
+      if (videoLoadTimeout) {
+        clearTimeout(videoLoadTimeout);
+        setVideoLoadTimeout(null);
+      }
+    };
   }, [animationState.currentItem, animationState.isPlaying]);
 
   const PLANE_WIDTH = 220; // px, adjust to your plane image
@@ -483,6 +518,17 @@ export default function MuralPage() {
 
         .animate-scroll-text {
           animation: scroll-text 25s linear infinite;
+        }
+
+        @keyframes borderGlow {
+          0% {
+            border-color: rgba(59, 130, 246, 0.6);
+            box-shadow: 0 0 5px rgba(59, 130, 246, 0.3);
+          }
+          100% {
+            border-color: rgba(59, 130, 246, 0.8);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+          }
         }
       `}</style>
       <div
@@ -685,12 +731,12 @@ export default function MuralPage() {
           {animationState.currentItem && (
             <div
               ref={animationContainerRef}
-              className={`fixed inset-0 z-50 transition-opacity duration-300 ${
+              className={`fixed inset-0 z-50 transition-all duration-500 ${
                 animationState.animationPhase === "idle"
-                  ? "opacity-0 pointer-events-none"
-                  : "opacity-100"
+                  ? "opacity-0 pointer-events-none scale-95"
+                  : "opacity-100 scale-100"
               }`}
-              style={{ backgroundColor: "rgba(0, 0, 0, 0.36)" }}
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
             >
               <div
                 className={
@@ -705,11 +751,54 @@ export default function MuralPage() {
                       }`
                     : "relative w-48 h-48 md:w-96 md:h-96 max-w-2xl max-h-2xl mx-auto my-auto z-50"
                 }
-                style={getAnimationStyles()}
+                style={{
+                  ...getAnimationStyles(),
+                  border:
+                    animationState.animationPhase === "video-playing"
+                      ? videoFinished
+                        ? "2px solid rgba(59, 130, 246, 0.6)"
+                        : "2px solid rgba(255, 255, 255, 0.3)"
+                      : "none",
+                  animation: videoFinished
+                    ? "borderGlow 2s ease-in-out infinite alternate"
+                    : "none",
+                  borderRadius: "12px",
+                  boxShadow:
+                    animationState.animationPhase === "video-playing"
+                      ? videoFinished
+                        ? "0 20px 40px rgba(59, 130, 246, 0.3), 0 0 20px rgba(59, 130, 246, 0.2)"
+                        : "0 20px 40px rgba(0, 0, 0, 0.5)"
+                      : "none",
+                }}
               >
                 {/* Video Player - Real or Simulated */}
                 {animationState.animationPhase === "video-playing" && (
                   <div className="relative w-full h-full">
+                    {/* Loading overlay */}
+                    {videoLoadingState === "loading" && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10 rounded-lg animate-in fade-in duration-300">
+                        <div className="text-center text-white">
+                          <IconLoader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                          <p className="text-sm">Loading video...</p>
+                          <div className="mt-2 w-32 h-1 bg-gray-600 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                              style={{ width: `${videoLoadProgress}%` }}
+                            ></div>
+                          </div>
+                          <p className="text-xs text-gray-300 mt-1">
+                            {videoLoadProgress < 50
+                              ? "Loading video data..."
+                              : videoLoadProgress < 80
+                              ? "Preparing playback..."
+                              : videoLoadProgress < 100
+                              ? "Almost ready..."
+                              : "Ready to play!"}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Try main videoUrl first, then fallbackVideoUrl, then fallback image */}
                     {videoErrorState === "none" &&
                       animationState.currentItem.videoUrl && (
@@ -717,21 +806,153 @@ export default function MuralPage() {
                           src={animationState.currentItem.videoUrl}
                           controls
                           autoPlay
+                          muted
+                          playsInline
+                          loop
+                          preload="metadata"
                           className="w-full h-full object-contain rounded-lg"
                           style={{ background: "rgba(0, 0, 0, 0.30)" }}
-                          onError={() => setVideoErrorState("main-failed")}
+                          onError={(e) => {
+                            console.error("Main video failed to load:", e);
+                            if (animationState.currentItem?.videoUrl) {
+                              debugVideoLoading(
+                                animationState.currentItem.videoUrl,
+                                e
+                              );
+                            }
+                            setVideoErrorState("main-failed");
+                            setVideoLoadingState("error");
+                          }}
+                          onLoadStart={() => {
+                            console.log("Main video loading started");
+                            setVideoLoadingState("loading");
+                            setVideoLoadProgress(10);
+                          }}
+                          onCanPlay={() => {
+                            console.log("Main video can play");
+                            setVideoLoadingState("loaded");
+                            setVideoLoadProgress(100);
+                          }}
+                          onCanPlayThrough={() => {
+                            console.log("Main video can play through");
+                            setVideoLoadingState("loaded");
+                            setVideoLoadProgress(100);
+                          }}
+                          onLoadedData={() => {
+                            console.log("Main video data loaded");
+                            setVideoLoadingState("loaded");
+                            setVideoLoadProgress(90);
+                          }}
+                          onLoadedMetadata={() => {
+                            console.log("Main video metadata loaded");
+                            setVideoLoadingState("loaded");
+                            setVideoLoadProgress(80);
+                          }}
+                          onEnded={() => {
+                            console.log("Main video finished playing");
+                            setVideoLoadingState("loaded");
+                            setVideoFinished(true);
+                          }}
+                          onStalled={() => {
+                            console.log("Main video stalled");
+                            setVideoLoadingState("error");
+                          }}
+                          onSuspend={() => {
+                            console.log("Main video suspended");
+                            setVideoLoadingState("error");
+                          }}
+                          onAbort={() => {
+                            console.log("Main video aborted");
+                            setVideoErrorState("main-failed");
+                            setVideoLoadingState("error");
+                          }}
                         />
                       )}
                     {videoErrorState === "main-failed" &&
                       animationState.currentItem.fallbackVideoUrl && (
-                        <video
-                          src={animationState.currentItem.fallbackVideoUrl}
-                          controls
-                          autoPlay
-                          className="w-full h-full object-contain rounded-lg"
-                          style={{ background: "rgba(0, 0, 0, 0.30)" }}
-                          onError={() => setVideoErrorState("fallback-failed")}
-                        />
+                        <>
+                          {/* Loading overlay for fallback video */}
+                          {videoLoadingState === "loading" && (
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10 rounded-lg animate-in fade-in duration-300">
+                              <div className="text-center text-white">
+                                <IconLoader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                                <p className="text-sm">
+                                  Loading fallback video...
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                          <video
+                            src={animationState.currentItem.fallbackVideoUrl}
+                            controls
+                            autoPlay
+                            muted
+                            playsInline
+                            loop
+                            preload="metadata"
+                            className="w-full h-full object-contain rounded-lg"
+                            style={{ background: "rgba(0, 0, 0, 0.30)" }}
+                            onError={(e) => {
+                              console.error(
+                                "Fallback video failed to load:",
+                                e
+                              );
+                              if (
+                                animationState.currentItem?.fallbackVideoUrl
+                              ) {
+                                debugVideoLoading(
+                                  animationState.currentItem.fallbackVideoUrl,
+                                  e
+                                );
+                              }
+                              setVideoErrorState("fallback-failed");
+                              setVideoLoadingState("error");
+                            }}
+                            onLoadStart={() => {
+                              console.log("Fallback video loading started");
+                              setVideoLoadingState("loading");
+                              setVideoLoadProgress(10);
+                            }}
+                            onCanPlay={() => {
+                              console.log("Fallback video can play");
+                              setVideoLoadingState("loaded");
+                              setVideoLoadProgress(100);
+                            }}
+                            onCanPlayThrough={() => {
+                              console.log("Fallback video can play through");
+                              setVideoLoadingState("loaded");
+                              setVideoLoadProgress(100);
+                            }}
+                            onLoadedData={() => {
+                              console.log("Fallback video data loaded");
+                              setVideoLoadingState("loaded");
+                              setVideoLoadProgress(90);
+                            }}
+                            onLoadedMetadata={() => {
+                              console.log("Fallback video metadata loaded");
+                              setVideoLoadingState("loaded");
+                              setVideoLoadProgress(80);
+                            }}
+                            onEnded={() => {
+                              console.log("Fallback video finished playing");
+                              setVideoLoadingState("loaded");
+                              setVideoFinished(true);
+                            }}
+                            onStalled={() => {
+                              console.log("Fallback video stalled");
+                              setVideoLoadingState("error");
+                            }}
+                            onSuspend={() => {
+                              console.log("Fallback video suspended");
+                              setVideoLoadingState("error");
+                            }}
+                            onAbort={() => {
+                              console.log("Fallback video aborted");
+                              setVideoErrorState("fallback-failed");
+                              setVideoLoadingState("error");
+                            }}
+                          />
+                        </>
                       )}
                     {(videoErrorState === "fallback-failed" ||
                       (!animationState.currentItem.videoUrl &&
@@ -743,13 +964,90 @@ export default function MuralPage() {
                         className="w-full h-full object-contain rounded-lg"
                       />
                     )}
+                    {/* Video status overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent flex items-end rounded-lg">
                       <div className="p-2 md:p-4 text-white">
                         <div className="flex items-center space-x-2">
-                          <div className="w-2 h-2 md:w-3 md:h-3 bg-red-500 rounded-full animate-pulse"></div>
+                          <div
+                            className={`w-2 h-2 md:w-3 md:h-3 rounded-full ${
+                              videoLoadingState === "loading"
+                                ? "bg-yellow-500 animate-pulse"
+                                : videoLoadingState === "loaded"
+                                ? videoFinished
+                                  ? "bg-blue-500 animate-pulse"
+                                  : "bg-green-500"
+                                : "bg-red-500 animate-pulse"
+                            }`}
+                          ></div>
                           <span className="text-xs md:text-sm">
-                            Playing Video Animation...
+                            {videoErrorState === "fallback-failed" ||
+                            (!animationState.currentItem.videoUrl &&
+                              !animationState.currentItem.fallbackVideoUrl)
+                              ? "Image Display (No Video Available)"
+                              : videoLoadingState === "loading"
+                              ? "Loading Video..."
+                              : videoLoadingState === "loaded"
+                              ? videoFinished
+                                ? "🎬 Video Finished - Click X to close"
+                                : "Video Ready - Click X to close"
+                              : "Video Error - Try again or close"}
                           </span>
+                        </div>
+
+                        {/* Error state with retry button */}
+                        {videoLoadingState === "error" && (
+                          <div className="mt-2 flex items-center space-x-2">
+                            <button
+                              onClick={() => {
+                                setVideoErrorState("none");
+                                setVideoLoadingState("loading");
+                                setVideoFinished(false);
+                                // Force video reload by updating the key
+                                const videoElement =
+                                  document.querySelector("video");
+                                if (videoElement) {
+                                  videoElement.load();
+                                }
+                              }}
+                              className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors"
+                            >
+                              🔄 Retry Video
+                            </button>
+                            <span className="text-xs text-red-200">
+                              Video failed to load
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Video format compatibility warning */}
+                        {animationState.currentItem?.videoUrl &&
+                          !checkVideoCompatibility(
+                            animationState.currentItem.videoUrl
+                          ) && (
+                            <div className="mt-2 p-2 bg-yellow-900/30 border border-yellow-400/30 rounded-lg">
+                              <p className="text-xs text-yellow-200">
+                                ⚠️ Video format may not be supported by your
+                                browser
+                              </p>
+                              <p className="text-xs text-yellow-100 mt-1">
+                                Supported formats: MP4, WebM, OGG, MOV
+                              </p>
+                            </div>
+                          )}
+
+                        <div className="mt-2 text-xs text-white/80">
+                          {videoFinished
+                            ? "🎬 Video completed! Click the X button to close when ready"
+                            : videoLoadingState === "error"
+                            ? "❌ Video loading failed. Click retry or close."
+                            : "Click the X button to close when you&apos;re done watching"}
+                        </div>
+                        <div className="mt-1 text-xs text-white/60">
+                          {videoFinished
+                            ? "🎬 Video completed! Animation will stay open until you close it"
+                            : videoLoadingState === "error"
+                            ? "💡 Try refreshing the page if the problem persists"
+                            : "Animation will stay open until you close it"}
                         </div>
                       </div>
                     </div>
@@ -785,9 +1083,20 @@ export default function MuralPage() {
                         animationPhase: "idle",
                       })
                     }
-                    className="p-1 md:p-2 bg-white/20 rounded-full hover:bg-opacity-30 transition-colors"
+                    className={`p-2 md:p-3 rounded-full transition-all duration-300 shadow-lg hover:scale-110 ${
+                      videoFinished
+                        ? "bg-blue-600 hover:bg-blue-700 animate-pulse ring-2 ring-blue-300"
+                        : videoLoadingState === "loaded"
+                        ? "bg-green-600 hover:bg-green-700 animate-pulse"
+                        : "bg-black/50 hover:bg-black/70"
+                    }`}
+                    title={
+                      videoFinished
+                        ? "Video completed! Click to close"
+                        : "Close animation"
+                    }
                   >
-                    <IconX className="h-3 w-3 md:h-4 md:w-4 text-white" />
+                    <IconX className="h-4 w-4 md:h-5 md:w-5 text-white" />
                   </button>
                 </div>
               </div>
