@@ -26,6 +26,7 @@ interface MuralItem {
   imageUrl: string;
   videoUrl: string;
   fallbackVideoUrl?: string; // Add fallback video URL if Cloudinary fails
+  cloudinaryVideoUrl?: string; // Store Cloudinary video URL if available
   gridPosition: number;
   timestamp: string;
   userDetails: {
@@ -54,6 +55,7 @@ export async function POST(request: NextRequest) {
     const videoUrlFromForm = formData.get("videoUrl") as string;
     const uploadSource = (formData.get("uploadSource") as string) || "file";
     const userEmail = formData.get("userEmail") as string;
+    const muralItemId = formData.get("muralItemId") as string; // Get the mural item ID from client
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -91,7 +93,7 @@ export async function POST(request: NextRequest) {
     let fallbackVideoUrl = "";
     let usedCloudinary = false;
 
-    // Try Cloudinary upload first
+    // Try Cloudinary upload first for image
     try {
       const result = await new Promise<{ secure_url: string }>(
         (resolve, reject) => {
@@ -110,8 +112,8 @@ export async function POST(request: NextRequest) {
                   console.error("Cloudinary upload error:", error);
                   reject(error);
                 } else {
-                  console.log("✅ Cloudinary upload successful!");
-                  console.log("🔗 URL:", result?.secure_url);
+                  console.log("✅ Cloudinary image upload successful!");
+                  console.log("🔗 Image URL:", result?.secure_url);
                   resolve(result as { secure_url: string });
                 }
               }
@@ -120,18 +122,65 @@ export async function POST(request: NextRequest) {
         }
       );
       imageUrl = result.secure_url;
-      videoUrl = videoUrlFromForm || "video-placeholder";
       usedCloudinary = true;
     } catch (cloudinaryError) {
-      // If Cloudinary fails, use fallback (e.g., CloudFront)
+      // If Cloudinary fails, use fallback
       console.error(
-        "Cloudinary upload failed, using fallback videoUrl.",
+        "Cloudinary image upload failed, using fallback.",
         cloudinaryError
       );
       imageUrl = ""; // You may want to set a fallback image URL here if you have one
-      videoUrl = videoUrlFromForm || "video-placeholder";
-      fallbackVideoUrl = videoUrlFromForm || "";
       usedCloudinary = false;
+    }
+
+    // Try to upload video to Cloudinary if we have a video URL
+    if (videoUrlFromForm && videoUrlFromForm !== "video-placeholder") {
+      try {
+        // Check if it's already a Cloudinary URL
+        if (videoUrlFromForm.includes("cloudinary.com")) {
+          videoUrl = videoUrlFromForm;
+          console.log("✅ Video already on Cloudinary:", videoUrl);
+        } else {
+          // Try to upload the video to Cloudinary
+          console.log("🔄 Attempting to upload video to Cloudinary...");
+
+          // For external video URLs, we can use Cloudinary's upload by URL feature
+          const videoResult = await new Promise<{ secure_url: string }>(
+            (resolve, reject) => {
+              cloudinary.uploader.upload(
+                videoUrlFromForm,
+                {
+                  folder: "mural-app/videos",
+                  resource_type: "video",
+                  transformation: [
+                    { width: 800, height: 600, crop: "limit" },
+                    { quality: "auto" },
+                  ],
+                },
+                (error, result) => {
+                  if (error) {
+                    console.error("Cloudinary video upload error:", error);
+                    reject(error);
+                  } else {
+                    console.log("✅ Cloudinary video upload successful!");
+                    console.log("🔗 Video URL:", result?.secure_url);
+                    resolve(result as { secure_url: string });
+                  }
+                }
+              );
+            }
+          );
+          videoUrl = videoResult.secure_url;
+          console.log("✅ Video uploaded to Cloudinary:", videoUrl);
+        }
+      } catch (videoError) {
+        console.error("Failed to upload video to Cloudinary:", videoError);
+        // Fallback to original video URL
+        videoUrl = videoUrlFromForm;
+        fallbackVideoUrl = videoUrlFromForm;
+      }
+    } else {
+      videoUrl = "video-placeholder";
     }
 
     // Connect to MongoDB with retry logic
@@ -157,51 +206,154 @@ export async function POST(request: NextRequest) {
     const db = client.db("mural-app");
     const collection = db.collection("mural-items");
 
-    // Get next available grid position
-    const items = await collection
-      .find({}, { projection: { gridPosition: 1 } })
-      .toArray();
-    const usedPositions = new Set(
-      items
-        .map((item) => item.gridPosition)
-        .filter((pos) => typeof pos === "number" && !isNaN(pos))
-    );
-    let nextPosition = 0;
-    while (usedPositions.has(nextPosition)) {
-      nextPosition++;
+    // If we have a muralItemId from the client, use it to find and update the existing item
+    let existingItem = null;
+
+    if (muralItemId) {
+      console.log("🔍 Looking for existing mural item with ID:", muralItemId);
+
+      try {
+        existingItem = await collection.findOne({
+          _id: new ObjectId(muralItemId),
+        });
+
+        if (existingItem) {
+          console.log(
+            "✅ Found existing mural item, will update with grid position and user details"
+          );
+        } else {
+          console.log("❌ Mural item with ID not found, will create new item");
+        }
+      } catch (error) {
+        console.log(
+          "❌ Invalid mural item ID format:",
+          error instanceof Error ? error.message : String(error)
+        );
+        existingItem = null;
+      }
+    } else {
+      console.log("🆕 No mural item ID provided, will create new item");
     }
 
-    // Create new item
-    const newItem: MuralItem = {
-      imageUrl,
-      videoUrl,
-      fallbackVideoUrl: fallbackVideoUrl || undefined,
-      gridPosition: nextPosition, // Use next available position
-      timestamp: new Date().toISOString(),
-      userDetails: {
-        name: name || "Anonymous",
-        description: description || "",
-        email: userEmail || "", // Add user email
-        sessionId: `session_${Date.now()}`,
-        ipAddress: ipAddress,
-      },
-      metadata: {
-        originalFileName: file.name,
-        fileSize: file.size,
-        uploadSource: uploadSource as "camera" | "file" | "drag-drop",
-        browserInfo: userAgent,
-      },
-    };
+    let newItem: MuralItem;
+    let isUpdate = false;
 
-    // Save to MongoDB
-    const insertResult = await collection.insertOne(newItem);
-    newItem._id = insertResult.insertedId;
+    if (existingItem) {
+      // Update existing item with grid position and user details
+      console.log(
+        "🔄 Found existing mural item, updating with grid position and user details"
+      );
+
+      // Get next available grid position
+      const items = await collection
+        .find({}, { projection: { gridPosition: 1 } })
+        .toArray();
+      const usedPositions = new Set(
+        items
+          .map((item) => item.gridPosition)
+          .filter((pos) => typeof pos === "number" && !isNaN(pos))
+      );
+      let nextPosition = 0;
+      while (usedPositions.has(nextPosition)) {
+        nextPosition++;
+      }
+
+      // Update the existing item
+      const updateResult = await collection.updateOne(
+        { _id: existingItem._id },
+        {
+          $set: {
+            gridPosition: nextPosition,
+            userDetails: {
+              name: name || "Anonymous",
+              description: description || "",
+              email: userEmail || "",
+              sessionId: `session_${Date.now()}`,
+              ipAddress: ipAddress,
+            },
+            metadata: {
+              originalFileName: file.name,
+              fileSize: file.size,
+              uploadSource: uploadSource as "camera" | "file" | "drag-drop",
+              browserInfo: userAgent,
+            },
+            // Update timestamp to reflect when it was added to mural
+            timestamp: new Date().toISOString(),
+          },
+        }
+      );
+
+      if (updateResult.modifiedCount === 0) {
+        throw new Error("Failed to update existing mural item");
+      }
+
+      // Get the updated item
+      const updatedItem = await collection.findOne({ _id: existingItem._id });
+      if (!updatedItem) {
+        throw new Error("Failed to retrieve updated mural item");
+      }
+
+      newItem = updatedItem as MuralItem;
+      isUpdate = true;
+      console.log("✅ Successfully updated existing mural item");
+    } else {
+      // Create new item if no existing item found
+      console.log("🆕 No existing mural item found, creating new one");
+
+      // Get next available grid position
+      const items = await collection
+        .find({}, { projection: { gridPosition: 1 } })
+        .toArray();
+      const usedPositions = new Set(
+        items
+          .map((item) => item.gridPosition)
+          .filter((pos) => typeof pos === "number" && !isNaN(pos))
+      );
+      let nextPosition = 0;
+      while (usedPositions.has(nextPosition)) {
+        nextPosition++;
+      }
+
+      // Create new item
+      newItem = {
+        imageUrl,
+        videoUrl,
+        fallbackVideoUrl: fallbackVideoUrl || undefined,
+        cloudinaryVideoUrl: videoUrl.includes("cloudinary.com")
+          ? videoUrl
+          : undefined,
+        gridPosition: nextPosition,
+        timestamp: new Date().toISOString(),
+        userDetails: {
+          name: name || "Anonymous",
+          description: description || "",
+          email: userEmail || "",
+          sessionId: `session_${Date.now()}`,
+          ipAddress: ipAddress,
+        },
+        metadata: {
+          originalFileName: file.name,
+          fileSize: file.size,
+          uploadSource: uploadSource as "camera" | "file" | "drag-drop",
+          browserInfo: userAgent,
+        },
+      };
+
+      // Save to MongoDB
+      const insertResult = await collection.insertOne(newItem);
+      newItem._id = insertResult.insertedId;
+    }
 
     console.log("💾 Saved to MongoDB:", {
-      id: insertResult.insertedId,
+      id: newItem._id,
       name: newItem.userDetails.name,
       uploadSource: newItem.metadata?.uploadSource,
       usedCloudinary,
+      isUpdate: isUpdate ? "✅ Updated existing" : "🆕 Created new",
+      imageUrl: imageUrl ? "✅ Cloudinary" : "❌ Fallback",
+      videoUrl: videoUrl.includes("cloudinary.com")
+        ? "✅ Cloudinary"
+        : "❌ External",
     });
 
     if (clientConnected) await client.close();
@@ -209,10 +361,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: newItem,
-      message: usedCloudinary
-        ? "Upload successful (Cloudinary)"
-        : "Upload successful (Fallback)",
-      cloudinaryUrl: imageUrl,
+      message: isUpdate
+        ? `Mural item updated successfully (${
+            usedCloudinary ? "Cloudinary" : "Fallback"
+          })`
+        : `New mural item created successfully (${
+            usedCloudinary ? "Cloudinary" : "Fallback"
+          })`,
+      isUpdate,
+      cloudinaryImageUrl: imageUrl,
+      cloudinaryVideoUrl: videoUrl.includes("cloudinary.com")
+        ? videoUrl
+        : undefined,
       fallbackVideoUrl: fallbackVideoUrl || undefined,
     });
   } catch (error) {

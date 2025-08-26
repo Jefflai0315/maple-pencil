@@ -101,6 +101,8 @@ export default function UploadPage() {
   // Add state for elapsed time tracking
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  // Add state to store mural item ID from video generation
+  const [muralItemId, setMuralItemId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -220,7 +222,10 @@ export default function UploadPage() {
     }
   };
 
-  const generateVideo = async (): Promise<string> => {
+  const generateVideo = async (): Promise<{
+    downloadUrl: string;
+    muralItemId?: string;
+  }> => {
     // Use GrowthBook feature flag to select provider
     try {
       const { generateVideoFromImageWithProvider } = await import(
@@ -239,7 +244,12 @@ export default function UploadPage() {
         }
       );
       if (task?.downloadUrl) {
-        return task.downloadUrl;
+        // Check if the task has a mural item ID (from WavespeedAI route)
+        const result = {
+          downloadUrl: task.downloadUrl,
+          muralItemId: (task as { muralItemId?: string }).muralItemId,
+        };
+        return result;
       } else {
         throw new Error("No download URL received");
       }
@@ -263,36 +273,11 @@ export default function UploadPage() {
     const start = Date.now();
     setElapsedTime(0);
 
-    // Show initial message
-    console.log("Starting video generation...");
-
-    // Show user-friendly message
-    setErrorMessage(
-      "🎬 Starting video generation... This usually takes 30 seconds"
-    );
-    setTimeout(() => setErrorMessage(""), 3000);
-
     try {
       // Update elapsed time every second
       const timeInterval = setInterval(() => {
         const elapsed = Math.floor((Date.now() - start) / 1000);
         setElapsedTime(elapsed);
-
-        // Show helpful messages at different time intervals
-        if (elapsed === 15) {
-          setErrorMessage("⏰ Halfway there! Usually takes 30 seconds total");
-          setTimeout(() => setErrorMessage(""), 3000);
-        } else if (elapsed === 30) {
-          setErrorMessage(
-            "⏳ Taking a bit longer than usual, but still processing..."
-          );
-          setTimeout(() => setErrorMessage(""), 4000);
-        } else if (elapsed === 45) {
-          setErrorMessage(
-            "🔄 Still working on your video... Complex content can take longer"
-          );
-          setTimeout(() => setErrorMessage(""), 5000);
-        }
       }, 1000);
 
       // Generate video
@@ -300,6 +285,17 @@ export default function UploadPage() {
 
       clearInterval(timeInterval);
       setUploadProgress(100);
+
+      // Debug: Log the full response
+      console.log("🎬 Video generation response:", videoUrl);
+
+      // Store the mural item ID if it was returned from video generation
+      if (videoUrl.muralItemId) {
+        setMuralItemId(videoUrl.muralItemId);
+        console.log("📝 Stored mural item ID:", videoUrl.muralItemId);
+      } else {
+        console.log("❌ No mural item ID received from video generation");
+      }
 
       // Show completion message with final time
       console.log(
@@ -332,7 +328,7 @@ export default function UploadPage() {
       // Create preview data
       const preview: PreviewData = {
         imageUrl: previewUrl,
-        videoUrl,
+        videoUrl: videoUrl.downloadUrl,
         userDetails,
       };
 
@@ -395,6 +391,13 @@ export default function UploadPage() {
       formData.append("uploadSource", uploadSource);
       // Add user email from session
       formData.append("userEmail", session?.user?.email ?? "");
+      // Add mural item ID if we have one from video generation
+      if (muralItemId) {
+        formData.append("muralItemId", muralItemId);
+        console.log("📤 Sending mural item ID for update:", muralItemId);
+      } else {
+        console.log("❌ No mural item ID to send - will create new item");
+      }
 
       // Upload to MongoDB API
       const uploadResponse = await fetch("/api/upload-mongodb", {
@@ -422,6 +425,7 @@ export default function UploadPage() {
         setPreviewUrl("");
         setUserDetails({ name: "", description: "" });
         setElapsedTime(0);
+        setMuralItemId(null); // Reset mural item ID
 
         // Show success message
         setTimeout(() => {
@@ -850,120 +854,6 @@ export default function UploadPage() {
                       className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${uploadProgress}%` }}
                     />
-                  </div>
-                )}
-                {uploadStatus === "generating" && (
-                  <div className="text-center space-y-1">
-                    <p className="text-xs text-gray-500">
-                      Average generation time: 30 seconds
-                      {elapsedTime > 0 && (
-                        <span className="ml-2 text-blue-600">
-                          • Expected completion: ~
-                          {Math.max(30 - elapsedTime, 0)}s remaining
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      🎬 The AI is analyzing your image and creating a unique
-                      video animation
-                    </p>
-                    <p className="text-xs text-blue-600 mt-1">
-                      💡 Tip: Complex images or detailed prompts may take longer
-                      to process
-                    </p>
-                    {elapsedTime === 0 && (
-                      <p className="text-xs text-blue-600">
-                        🎬 Starting video generation... This usually takes 30
-                        seconds
-                      </p>
-                    )}
-                    {elapsedTime === 1 && (
-                      <p className="text-xs text-blue-600">
-                        🔍 AI is analyzing your image and prompt...
-                      </p>
-                    )}
-                    {elapsedTime === 5 && (
-                      <p className="text-xs text-blue-600">
-                        🎨 Creating video animation from your image...
-                      </p>
-                    )}
-                    {elapsedTime === 15 && (
-                      <p className="text-xs text-blue-600">
-                        ⏰ Halfway there! Usually takes 30 seconds total
-                      </p>
-                    )}
-                    {elapsedTime === 25 && (
-                      <p className="text-xs text-blue-600">
-                        🚀 Almost done! Finalizing your video...
-                      </p>
-                    )}
-                    {elapsedTime === 35 && (
-                      <p className="text-xs text-orange-600">
-                        ⏳ Taking a bit longer than usual, but still
-                        processing...
-                      </p>
-                    )}
-                    {elapsedTime === 50 && (
-                      <p className="text-xs text-orange-600">
-                        🔄 Still working on your video... Complex content can
-                        take longer
-                      </p>
-                    )}
-                    {elapsedTime === 75 && (
-                      <p className="text-xs text-orange-600">
-                        ⏰ This is taking longer than expected... Please be
-                        patient
-                      </p>
-                    )}
-                    {elapsedTime === 100 && (
-                      <p className="text-xs text-red-600">
-                        🚨 Taking much longer than usual... Consider refreshing
-                        if this continues
-                      </p>
-                    )}
-
-                    {elapsedTime > 150 && (
-                      <p className="text-xs text-red-600">
-                        🚨 This is taking much longer than expected. Please
-                        refresh the page and try again.
-                      </p>
-                    )}
-
-                    <p
-                      className={`text-xs font-medium ${
-                        elapsedTime >= 30 ? "text-orange-600" : "text-blue-600"
-                      }`}
-                    >
-                      Current time: {formatElapsedTime(elapsedTime)}
-                      {elapsedTime >= 30 &&
-                        elapsedTime < 45 &&
-                        " (slightly longer than usual)"}
-                      {elapsedTime >= 45 && " (taking longer than expected)"}
-                      {elapsedTime >= 60 && (
-                        <span className="block mt-1 text-xs text-gray-500">
-                          💡 Tip: This is taking longer than usual. Please be
-                          patient, the AI is working hard on your video!
-                        </span>
-                      )}
-                      {elapsedTime >= 90 && (
-                        <span className="block mt-1 text-xs text-orange-600">
-                          ⚠️ Still processing... Complex videos can take longer.
-                          Hang in there!
-                        </span>
-                      )}
-                      {elapsedTime >= 120 && (
-                        <span className="block mt-1 text-xs text-red-600">
-                          🚨 Taking much longer than expected. If this
-                          continues, please contact support.
-                        </span>
-                      )}
-                      {elapsedTime >= 150 && (
-                        <span className="block mt-1 text-xs text-red-600">
-                          🚨 This is taking much longer than expected. Please
-                          refresh the page and try again.
-                        </span>
-                      )}
-                    </p>
                   </div>
                 )}
               </div>

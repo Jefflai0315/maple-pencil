@@ -5,6 +5,8 @@ export interface MuralItem {
   id: string;
   imageUrl: string;
   videoUrl: string;
+  cloudinaryVideoUrl?: string; // Store Cloudinary video URL if available
+  fallbackVideoUrl?: string; // Store fallback video URL if Cloudinary fails
   gridPosition: number;
   timestamp: string;
   userDetails: {

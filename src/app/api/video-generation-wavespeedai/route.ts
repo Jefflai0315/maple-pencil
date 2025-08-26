@@ -256,23 +256,44 @@ export async function POST(request: NextRequest) {
     );
 
     // If successful, insert into mural-items collection
+    let muralItemId: string | undefined;
+
     if (status === "success") {
       const muralItemsCollection = db.collection("mural-items");
-      const muralItem = {
-        imageUrl: cloudinaryImageUrl,
-        videoUrl: cloudinaryVideoUrl, // will be Cloudinary or fallback
-        gridPosition: null, // Set this as needed, or let frontend assign
-        timestamp: new Date().toISOString(),
-        userDetails,
-        metadata: {
-          originalTaskId: taskId,
-          prompt,
-          model: "wavespeedai",
-          duration: 5,
-          resolution: "480P",
-        },
-      };
-      await muralItemsCollection.insertOne(muralItem);
+
+      // Check if a mural item with these URLs already exists
+      const existingMuralItem = await muralItemsCollection.findOne({
+        $or: [
+          { imageUrl: cloudinaryImageUrl },
+          { videoUrl: cloudinaryVideoUrl },
+        ],
+      });
+
+      if (!existingMuralItem) {
+        const muralItem = {
+          imageUrl: cloudinaryImageUrl,
+          videoUrl: cloudinaryVideoUrl, // will be Cloudinary or fallback
+          gridPosition: null, // Set this as needed, or let frontend assign
+          timestamp: new Date().toISOString(),
+          userDetails,
+          metadata: {
+            originalTaskId: taskId,
+            prompt,
+            model: "wavespeedai",
+            duration: 5,
+            resolution: "480P",
+          },
+        };
+        const insertResult = await muralItemsCollection.insertOne(muralItem);
+        muralItemId = insertResult.insertedId.toString();
+        console.log(
+          "✅ Created new mural item during video generation with ID:",
+          muralItemId
+        );
+      } else {
+        muralItemId = existingMuralItem._id.toString();
+        console.log("🔄 Mural item already exists with ID:", muralItemId);
+      }
     }
 
     await client.close();
@@ -283,6 +304,7 @@ export async function POST(request: NextRequest) {
         downloadUrl,
         cloudinaryVideoUrl,
         cloudinaryImageUrl,
+        ...(muralItemId && { muralItemId }), // Include the mural item ID for client tracking
       });
     } else {
       return NextResponse.json(

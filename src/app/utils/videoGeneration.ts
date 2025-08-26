@@ -15,6 +15,7 @@ export interface VideoGenerationTask {
   createdAt: Date;
   updatedAt: Date;
   errorMessage?: string;
+  muralItemId?: string; // Add mural item ID for tracking
 }
 
 export interface VideoGenerationRequest {
@@ -289,9 +290,9 @@ export async function generateVideoFromImageWithProvider(
         throw new Error(data.error || "WavespeedAI server error");
       }
       // The server already polled for completion, so just return the result
-      return {
+      const result = {
         taskId: data.taskId,
-        status: "success",
+        status: "success" as const,
         imageUrl,
         prompt,
         model: "wavespeedai",
@@ -301,7 +302,14 @@ export async function generateVideoFromImageWithProvider(
         createdAt: new Date(),
         updatedAt: new Date(),
         downloadUrl: data.downloadUrl,
+        muralItemId: data.muralItemId, // Include the mural item ID from the response
       };
+
+      console.log(
+        "🎯 WavespeedAI response includes muralItemId:",
+        data.muralItemId
+      );
+      return result;
     } catch (error) {
       onProgress?.(
         `WavespeedAI server exception: ${
