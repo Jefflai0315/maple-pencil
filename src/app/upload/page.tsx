@@ -7,7 +7,6 @@ import {
   IconCheck,
   IconAlertCircle,
   IconLoader2,
-  IconCamera,
   IconVideo,
   IconEye,
 } from "@tabler/icons-react";
@@ -35,43 +34,6 @@ function formatElapsedTime(seconds: number): string {
   return `${minutes}m ${remainingSeconds}s`;
 }
 
-// Utility function to resize image
-function resizeImage(
-  dataUrl: string,
-  maxWidth = 800,
-  maxHeight = 800,
-  quality = 0.85
-) {
-  return new Promise<string>((resolve) => {
-    const img = new window.Image();
-    img.onload = () => {
-      let { width, height } = img;
-      if (width > maxWidth || height > maxHeight) {
-        const aspect = width / height;
-        if (width > height) {
-          width = maxWidth;
-          height = Math.round(maxWidth / aspect);
-        } else {
-          height = maxHeight;
-          width = Math.round(maxHeight * aspect);
-        }
-      }
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL("image/jpeg", quality));
-      } else {
-        // fallback: return original if context fails
-        resolve(dataUrl);
-      }
-    };
-    img.src = dataUrl;
-  });
-}
-
 export default function UploadPage() {
   const { data: session, status } = useSession();
   const [isDragOver, setIsDragOver] = useState(false);
@@ -91,7 +53,6 @@ export default function UploadPage() {
   });
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [showPreview, setShowPreview] = useState(false);
-  const [showCamera, setShowCamera] = useState(false);
   // Add state to keep last generated video preview visible
   const [lastVideoPreview, setLastVideoPreview] = useState<PreviewData | null>(
     null
@@ -105,9 +66,6 @@ export default function UploadPage() {
   const [muralItemId, setMuralItemId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const growthbook = useGrowthBook();
 
   // Clean up elapsed time when status changes
@@ -170,55 +128,6 @@ export default function UploadPage() {
     const file = e.target.files?.[0];
     if (file) {
       handleFileSelect(file);
-    }
-  };
-
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      });
-
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch {
-      setErrorMessage("Camera access denied. Please allow camera permissions.");
-    }
-  };
-
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-  };
-
-  const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const context = canvas.getContext("2d");
-
-      if (context) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0);
-
-        const imageDataUrl = canvas.toDataURL("image/jpeg");
-        // Resize the captured image before using it
-        resizeImage(imageDataUrl, 800, 800, 0.85).then((resizedDataUrl) => {
-          setCapturedImage(resizedDataUrl);
-          setPreviewUrl(resizedDataUrl);
-          setSelectedFile(null); // Clear uploaded file
-          setShowCamera(false); // Hide camera interface
-          stopCamera();
-        });
-      }
     }
   };
 
@@ -547,7 +456,7 @@ export default function UploadPage() {
               </label>
 
               {/* Upload or Capture Options */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4 md:mb-6">
+              <div className="grid grid-cols-1 gap-3 sm:gap-4 mb-3 sm:mb-4 md:mb-6">
                 {/* Upload Option */}
                 <div
                   className={`border-2 border-dashed rounded-lg p-3 sm:p-4 md:p-6 text-center transition-colors cursor-pointer ${
@@ -568,60 +477,7 @@ export default function UploadPage() {
                     Drag & drop or tap to browse
                   </p>
                 </div>
-
-                {/* Capture Option */}
-                <div
-                  className="border-2 border-dashed border-gray-300 rounded-lg p-3 sm:p-4 md:p-6 text-center cursor-pointer hover:border-gray-400 transition-colors"
-                  onClick={() => setShowCamera(true)}
-                >
-                  <IconCamera className="mx-auto h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 text-gray-400 mb-1 sm:mb-2" />
-                  <p className="font-medium text-gray-900 text-xs sm:text-sm md:text-base">
-                    Take Photo
-                  </p>
-                  <p className="text-xs sm:text-xs md:text-sm text-gray-500">
-                    Use your camera
-                  </p>
-                </div>
               </div>
-
-              {/* Camera Interface */}
-              {showCamera && (
-                <div className="space-y-3 sm:space-y-4">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    className="w-full max-w-xs sm:max-w-sm md:max-w-md mx-auto rounded-lg"
-                  />
-                  <canvas ref={canvasRef} className="hidden" />
-                  <div className="flex flex-col sm:flex-row justify-center space-y-2 sm:space-y-0 sm:space-x-3">
-                    <button
-                      type="button"
-                      onClick={startCamera}
-                      className="px-4 sm:px-5 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm sm:text-sm font-medium"
-                    >
-                      Start Camera
-                    </button>
-                    <button
-                      type="button"
-                      onClick={capturePhoto}
-                      className="px-4 sm:px-5 py-2 sm:py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm sm:text-sm font-medium"
-                    >
-                      Capture
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCamera(false);
-                        stopCamera();
-                      }}
-                      className="px-4 sm:px-5 py-2 sm:py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm sm:text-sm font-medium"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {/* Image Preview */}
               {previewUrl && (
