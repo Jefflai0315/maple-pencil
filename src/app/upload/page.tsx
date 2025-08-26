@@ -99,17 +99,31 @@ export default function UploadPage() {
     }
   }, []);
 
-  const handleFileSelect = (file: File) => {
+  const handleFileSelect = async (file: File) => {
     // Validate file type
     if (!file.type.startsWith("image/")) {
       setErrorMessage("Please select an image file");
       return;
     }
 
-    // Validate file size (5MB limit)
+    // Check if file needs resizing (over 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      setErrorMessage("File size must be less than 5MB");
-      return;
+      try {
+        setErrorMessage("Image is large, resizing for optimal upload...");
+
+        // Resize the image
+        const resizedFile = await resizeImage(file);
+
+        setErrorMessage("Image resized successfully!");
+        setTimeout(() => setErrorMessage(""), 2000);
+
+        // Use the resized file
+        file = resizedFile;
+      } catch (error) {
+        console.error("Image resizing failed:", error);
+        setErrorMessage("Failed to resize image. Please try a smaller file.");
+        return;
+      }
     }
 
     setSelectedFile(file);
@@ -367,6 +381,54 @@ export default function UploadPage() {
     setErrorMessage("");
   };
 
+  // Add image resizing function
+  const resizeImage = (
+    file: File,
+    maxWidth: number = 1920,
+    maxHeight: number = 1080,
+    quality: number = 0.8
+  ): Promise<File> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d")!;
+      const img = new Image();
+
+      img.onload = () => {
+        // Calculate new dimensions while maintaining aspect ratio
+        let { width, height } = img;
+
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width *= ratio;
+          height *= ratio;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        // Draw resized image
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Convert to blob
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const resizedFile = new File([blob], file.name, {
+                type: "image/jpeg",
+                lastModified: Date.now(),
+              });
+              resolve(resizedFile);
+            }
+          },
+          "image/jpeg",
+          quality
+        );
+      };
+
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
   if (status === "loading") {
     return <div>Loading...</div>;
   }
@@ -522,6 +584,15 @@ export default function UploadPage() {
                   <span className="text-xs md:text-sm">{errorMessage}</span>
                 </div>
               )}
+
+              {/* Info about automatic resizing */}
+              <div className="flex items-center space-x-2 text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">
+                <IconAlertCircle className="h-4 w-4" />
+                <span className="text-xs md:text-sm">
+                  💡 Large images will be automatically resized for optimal
+                  upload performance
+                </span>
+              </div>
             </div>
 
             {/* User Details */}
