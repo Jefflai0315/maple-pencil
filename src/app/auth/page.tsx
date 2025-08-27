@@ -10,7 +10,7 @@ export default function AuthPage() {
   const [isSignupFlow, setIsSignupFlow] = useState(false);
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const { data: session, status } = useSession() as {
-    data: any;
+    data: { user: { email: string; name: string } } | null;
     status: string;
   };
   const router = useRouter();

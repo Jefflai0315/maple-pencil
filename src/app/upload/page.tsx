@@ -14,7 +14,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { videoPrompts } from "../utils/constants";
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 
 interface PreviewData {
   imageUrl: string;
@@ -335,41 +335,6 @@ export default function UploadPage() {
       }
     } finally {
       setIsGeneratingVideo(false);
-    }
-  };
-  const handleGoogleSignIn = async () => {
-    const result = await signIn("google");
-    if (result?.error) {
-      console.error("Sign in error:", result.error);
-      return;
-    }
-    console.log("session", session);
-
-    // Check if user is in database
-    if (session?.user?.email) {
-      console.log("Checking if user is in database");
-      try {
-        const response = await fetch("/api/check-user", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: session.user.email,
-          }),
-        });
-
-        if (response.ok) {
-          const { exists } = await response.json();
-          if (!exists) {
-            // User not in database, redirect to auth page
-            console.log("User not in database, redirecting to auth");
-            router.push("/auth?error=AccessDenied");
-          }
-        }
-      } catch (error) {
-        console.error("Error checking user:", error);
-      }
     }
   };
 

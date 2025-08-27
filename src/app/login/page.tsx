@@ -6,9 +6,9 @@ import { signIn } from "next-auth/react";
 export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     const result = await signIn("google", { callbackUrl: "/upload" });
-    if ((result as any)?.error) {
+    if (result?.error) {
       // eslint-disable-next-line no-console
-      console.error("Sign in error:", (result as any).error);
+      console.error("Sign in error:", result.error);
     }
   };
 
