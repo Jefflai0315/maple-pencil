@@ -570,7 +570,7 @@ export default function MuralPage() {
         {/* Floating animated prompts in the background */}
         <div
           ref={promptContainerRef}
-          className="pointer-events-none select-none absolute inset-0 z-10"
+          className="pointer-events-none select-none absolute inset-0 z-0"
         >
           {floatingPrompts.map((prompt) => {
             const style: React.CSSProperties & {
@@ -582,7 +582,7 @@ export default function MuralPage() {
               width: `${PLANE_WIDTH + FLAG_WIDTH}px`,
               height: `${PLANE_HEIGHT}px`,
               gap: "16px",
-              zIndex: 0,
+              zIndex: -1,
               animation: `muralPromptFloat-${prompt.direction} ${prompt.duration}ms linear forwards`,
               "--wobble-amp": `${prompt.wobbleAmp}px`,
               "--rotate": `${prompt.rotate}deg`,
@@ -1104,7 +1104,7 @@ export default function MuralPage() {
           )}
 
           {/* Mural Grid */}
-          <div className="bg-white/50 rounded-lg md:rounded-2xl shadow-xl p-4 md:p-8 mb-6 md:mb-10">
+          <div className="bg-white/50 rounded-lg md:rounded-2xl shadow-xl p-4 md:p-8 mb-6 md:mb-10 relative z-10">
             <div className="text-center text-gray-500 text-sm mb-4">
               <h1
                 className="text-2xl md:text-4xl font-bold mb-2"
