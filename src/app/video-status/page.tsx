@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   IconRefresh,
   IconDownload,
@@ -54,6 +54,7 @@ export default function VideoStatusPage() {
     taskId: string;
     status: string;
   }>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // If user is signed in, use their email to fetch tasks
@@ -71,6 +72,26 @@ export default function VideoStatusPage() {
       }
     }
   }, [session, status]);
+
+  // Handle clicking outside profile menu to close it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target as Node)
+      ) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    if (showProfileMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showProfileMenu]);
 
   const loadUserTasksByEmail = async (email: string) => {
     setIsLoading(true);
@@ -338,7 +359,10 @@ export default function VideoStatusPage() {
 
             {/* Profile Dropdown */}
             {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+              <div
+                ref={profileMenuRef}
+                className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+              >
                 <div className="p-3 border-b border-gray-100">
                   <p className="text-sm font-medium text-gray-900">
                     {session.user?.name || "User"}

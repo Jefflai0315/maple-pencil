@@ -11,6 +11,7 @@ import {
   IconEye,
 } from "@tabler/icons-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { videoPrompts } from "../utils/constants";
 import { useSession, signIn, signOut } from "next-auth/react";
@@ -36,6 +37,40 @@ function formatElapsedTime(seconds: number): string {
 
 export default function UploadPage() {
   const { data: session, status } = useSession();
+  const router = useRouter();
+
+  // Redirect unauthenticated users to dedicated login page
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login");
+    }
+  }, [status, router]);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/check-user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: session?.user?.email }),
+        });
+        if (!res.ok) return;
+
+        const { exists } = await res.json();
+        console.log("exists", exists);
+        if (!exists) {
+          console.log("User not in database, redirecting to auth");
+          router.push("/auth?error=AccessDenied");
+        }
+        // if exists => stay on /upload
+      } catch (e) {
+        console.error("check-user failed:", e);
+      }
+    })();
+  }, [status, session?.user?.email, router]);
+
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [capturedImage, setCapturedImage] = useState<string>("");
@@ -66,6 +101,7 @@ export default function UploadPage() {
   const [muralItemId, setMuralItemId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
   const growthbook = useGrowthBook();
 
   // Clean up elapsed time when status changes
@@ -78,6 +114,26 @@ export default function UploadPage() {
       setElapsedTime(0);
     }
   }, [uploadStatus]);
+
+  // Handle clicking outside profile menu to close it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target as Node)
+      ) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    if (showProfileMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showProfileMenu]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -281,6 +337,41 @@ export default function UploadPage() {
       setIsGeneratingVideo(false);
     }
   };
+  const handleGoogleSignIn = async () => {
+    const result = await signIn("google");
+    if (result?.error) {
+      console.error("Sign in error:", result.error);
+      return;
+    }
+    console.log("session", session);
+
+    // Check if user is in database
+    if (session?.user?.email) {
+      console.log("Checking if user is in database");
+      try {
+        const response = await fetch("/api/check-user", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: session.user.email,
+          }),
+        });
+
+        if (response.ok) {
+          const { exists } = await response.json();
+          if (!exists) {
+            // User not in database, redirect to auth page
+            console.log("User not in database, redirecting to auth");
+            router.push("/auth?error=AccessDenied");
+          }
+        }
+      } catch (error) {
+        console.error("Error checking user:", error);
+      }
+    }
+  };
 
   const handleConfirmUpload = async () => {
     if (!previewData) return;
@@ -433,17 +524,7 @@ export default function UploadPage() {
     return <div>Loading...</div>;
   }
   if (!session) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center">
-        <h2 className="text-xl font-bold mb-4">Please log in to upload</h2>
-        <button
-          onClick={() => signIn("google")}
-          className="px-4 py-2 bg-blue-600 text-white rounded"
-        >
-          Log in with Google
-        </button>
-      </div>
-    );
+    return null; // Redirect handled by useEffect above
   }
 
   return (
@@ -471,7 +552,10 @@ export default function UploadPage() {
 
           {/* Profile Dropdown */}
           {showProfileMenu && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+            <div
+              ref={profileMenuRef}
+              className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+            >
               <div className="p-3 border-b border-gray-100">
                 <p className="text-sm font-medium text-gray-900">
                   {session.user?.name || "User"}
@@ -584,15 +668,6 @@ export default function UploadPage() {
                   <span className="text-xs md:text-sm">{errorMessage}</span>
                 </div>
               )}
-
-              {/* Info about automatic resizing */}
-              <div className="flex items-center space-x-2 text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">
-                <IconAlertCircle className="h-4 w-4" />
-                <span className="text-xs md:text-sm">
-                  💡 Large images will be automatically resized for optimal
-                  upload performance
-                </span>
-              </div>
             </div>
 
             {/* User Details */}
@@ -837,7 +912,7 @@ export default function UploadPage() {
           </Link>
           <Link
             href="/video-status"
-            className="text-green-600 hover:text-green-700 font-medium text-sm sm:text-base text-center py-2 px-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+            className="group flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
           >
             Video Status →
           </Link>

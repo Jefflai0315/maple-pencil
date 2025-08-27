@@ -11,8 +11,12 @@ const handler = NextAuth({
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
+  pages: {
+    signIn: "/auth",
+    error: "/auth",
+  },
   callbacks: {
-    async signIn({ user }) {
+    async signIn({ user }: { user: { email?: string } }) {
       let clientConnected = false;
       let client: MongoClient | null = null;
 
@@ -39,8 +43,10 @@ const handler = NextAuth({
           return true;
         }
 
-        console.log(`Access denied for user ${user.email}`);
-        return false;
+        console.log(
+          `User ${user.email} not in database - allowing sign in to create account`
+        );
+        return true; // Allow sign in so user can be created
       } catch (error) {
         console.error("Database connection error during sign in:", error);
         // Fallback: deny access if database connection fails

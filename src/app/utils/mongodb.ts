@@ -12,6 +12,12 @@ export async function connectToDatabase() {
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
+      ssl: true,
+      tls: true,
+      retryWrites: true,
+      w: "majority",
+      retryReads: true,
+      connectTimeoutMS: 30000,
     });
 
     await client.connect();
