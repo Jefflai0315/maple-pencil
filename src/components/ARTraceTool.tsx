@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
   Box,
   Slider,
@@ -58,6 +59,7 @@ const isMobile =
   (typeof window !== "undefined" && window.innerWidth < 768);
 
 const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
+  const growthbook = useGrowthBook();
   const [image, setImage] = useState<string | null>(null);
   const [opacity, setOpacity] = useState<number>(0.5);
   const [isFixed, setIsFixed] = useState<boolean>(false);
@@ -461,7 +463,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
     }
   };
 
-  // Generate image from text prompt using Wavespeed API
+  // Generate image from text prompt using GrowthBook feature flag to decide API
   const handleAIGenerateImage = async (promptText: string) => {
     try {
       const prompt = promptText?.trim();
@@ -469,18 +471,57 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
 
       setIsGeneratingImage(true);
       setAiStatus("generating");
-      setAiProgressText("Starting request...");
       setAiErrorMessage("");
 
-      const res = await fetch("/api/generate-image-wavespeed", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
-      });
-      setAiProgressText("Waiting for result...");
-      const data = await res.json();
+      // Check GrowthBook feature flag to decide which API to use
+      const useGemini =
+        growthbook?.feature("gemini-2.5-flash-image-preview")?.value === true;
+
+      let res, data;
+
+      if (useGemini) {
+        // Use Gemini API
+        setAiProgressText("Using Gemini API...");
+        res = await fetch("/api/generate-image-gemini", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt }),
+        });
+        data = await res.json();
+
+        // If Gemini fails, try Wavespeed as fallback
+        if (!res.ok || !data?.imageUrl || data?.fallback) {
+          console.log("Gemini failed, trying Wavespeed fallback...");
+          setAiProgressText("Gemini failed, trying Wavespeed...");
+
+          // Use Gemini's text response if available, otherwise use original prompt
+          const enhancedPrompt = data?.textResponse || prompt;
+          console.log("Using enhanced prompt for Wavespeed:", enhancedPrompt);
+
+          res = await fetch("/api/generate-image-wavespeed", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt: enhancedPrompt }),
+          });
+
+          setAiProgressText("Waiting for Wavespeed result...");
+          data = await res.json();
+        }
+      } else {
+        // Use Wavespeed API directly
+        setAiProgressText("Using Wavespeed API...");
+        res = await fetch("/api/generate-image-wavespeed", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt }),
+        });
+
+        setAiProgressText("Waiting for Wavespeed result...");
+        data = await res.json();
+      }
+
       if (!res.ok || !data?.imageUrl) {
-        const errMsg = data?.error || "Failed to generate image";
+        const errMsg = data?.error || "Failed to generate image with both APIs";
         alert(errMsg);
         setIsGeneratingImage(false);
         setAiStatus("error");
@@ -489,6 +530,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
       }
 
       const generatedUrl: string = data.imageUrl;
+
       setSourceImage(generatedUrl);
       setImage(generatedUrl);
       setIsFixed(false);
@@ -523,7 +565,8 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
       };
       img.src = generatedUrl;
       setAiStatus("success");
-      setAiProgressText("Image generated successfully");
+      const finalSource = useGemini ? data?.source || "gemini" : "wavespeed";
+      setAiProgressText(`Image generated successfully using ${finalSource}`);
     } catch (err) {
       console.error("AI image generation error:", err);
       alert("Could not generate image. Please try again.");
