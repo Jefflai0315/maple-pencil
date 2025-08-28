@@ -1,9 +1,9 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { connectToDatabase, closeConnection } from "../../../utils/mongodb";
-import { MongoClient } from "mongodb";
+import type { MongoClient } from "mongodb";
 
-const handler = NextAuth({
+const authOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -58,6 +58,14 @@ const handler = NextAuth({
       }
     },
   },
-});
+};
 
+// Use dynamic import to avoid the callable signature issue
+const handler = (
+  NextAuth as unknown as (
+    config: Record<string, unknown>
+  ) => (req: Request) => Response
+)(authOptions);
+
+// Export the handler for NextAuth
 export { handler as GET, handler as POST };
