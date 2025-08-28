@@ -6,6 +6,7 @@ import React, {
   useMemo,
 } from "react";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { useSession, signIn, signOut } from "next-auth/react";
 import {
   Box,
   Slider,
@@ -16,6 +17,14 @@ import {
   Switch,
   Button,
   TextField,
+  Menu,
+  MenuItem,
+  Avatar,
+  Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import {
   IconX,
@@ -34,6 +43,10 @@ import {
   IconSend,
   IconCheck,
   IconAlertCircle,
+  IconUser,
+  IconLogout,
+  IconLogin,
+  IconCoins,
 } from "@tabler/icons-react";
 import Moveable from "react-moveable";
 
@@ -60,6 +73,7 @@ const isMobile =
 
 const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   const growthbook = useGrowthBook();
+  const { data: session } = useSession();
   const [image, setImage] = useState<string | null>(null);
   const [opacity, setOpacity] = useState<number>(0.5);
   const [isFixed, setIsFixed] = useState<boolean>(false);
@@ -68,6 +82,16 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
 
   // New: keep original upload separate from display image
   const [sourceImage, setSourceImage] = useState<string | null>(null);
+
+  // User account popup state
+  const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(
+    null
+  );
+  const [userCredits, setUserCredits] = useState<number>(0);
+  const [isLoadingCredits, setIsLoadingCredits] = useState<boolean>(false);
+
+  // Credits dialog state
+  const [showCreditsDialog, setShowCreditsDialog] = useState<boolean>(false);
 
   // Layers state
   const [layers, setLayers] = useState<ColorLayer[]>([]);
@@ -169,6 +193,58 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
     if (isPinching) {
       setIsPinching(false);
       e.preventDefault();
+    }
+  };
+
+  // User account functions
+  const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setUserMenuAnchor(event.currentTarget);
+  };
+
+  const handleUserMenuClose = () => {
+    setUserMenuAnchor(null);
+  };
+
+  const handleLogin = () => {
+    handleUserMenuClose();
+    signIn("google", { callbackUrl: window.location.href });
+  };
+
+  const handleLogout = () => {
+    handleUserMenuClose();
+    signOut({ callbackUrl: "/" });
+  };
+
+  // Fetch user credits when session changes
+  useEffect(() => {
+    if (session?.user?.email) {
+      fetchUserCredits();
+    } else {
+      setUserCredits(0);
+      // Close AI panel if user logs out
+      setAiPanelOpen(false);
+    }
+  }, [session?.user?.email]);
+
+  const fetchUserCredits = async () => {
+    if (!session?.user?.email) return;
+
+    setIsLoadingCredits(true);
+    try {
+      const response = await fetch("/api/check-credits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: session.user.email, deduct: false }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUserCredits(data.credits || 0);
+      }
+    } catch (error) {
+      console.error("Failed to fetch user credits:", error);
+    } finally {
+      setIsLoadingCredits(false);
     }
   };
 
@@ -465,6 +541,18 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
 
   // Generate image from text prompt using GrowthBook feature flag to decide API
   const handleAIGenerateImage = async (promptText: string) => {
+    // Check if user is logged in
+    if (!session?.user?.email) {
+      alert("Please log in to use AI features");
+      return;
+    }
+
+    // Check if user has credits
+    if (userCredits < 1) {
+      setShowCreditsDialog(true);
+      return;
+    }
+
     try {
       const prompt = promptText?.trim();
       if (!prompt) return;
@@ -472,6 +560,26 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
       setIsGeneratingImage(true);
       setAiStatus("generating");
       setAiErrorMessage("");
+
+      // Deduct 1 credit first
+      setAiProgressText("Deducting credit...");
+      const creditRes = await fetch("/api/check-credits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: session.user.email,
+          deduct: true,
+        }),
+      });
+
+      if (!creditRes.ok) {
+        const creditData = await creditRes.json();
+        throw new Error(creditData.error || "Failed to deduct credit");
+      }
+
+      const creditData = await creditRes.json();
+      setUserCredits(creditData.credits);
+      setAiProgressText("Credit deducted. Generating image...");
 
       // Check GrowthBook feature flag to decide which API to use
       const useGemini =
@@ -522,6 +630,28 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
 
       if (!res.ok || !data?.imageUrl) {
         const errMsg = data?.error || "Failed to generate image with both APIs";
+
+        // Return the credit since generation failed
+        setAiProgressText("Generation failed. Returning credit...");
+        const restoreRes = await fetch("/api/restore-credits", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: session.user.email,
+            amount: 1,
+          }),
+        });
+
+        if (restoreRes.ok) {
+          const restoreData = await restoreRes.json();
+          setUserCredits(restoreData.credits);
+          setAiProgressText("Credit restored. Please try again.");
+        } else {
+          setAiProgressText(
+            "Failed to restore credit. Please contact support."
+          );
+        }
+
         alert(errMsg);
         setIsGeneratingImage(false);
         setAiStatus("error");
@@ -569,6 +699,37 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
       setAiProgressText(`Image generated successfully using ${finalSource}`);
     } catch (err) {
       console.error("AI image generation error:", err);
+
+      // Return the credit since generation failed
+      if (session?.user?.email) {
+        setAiProgressText("Generation failed. Returning credit...");
+        try {
+          const restoreRes = await fetch("/api/restore-credits", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: session.user.email,
+              amount: 1,
+            }),
+          });
+
+          if (restoreRes.ok) {
+            const restoreData = await restoreRes.json();
+            setUserCredits(restoreData.credits);
+            setAiProgressText("Credit restored. Please try again.");
+          } else {
+            setAiProgressText(
+              "Failed to restore credit. Please contact support."
+            );
+          }
+        } catch (restoreErr) {
+          console.error("Failed to restore credit:", restoreErr);
+          setAiProgressText(
+            "Failed to restore credit. Please contact support."
+          );
+        }
+      }
+
       alert("Could not generate image. Please try again.");
       setAiStatus("error");
       setAiErrorMessage(
@@ -1069,6 +1230,29 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         </Box>
       )}
 
+      {/* User Account Button */}
+      <IconButton
+        onClick={handleUserMenuOpen}
+        sx={{
+          position: "absolute",
+          top: 16,
+          right: onClose ? 80 : 16,
+          zIndex: 100013,
+          width: isMobile ? 48 : 40,
+          height: isMobile ? 48 : 40,
+        }}
+      >
+        {session?.user?.image ? (
+          <Avatar
+            src={session.user.image}
+            alt={session.user.name || "User"}
+            sx={{ width: 24, height: 24 }}
+          />
+        ) : (
+          <IconUser size={isMobile ? 24 : 20} />
+        )}
+      </IconButton>
+
       {/* Close Button */}
       {onClose && (
         <IconButton
@@ -1227,8 +1411,8 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
             gap: { xs: 2, sm: 3 },
           }}
         >
-          {/* AI Compact Input Bar (toggle with AI button) */}
-          {aiPanelOpen && (
+          {/* AI Compact Input Bar (toggle with AI button) - Only show for logged in users */}
+          {aiPanelOpen && session?.user?.email && (
             <Box
               sx={{
                 position: "absolute",
@@ -1246,6 +1430,28 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
                 backdropFilter: "blur(6px)",
               }}
             >
+              {/* Low Credits Warning */}
+              {userCredits <= 2 && userCredits > 0 && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    bottom: -25,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    backgroundColor: "rgba(255,193,7,0.9)",
+                    color: "#000",
+                    px: 1,
+                    py: 0.5,
+                    borderRadius: 1,
+                    fontSize: "0.6rem",
+                    whiteSpace: "nowrap",
+                    zIndex: 100023,
+                  }}
+                >
+                  Low credits! ({userCredits} left)
+                </Box>
+              )}
+
               <TextField
                 value={aiPromptText}
                 onChange={(e) => setAiPromptText(e.target.value)}
@@ -1376,51 +1582,76 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
               </Typography>
             </Box>
 
-            {/* AI Generate Button */}
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 0.5,
-              }}
-            >
-              <IconButton
-                onClick={() => setAiPanelOpen((v) => !v)}
-                disabled={isGeneratingImage}
+            {/* AI Generate Button - Only show for logged in users */}
+            {session?.user?.email && (
+              <Box
                 sx={{
-                  backgroundColor: isGeneratingImage
-                    ? "rgba(156,39,176,0.15)"
-                    : "transparent",
-                  border: `1px solid ${
-                    isGeneratingImage
-                      ? "rgba(156,39,176,0.35)"
-                      : "rgba(255,255,255,0.2)"
-                  }`,
-                  color: isGeneratingImage
-                    ? "#9c27b0"
-                    : "rgba(255,255,255,0.9)",
-                  "&:hover": {
-                    backgroundColor: isGeneratingImage
-                      ? "rgba(156,39,176,0.2)"
-                      : "rgba(255,255,255,0.05)",
-                    borderColor: isGeneratingImage
-                      ? "rgba(156,39,176,0.45)"
-                      : "rgba(255,255,255,0.3)",
-                  },
-                  width: 40,
-                  height: 40,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 0.5,
                 }}
               >
-                <IconWand size={18} />
-              </IconButton>
-              <Typography
-                variant="caption"
-                sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.7rem" }}
-              >
-                AI
-              </Typography>
-            </Box>
+                <IconButton
+                  onClick={() => {
+                    setAiPanelOpen((v) => !v);
+                  }}
+                  disabled={isGeneratingImage}
+                  sx={{
+                    backgroundColor: isGeneratingImage
+                      ? "rgba(156,39,176,0.15)"
+                      : userCredits < 1
+                      ? "rgba(128,128,128,0.15)"
+                      : "transparent",
+                    border: `1px solid ${
+                      isGeneratingImage
+                        ? "rgba(156,39,176,0.35)"
+                        : userCredits < 1
+                        ? "rgba(128,128,128,0.3)"
+                        : "rgba(255,255,255,0.2)"
+                    }`,
+                    color: isGeneratingImage
+                      ? "#9c27b0"
+                      : userCredits < 1
+                      ? "rgba(128,128,128,0.7)"
+                      : "rgba(255,255,255,0.9)",
+                    "&:hover": {
+                      backgroundColor: isGeneratingImage
+                        ? "rgba(156,39,176,0.2)"
+                        : userCredits < 1
+                        ? "rgba(128,128,128,0.2)"
+                        : "rgba(255,255,255,0.05)",
+                      borderColor: isGeneratingImage
+                        ? "rgba(156,39,176,0.45)"
+                        : userCredits < 1
+                        ? "rgba(128,128,128,0.4)"
+                        : "rgba(255,255,255,0.3)",
+                    },
+                    width: 40,
+                    height: 40,
+                  }}
+                  title={
+                    userCredits < 1
+                      ? `Insufficient credits (${userCredits})`
+                      : "AI Image Generation"
+                  }
+                >
+                  <IconWand size={18} />
+                </IconButton>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color:
+                      userCredits < 1
+                        ? "rgba(128,128,128,0.6)"
+                        : "rgba(255,255,255,0.6)",
+                    fontSize: "0.7rem",
+                  }}
+                >
+                  AI
+                </Typography>
+              </Box>
+            )}
 
             {/* Recording Button */}
             <Box
@@ -2050,6 +2281,223 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           }
         }
       `}</style>
+
+      {/* User Account Menu - Rendered at the end to avoid z-index issues */}
+      <Menu
+        anchorEl={userMenuAnchor}
+        open={Boolean(userMenuAnchor)}
+        onClose={handleUserMenuClose}
+        anchorOrigin={{
+          vertical: "bottom",
+          horizontal: "right",
+        }}
+        transformOrigin={{
+          vertical: "top",
+          horizontal: "right",
+        }}
+        sx={{
+          zIndex: 100020,
+          "& .MuiPaper-root": {
+            backgroundColor: "rgba(0,0,0,0.9)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            color: "white",
+            minWidth: 200,
+          },
+        }}
+      >
+        {session?.user
+          ? [
+              // User Info
+              <MenuItem
+                key="user-info"
+                sx={{ pointerEvents: "none", opacity: 0.8 }}
+              >
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    width: "100%",
+                  }}
+                >
+                  {session.user.image && (
+                    <Avatar
+                      src={session.user.image}
+                      alt={session.user.name || "User"}
+                      sx={{ width: 32, height: 32 }}
+                    />
+                  )}
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {session.user.name || "User"}
+                    </Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                      {session.user.email}
+                    </Typography>
+                  </Box>
+                </Box>
+              </MenuItem>,
+
+              <Divider
+                key="divider1"
+                sx={{ borderColor: "rgba(255,255,255,0.1)" }}
+              />,
+
+              // Credits
+              <MenuItem
+                key="credits"
+                sx={{ pointerEvents: "none", opacity: 0.8 }}
+              >
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    width: "100%",
+                  }}
+                >
+                  <IconCoins size={16} />
+                  <Typography variant="body2">
+                    Credits: {isLoadingCredits ? "..." : userCredits}
+                  </Typography>
+                </Box>
+              </MenuItem>,
+
+              <Divider
+                key="divider2"
+                sx={{ borderColor: "rgba(255,255,255,0.1)" }}
+              />,
+
+              // Logout
+              <MenuItem key="logout" onClick={handleLogout}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <IconLogout size={16} />
+                  <Typography variant="body2">Log Out</Typography>
+                </Box>
+              </MenuItem>,
+            ]
+          : [
+              // Login
+              <MenuItem key="login" onClick={handleLogin}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <IconLogin size={16} />
+                  <Typography variant="body2">Log In</Typography>
+                </Box>
+              </MenuItem>,
+            ]}
+      </Menu>
+
+      {/* Insufficient Credits Dialog */}
+      <Dialog
+        open={showCreditsDialog}
+        onClose={() => setShowCreditsDialog(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: "rgba(0,0,0,0.95)",
+            backdropFilter: "blur(20px)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: 2,
+            color: "white",
+            zIndex: 100030,
+          },
+        }}
+        sx={{
+          zIndex: 100030,
+        }}
+      >
+        <DialogTitle
+          sx={{
+            textAlign: "center",
+            borderBottom: "1px solid rgba(255,255,255,0.1)",
+            pb: 2,
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 1,
+              mb: 1,
+            }}
+          >
+            <IconCoins size={24} color="#ffc107" />
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Insufficient Credits
+            </Typography>
+          </Box>
+          <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.7)" }}>
+            You need credits to use AI features
+          </Typography>
+        </DialogTitle>
+
+        <DialogContent sx={{ pt: 3, pb: 2 }}>
+          <Box sx={{ textAlign: "center" }}>
+            <Box
+              sx={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 1,
+                px: 3,
+                py: 2,
+                backgroundColor: "rgba(255,193,7,0.1)",
+                border: "1px solid rgba(255,193,7,0.3)",
+                borderRadius: 2,
+                mb: 2,
+              }}
+            >
+              <IconCoins size={20} color="#ffc107" />
+              <Typography
+                variant="h4"
+                sx={{ color: "#ffc107", fontWeight: 600 }}
+              >
+                {userCredits}
+              </Typography>
+              <Typography
+                variant="body1"
+                sx={{ color: "rgba(255,255,255,0.8)" }}
+              >
+                credits available
+              </Typography>
+            </Box>
+
+            <Typography
+              variant="body1"
+              sx={{ color: "rgba(255,255,255,0.9)", mb: 2 }}
+            >
+              AI image generation requires <strong>1 credit</strong> per image.
+            </Typography>
+
+            <Typography
+              variant="body2"
+              sx={{ color: "rgba(255,255,255,0.7)", lineHeight: 1.6 }}
+            >
+              Please contact playingwithpencil@gmail.com if you need some
+              credits.
+            </Typography>
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ p: 2, pt: 0 }}>
+          <Button
+            onClick={() => setShowCreditsDialog(false)}
+            variant="outlined"
+            sx={{
+              color: "rgba(255,255,255,0.8)",
+              borderColor: "rgba(255,255,255,0.2)",
+              "&:hover": {
+                borderColor: "rgba(255,255,255,0.4)",
+                backgroundColor: "rgba(255,255,255,0.05)",
+              },
+            }}
+          >
+            Got it
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

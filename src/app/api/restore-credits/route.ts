@@ -3,18 +3,25 @@ import { connectToDatabase } from "../../utils/mongodb";
 
 export async function POST(request: NextRequest) {
   try {
-    const { email } = await request.json();
+    const { email, amount = 1 } = await request.json();
 
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
+    if (typeof amount !== "number" || amount <= 0) {
+      return NextResponse.json(
+        { error: "Amount must be a positive number" },
+        { status: 400 }
+      );
+    }
+
     const { db } = await connectToDatabase();
 
-    // Restore 1 credit
+    // Restore specified amount of credits
     const result = await db
       .collection("user")
-      .updateOne({ email }, { $inc: { credits: 1 } });
+      .updateOne({ email }, { $inc: { credits: amount } });
 
     if (result.modifiedCount === 0) {
       return NextResponse.json(
@@ -30,7 +37,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       credits: currentCredits,
-      message: "Credit restored successfully",
+      message: `Credits restored successfully`,
     });
   } catch (error) {
     console.error("Error restoring credits:", error);
