@@ -71,6 +71,32 @@ export default function UploadPage() {
     })();
   }, [status, session?.user?.email, router]);
 
+  // Fetch user credits when session changes
+  useEffect(() => {
+    if (session?.user?.email) {
+      fetchUserCredits();
+    }
+  }, [session?.user?.email]);
+
+  const fetchUserCredits = async () => {
+    if (!session?.user?.email) return;
+
+    try {
+      const response = await fetch("/api/check-credits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: session.user.email, deduct: false }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUserCredits(data.credits);
+      }
+    } catch (error) {
+      console.error("Failed to fetch user credits:", error);
+    }
+  };
+
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [capturedImage, setCapturedImage] = useState<string>("");
@@ -97,6 +123,7 @@ export default function UploadPage() {
   // Add state for elapsed time tracking
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [userCredits, setUserCredits] = useState<number | null>(null);
   // Add state to store mural item ID from video generation
   const [muralItemId, setMuralItemId] = useState<string | null>(null);
 
@@ -244,6 +271,54 @@ export default function UploadPage() {
       return;
     }
 
+    // Check if user has enough credits
+    if (!session?.user?.email) {
+      setErrorMessage("Please sign in to generate videos");
+      return;
+    }
+
+    try {
+      const creditCheck = await fetch("/api/check-credits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: session.user.email, deduct: false }),
+      });
+
+      if (!creditCheck.ok) {
+        setErrorMessage("Failed to check credits");
+        return;
+      }
+
+      const creditData = await creditCheck.json();
+
+      if (!creditData.canGenerate) {
+        setErrorMessage(
+          `Insufficient credits. You have ${creditData.credits} credits. Need 1 credit to generate video.`
+        );
+        return;
+      }
+
+      // Deduct 1 credit
+      const deductResponse = await fetch("/api/check-credits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: session.user.email, deduct: true }),
+      });
+
+      if (!deductResponse.ok) {
+        setErrorMessage("Failed to deduct credits");
+        return;
+      }
+
+      const deductData = await deductResponse.json();
+      console.log(`Credit deducted. Remaining credits: ${deductData.credits}`);
+      setUserCredits(deductData.credits);
+    } catch (error) {
+      console.error("Credit check failed:", error);
+      setErrorMessage("Failed to check credits");
+      return;
+    }
+
     setIsGeneratingVideo(true);
     setUploadStatus("generating");
     setUploadProgress(0);
@@ -318,6 +393,27 @@ export default function UploadPage() {
       console.error("Video generation failed:", error);
       setUploadStatus("error");
 
+      // Restore the credit since generation failed
+      try {
+        const restoreResponse = await fetch("/api/restore-credits", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: session.user.email }),
+        });
+
+        if (restoreResponse.ok) {
+          const restoreData = await restoreResponse.json();
+          console.log(
+            `Credit restored. Current credits: ${restoreData.credits}`
+          );
+          setUserCredits(restoreData.credits);
+        } else {
+          console.error("Failed to restore credit");
+        }
+      } catch (restoreError) {
+        console.error("Error restoring credit:", restoreError);
+      }
+
       // Check for specific error types
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -330,7 +426,7 @@ export default function UploadPage() {
         );
       } else {
         setErrorMessage(
-          "Video generation failed. Using uploaded photo as fallback."
+          "Video generation failed. Credit restored. Using uploaded photo as fallback."
         );
       }
     } finally {
@@ -526,6 +622,9 @@ export default function UploadPage() {
                   {session.user?.name || "User"}
                 </p>
                 <p className="text-xs text-gray-500">{session.user?.email}</p>
+                <p className="text-xs text-blue-600 font-medium mt-1">
+                  Credits: {userCredits !== null ? userCredits : "..."}
+                </p>
               </div>
               <button
                 onClick={() => signOut()}
@@ -567,10 +666,10 @@ export default function UploadPage() {
               </label>
 
               {/* Upload or Capture Options */}
-              <div className="grid grid-cols-1 gap-3 sm:gap-4 mb-3 sm:mb-4 md:mb-6">
+              <div className="w-full flex flex-row gap-3 sm:gap-4 mb-3 sm:mb-4 md:mb-6">
                 {/* Upload Option */}
                 <div
-                  className={`border-2 border-dashed rounded-lg p-3 sm:p-4 md:p-6 text-center transition-colors cursor-pointer ${
+                  className={`w-full justify-center items-center border-2 border-dashed rounded-lg p-3 sm:p-4 md:p-6 text-center transition-colors cursor-pointer ${
                     isDragOver
                       ? "border-blue-400 bg-blue-50"
                       : "border-gray-300 hover:border-gray-400"
@@ -588,36 +687,35 @@ export default function UploadPage() {
                     Drag & drop or tap to browse
                   </p>
                 </div>
-              </div>
-
-              {/* Image Preview */}
-              {previewUrl && (
-                <div className="space-y-2 sm:space-y-3">
-                  <div className="relative inline-block">
-                    <img
-                      src={previewUrl}
-                      alt="Preview"
-                      className="max-h-40 sm:max-h-48 md:max-h-64 rounded-lg shadow-md max-w-full"
-                    />
-                    <button
-                      type="button"
-                      onClick={removeFile}
-                      className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 bg-red-500 text-white rounded-full p-1 sm:p-1.5 hover:bg-red-600 transition-colors"
-                    >
-                      <IconX className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
-                    </button>
+                {/* Image Preview */}
+                {previewUrl && (
+                  <div className="space-y-2 sm:space-y-3">
+                    <div className="relative inline-block">
+                      <img
+                        src={previewUrl}
+                        alt="Preview"
+                        className="max-h-40 sm:max-h-48 md:max-h-64 rounded-lg shadow-md max-w-full"
+                      />
+                      <button
+                        type="button"
+                        onClick={removeFile}
+                        className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 bg-red-500 text-white rounded-full p-1 sm:p-1.5 hover:bg-red-600 transition-colors"
+                      >
+                        <IconX className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
+                      </button>
+                    </div>
+                    <p className="text-xs sm:text-xs md:text-sm text-gray-600">
+                      {selectedFile
+                        ? `${selectedFile.name} (${(
+                            selectedFile.size /
+                            1024 /
+                            1024
+                          ).toFixed(2)} MB)`
+                        : "Captured photo"}
+                    </p>
                   </div>
-                  <p className="text-xs sm:text-xs md:text-sm text-gray-600">
-                    {selectedFile
-                      ? `${selectedFile.name} (${(
-                          selectedFile.size /
-                          1024 /
-                          1024
-                        ).toFixed(2)} MB)`
-                      : "Captured photo"}
-                  </p>
-                </div>
-              )}
+                )}
+              </div>
 
               <input
                 ref={fileInputRef}
@@ -792,25 +890,6 @@ export default function UploadPage() {
                             ></div>
                           </div>
                         </div>
-                        <div className="mt-1 text-xs text-gray-500">
-                          {elapsedTime < 20 ? (
-                            <span className="text-green-600">
-                              🚀 Super fast! Great job!
-                            </span>
-                          ) : elapsedTime < 30 ? (
-                            <span className="text-green-600">
-                              ✓ Within average time
-                            </span>
-                          ) : elapsedTime < 45 ? (
-                            <span className="text-orange-600">
-                              ⚠️ Slightly longer
-                            </span>
-                          ) : (
-                            <span className="text-red-600">
-                              ⏳ Taking longer than usual
-                            </span>
-                          )}
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -828,6 +907,21 @@ export default function UploadPage() {
 
             {/* Action Buttons */}
             <div className="flex flex-col justify-center items-center space-y-3 sm:space-y-4">
+              {/* Credit Display */}
+              {userCredits !== null && (
+                <div className="text-center mb-2">
+                  <p className="text-sm text-gray-600">
+                    Available Credits:{" "}
+                    <span className="font-semibold text-blue-600">
+                      {userCredits}
+                    </span>
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Video generation costs 1 credit
+                  </p>
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={!previewUrl || isGeneratingVideo || isUploading}

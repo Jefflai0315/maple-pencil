@@ -18,6 +18,7 @@ export default function LoginPage() {
       style={{
         backgroundImage: "url('/sketch/mural.png')",
         backgroundSize: "contain",
+        maxHeight: "100px",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
       }}
