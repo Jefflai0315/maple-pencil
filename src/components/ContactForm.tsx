@@ -1,7 +1,6 @@
 import { useState, useRef } from "react";
 import emailjs from "@emailjs/browser";
 import Image from "next/image";
-import { Heart } from "lucide-react";
 
 // Helper function to convert File to base64
 const convertFileToBase64 = (file: File): Promise<string> => {
@@ -95,7 +94,6 @@ export const ContactForm = () => {
           ? uploadedPhotos.map((p) => p.file.name).join(", ")
           : "None",
         photos: photoData,
-        couponCode: formData.couponCode || "None",
       };
 
       // 3) POST to our Next.js API route instead of directly to Google Apps Script
@@ -106,6 +104,8 @@ export const ContactForm = () => {
         },
         body: JSON.stringify(formPayload),
       });
+      console.log("response", response);
+      console.log("formPayload", formPayload);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -137,7 +137,7 @@ export const ContactForm = () => {
         message: formData.message,
         mobile: formData.mobile || "Not provided",
         reference: formData.reference,
-        coupon_code: formData.couponCode || "None",
+        coupon_code: formData.couponCode || "",
         photo_count: uploadedPhotos.length,
         photo_names:
           uploadedPhotos.length > 0
@@ -168,6 +168,7 @@ export const ContactForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    console.log("formData", formData);
 
     try {
       // Validate form data
@@ -426,7 +427,6 @@ export const ContactForm = () => {
           disabled={isSubmitting}
           className="sketch-btn w-full text-lg py-3 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Heart size={20} />
           {isSubmitting ? "Sending..." : "Send Message"}
         </button>
       </form>

@@ -672,7 +672,7 @@ const QuestPopup = ({
 
                           <div className="flex justify-between items-center py-2 border-b border-gray-200">
                             <span className="font-medium text-gray-700">
-                              Rush Order (24hrs):
+                              Rush Order (48hrs):
                             </span>
                             <span className="text-gray-600">
                               +50% surcharge
