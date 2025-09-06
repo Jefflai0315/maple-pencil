@@ -311,6 +311,7 @@ a:hover {
 .sketch-btn {
   position: relative;
   padding: 12px 24px;
+  max-width: 200px;
   background: transparent;
   border: none;
   font-family: 'Caveat', cursive;

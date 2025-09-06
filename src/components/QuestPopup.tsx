@@ -10,7 +10,7 @@ import {
   sectionContent,
 } from "../app/utils/constants";
 
-import { ArtEventContent, ArtEventService } from "../app/utils/interface";
+import { ArtEventContent } from "../app/utils/interface";
 
 // Typing Text Component
 const TypingText = ({
@@ -209,7 +209,7 @@ const GalleryCard = ({
               width={20}
               height={8}
               src={`/money.png`}
-              alt="money"
+              alt="$"
               className=""
             />
             <p className="text-gray-600">{price}</p>
@@ -420,7 +420,7 @@ const ImageModal = ({
 
         {/* Close Button */}
         <button
-          className="absolute bottom-[-70px] bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full px-6 py-2 text-lg font-bold z-20 transition-all duration-300"
+          className="absolute bottom-[-70px] bg-white/50 hover:bg-white/30 backdrop-blur-sm rounded-full px-6 py-2 text-lg font-bold z-20 transition-all duration-300"
           onClick={() => {
             setZoomed(false);
             setTimeout(onClose, 100);
@@ -466,7 +466,6 @@ const QuestPopup = ({
   section: string;
 }) => {
   const content = sectionContent[section as keyof typeof sectionContent];
-  const [selectedServiceIdx, setSelectedServiceIdx] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalIndex, setModalIndex] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState(0);
@@ -474,9 +473,8 @@ const QuestPopup = ({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const popupRef = useRef<HTMLDivElement>(null);
 
-  // Reset service index when section changes
+  // Reset when section changes
   useEffect(() => {
-    setSelectedServiceIdx(0);
     console.log("Section changed to:", section);
   }, [section]);
 
@@ -570,7 +568,7 @@ const QuestPopup = ({
         </div>
         <div className="quest-body flex flex-col h-full">
           <div className="quest-details pixel-font flex flex-col h-full">
-            <div className="quest-details-header">
+            <div className="quest-details-header ">
               <div className="flex flex-col items-start justify-start">
                 <span className="text-xl font-bold">{content.title}</span>
                 <span className="text-sm">{content.level}</span>
@@ -580,7 +578,7 @@ const QuestPopup = ({
             {section === "Art & Event" && isArtEventContent(content) ? (
               <>
                 {/* Service Tabs */}
-                <div className="tabs mb-2">
+                {/* <div className="tabs mb-2">
                   {content.services.map(
                     (service: ArtEventService, idx: number) => (
                       <button
@@ -594,7 +592,7 @@ const QuestPopup = ({
                       </button>
                     )
                   )}
-                </div>
+                </div> */}
                 {/* Service Gallery */}
                 <div className="quest-level flex-1">
                   <div
@@ -613,40 +611,94 @@ const QuestPopup = ({
                         <GalleryCard
                           key={`quick-${section}`}
                           title="Quick Sketches"
-                          description="Fast and expressive sketches perfect for capturing moments on the go."
+                          description="Fast and expressive sketch perfect for capturing moments on the go, A5 size. (30mins)"
                           images={comImages}
                           categoryIndex={0}
-                          price={20}
+                          price={28}
                           onImageClick={handleImageClick}
                         />
                         <GalleryCard
                           key={`wood-${section}`}
                           title="Wood Sketches"
-                          description="Unique sketches on wood surfaces, creating rustic and natural artwork."
+                          description="Unique sketches on wood surfaces, creating rustic and natural artwork, A5 size. (45mins+)"
                           images={woodImages}
                           categoryIndex={1}
-                          price={40}
+                          price={48}
                           onImageClick={handleImageClick}
                         />
                         <GalleryCard
                           key={`detailed-${section}`}
                           title="Detailed Portraits"
-                          description="Intricate and detailed portraits with careful attention to every feature."
+                          description="Intricate and detailed portraits with careful attention to every feature, A4 size. (4hrs+)"
                           images={detailedImages}
                           categoryIndex={2}
-                          price={70}
+                          price={88}
                           onImageClick={handleImageClick}
                         />
                         <GalleryCard
                           key={`big-${section}`}
                           title="Big Sketches"
-                          description="Large-scale sketches that make a bold statement and capture grand moments."
+                          description="Large-scale sketches with high detail, A3 size. (8hrs+)"
                           images={bigImages}
                           categoryIndex={3}
-                          price={150}
+                          price={158}
                           onImageClick={handleImageClick}
                         />
                       </div>
+                      {/* Pricing and Time Information Section */}
+                      <div className="my-4 px-4 bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                        <h3 className="text-lg font-bold text-gray-800 mb-3">
+                          Pricing & Time Information
+                        </h3>
+
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                            <span className="font-medium text-gray-700">
+                              Estimated Time:
+                            </span>
+                            <span className="text-gray-600">
+                              3-7 working days
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                            <span className="font-medium text-gray-700">
+                              Additional Person:
+                            </span>
+                            <span className="text-gray-600">
+                              +50% per person
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                            <span className="font-medium text-gray-700">
+                              Rush Order (24hrs):
+                            </span>
+                            <span className="text-gray-600">
+                              +50% surcharge
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between items-center py-2">
+                            <span className="font-medium text-gray-700">
+                              Location:
+                            </span>
+                            <span className="text-gray-600">
+                              Singapore only
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <p className="text-sm text-yellow-800">
+                            <strong>Note:</strong> All prices are in SGD. Time
+                            estimates may vary based on complexity and detail
+                            level. Contact us for custom quotes on large groups
+                            or special requests.
+                          </p>
+                        </div>
+                      </div>
+
                       <div className="my-4 px-4">
                         <ContactForm />
                       </div>

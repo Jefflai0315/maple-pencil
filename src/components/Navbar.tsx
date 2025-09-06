@@ -83,7 +83,7 @@ export const Navbar = () => {
     <>
       <nav
         style={{
-          position: "absolute",
+          position: "fixed",
           top: 10,
           left: 0,
           width: "100%",

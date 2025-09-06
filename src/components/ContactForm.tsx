@@ -24,6 +24,7 @@ export const ContactForm = () => {
     mobile: "",
     message: "",
     reference: "yes",
+    couponCode: "",
   });
   const [uploadedPhotos, setUploadedPhotos] = useState<
     Array<{ preview: string; name: string; file: File }>
@@ -94,6 +95,7 @@ export const ContactForm = () => {
           ? uploadedPhotos.map((p) => p.file.name).join(", ")
           : "None",
         photos: photoData,
+        couponCode: formData.couponCode || "None",
       };
 
       // 3) POST to our Next.js API route instead of directly to Google Apps Script
@@ -135,6 +137,7 @@ export const ContactForm = () => {
         message: formData.message,
         mobile: formData.mobile || "Not provided",
         reference: formData.reference,
+        coupon_code: formData.couponCode || "None",
         photo_count: uploadedPhotos.length,
         photo_names:
           uploadedPhotos.length > 0
@@ -206,6 +209,7 @@ export const ContactForm = () => {
           mobile: "",
           message: "",
           reference: "yes",
+          couponCode: "",
         });
 
         // Clean up uploaded photos
@@ -242,12 +246,12 @@ export const ContactForm = () => {
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full border-t-4 pt-4 border-charcoal-light">
       <h3 className="font-handwritten text-2xl font-semibold text-charcoal mb-6">
-        Send a Message
+        Order a Custom Sketch
       </h3>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6 flex flex-col ">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="font-sketch text-charcoal-medium mb-2 block">
@@ -391,6 +395,19 @@ export const ContactForm = () => {
             )}
           </div>
         )}
+        <div>
+          <label className="font-sketch text-charcoal-medium mb-2 block">
+            Coupon Code (Optional)
+          </label>
+          <input
+            type="text"
+            name="couponCode"
+            value={formData.couponCode}
+            onChange={handleInputChange}
+            placeholder="Enter your discount code"
+            className="sketch-input w-full"
+          />
+        </div>
 
         {formStatus.message && (
           <div

@@ -164,11 +164,8 @@ html, body {
 
 .quest-popup {
   width: 95%;
-  max-width: 800px;
-  top: 50%;
-  transform: translateY(5%);
+  transform: translateY(2%);
   height: 90%;
-  max-height: 800px;
   background: rgba(0, 0, 0, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.85);
   box-shadow:
@@ -188,10 +185,10 @@ html, body {
 @media (max-width: 767px) {
   .quest-popup {
     width: 98%;
-    height: 95%;
+    height: 90%;
     max-height: 95vh;
-    transform: translateY(0);
-    top: auto;
+    transform: translateY(15);
+ 
     border-radius: 12px;
   }
   
@@ -512,6 +509,7 @@ html, body {
   padding: 8px 12px;
   border-radius: 6px 6px;
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -521,7 +519,7 @@ html, body {
 
 .quest-details-npc {
   width:80px;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .tab.active {
@@ -570,6 +568,11 @@ html, body {
 
 /* Navbar sketch buttons - smaller size for navbar context */
 .navbar-tab .sketch-btn {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
   padding: 8px 16px;
   font-size: 14px;
   transform: rotate(-0.5deg);

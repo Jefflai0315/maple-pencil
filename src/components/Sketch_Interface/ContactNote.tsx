@@ -8,6 +8,7 @@ export default function ContactNote() {
     email: "",
     message: "",
     mobile: "",
+    couponCode: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formStatus, setFormStatus] = useState<{
@@ -37,6 +38,7 @@ export default function ContactNote() {
         ...formData,
         source: "ContactNote",
         timestamp: new Date().toISOString(),
+        couponCode: formData.couponCode || "None",
       };
 
       const response = await fetch("/api/submit-form", {
@@ -92,6 +94,7 @@ export default function ContactNote() {
           email: "",
           message: "",
           mobile: "",
+          couponCode: "",
         });
 
         // Set success message
@@ -158,6 +161,13 @@ export default function ContactNote() {
               onChange={handleInputChange}
               placeholder="Your mobile number"
               required
+            />
+            <input
+              name="couponCode"
+              type="text"
+              value={formData.couponCode}
+              onChange={handleInputChange}
+              placeholder="Coupon code (optional)"
             />
             <textarea
               name="message"

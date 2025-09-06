@@ -78,7 +78,7 @@ export const sectionContent = {
     buttons: ["BOOK NOW", "VIEW GALLERY", "PRICING", "CONTACT"],
   },
   "Art & Event": {
-    title: "Art & Events Gallery",
+    title: "Customisation Sketches",
     services: [
       {
         name: "Customisation Sketches",

@@ -27,7 +27,7 @@ export class MainScene extends Phaser.Scene {
   private isMusicPlaying: boolean = false;
   private interactionText: Phaser.GameObjects.Text | undefined;
   private interactionText2: Phaser.GameObjects.Text | undefined;
-  private eKey!: Phaser.Input.Keyboard.Key;
+  private eKeyPressed: boolean = false;
   private interactionText3: Phaser.GameObjects.Text | undefined;
 
   // Touch controls
@@ -595,12 +595,8 @@ export class MainScene extends Phaser.Scene {
         this
       );
 
-      // Add E key for interaction
-      if (this.input.keyboard) {
-        this.eKey = this.input.keyboard.addKey(
-          Phaser.Input.Keyboard.KeyCodes.E
-        );
-      }
+      // Add E key for interaction - use DOM event listener instead of Phaser keyboard
+      this.setupEKeyListener();
 
       // Check if device is mobile
       this.isMobile =
@@ -1360,14 +1356,14 @@ export class MainScene extends Phaser.Scene {
       if (currentAnim !== "idle") this.player.anims.play("idle", true);
     }
 
-    // Handle NPC interaction
-    if (this.eKey.isDown && this.interactionText) {
+    // Handle NPC interaction using our custom E key handler
+    if (this.eKeyPressed && this.interactionText) {
       this.openSketchCanvas();
     }
-    if (this.eKey.isDown && this.interactionText2) {
+    if (this.eKeyPressed && this.interactionText2) {
       this.openWebcamCapture();
     }
-    if (this.eKey.isDown && this.interactionText3) {
+    if (this.eKeyPressed && this.interactionText3) {
       this.openARTraceTool();
     }
 
@@ -1467,5 +1463,52 @@ export class MainScene extends Phaser.Scene {
       window.removeEventListener("videoBoothClosed", resumeHandler);
     };
     window.addEventListener("videoBoothClosed", resumeHandler);
+  }
+
+  private setupEKeyListener() {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle E key if not typing in input fields
+      const activeElement = document.activeElement as HTMLElement;
+      const isTypingInInput =
+        activeElement &&
+        (activeElement.tagName === "INPUT" ||
+          activeElement.tagName === "TEXTAREA" ||
+          activeElement.contentEditable === "true" ||
+          activeElement.isContentEditable);
+
+      if (event.key === "e" || event.key === "E") {
+        if (!isTypingInInput) {
+          this.eKeyPressed = true;
+          event.preventDefault();
+        }
+      }
+    };
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "e" || event.key === "E") {
+        this.eKeyPressed = false;
+      }
+    };
+
+    // Add event listeners
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    // Store references for cleanup
+    this.eKeyDownHandler = handleKeyDown;
+    this.eKeyUpHandler = handleKeyUp;
+  }
+
+  private eKeyDownHandler?: (event: KeyboardEvent) => void;
+  private eKeyUpHandler?: (event: KeyboardEvent) => void;
+
+  shutdown() {
+    // Clean up event listeners
+    if (this.eKeyDownHandler) {
+      window.removeEventListener("keydown", this.eKeyDownHandler);
+    }
+    if (this.eKeyUpHandler) {
+      window.removeEventListener("keyup", this.eKeyUpHandler);
+    }
   }
 }
