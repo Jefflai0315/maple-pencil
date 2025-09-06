@@ -195,12 +195,12 @@ export const ContactForm = () => {
       }
 
       // First, try to submit to Google Sheets
-      let submissionSuccess = await submitToGoogleSheets();
+      const submissionSuccess = await submitToGoogleSheets();
 
       // If Google Sheets submission fails, try email as backup
-      if (!submissionSuccess) {
-        submissionSuccess = await submitViaEmail();
-      }
+      // if (!submissionSuccess) {
+      await submitViaEmail();
+      // }
 
       if (submissionSuccess) {
         // Reset form on success

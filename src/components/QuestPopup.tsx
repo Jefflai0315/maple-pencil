@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { ContactForm } from "./ContactForm";
 import Image from "next/image";
 
@@ -11,6 +11,38 @@ import {
 } from "../app/utils/constants";
 
 import { ArtEventContent } from "../app/utils/interface";
+
+// Intersection Observer Hook for lazy loading
+const useIntersectionObserver = (
+  ref: React.RefObject<HTMLElement | null>,
+  options: IntersectionObserverInit = {}
+) => {
+  const [isIntersecting, setIsIntersecting] = useState(false);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsIntersecting(entry.isIntersecting);
+      },
+      {
+        threshold: 0.1,
+        rootMargin: "50px",
+        ...options,
+      }
+    );
+
+    observer.observe(element);
+
+    return () => {
+      observer.unobserve(element);
+    };
+  }, [ref, options]);
+
+  return isIntersecting;
+};
 
 // Typing Text Component
 const TypingText = ({
@@ -145,6 +177,11 @@ const GalleryCard = ({
   price: number;
   onImageClick: (index: number, category: number) => void;
 }) => {
+  const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set());
+  const [imageError, setImageError] = useState<Set<number>>(new Set());
+  const cardRef = useRef<HTMLDivElement>(null);
+  const isVisible = useIntersectionObserver(cardRef);
+
   const rand = (seed: number) => {
     const x = Math.sin(seed) * 10000;
     return x - Math.floor(x);
@@ -165,8 +202,37 @@ const GalleryCard = ({
     }
   };
 
+  // Only load first 3 images initially, load rest on hover/click
+  const imagesToShow = isVisible ? images.slice(0, 3) : images.slice(0, 1);
+
+  const handleImageLoad = (index: number) => {
+    setLoadedImages((prev) => new Set([...prev, index]));
+  };
+
+  const handleImageError = (index: number) => {
+    setImageError((prev) => new Set([...prev, index]));
+  };
+
+  // Preload remaining images when card becomes visible
+  useEffect(() => {
+    if (isVisible && images.length > 3) {
+      const remainingImages = images.slice(3);
+      remainingImages.forEach((img, index) => {
+        const actualIndex = index + 3;
+        if (!loadedImages.has(actualIndex)) {
+          const imgElement = new window.Image();
+          imgElement.src = `/gallery/${getCategoryPath(title)}/${img}`;
+          imgElement.onload = () => {
+            setLoadedImages((prev) => new Set([...prev, actualIndex]));
+          };
+        }
+      });
+    }
+  }, [isVisible, images, loadedImages, title]);
+
   return (
     <div
+      ref={cardRef}
       className="flex flex-col bg-white/5 backdrop-blur-sm rounded-lg pr-2 hover:bg-white/10 transition-all duration-300 cursor-pointer hover:bg-white/10 hover:scale-102"
       onClick={() => onImageClick(0, categoryIndex)}
     >
@@ -178,26 +244,55 @@ const GalleryCard = ({
               "inset 0 4px 8px rgba(0,0,0,0.15), inset 0 -2px 4px rgba(0,0,0,0.05)",
           }}
         >
-          {images.map((img, index) => {
+          {imagesToShow.map((img, index) => {
             const rotation = (rand(index) - 0.5) * 12;
+            const isLoaded = loadedImages.has(index);
+            const hasError = imageError.has(index);
+
             return (
-              <Image
-                width={100}
-                height={130}
+              <div
                 key={img}
-                src={`/gallery/${getCategoryPath(title)}/${img}`}
-                alt={img.replace(/_/g, " ").replace(".jpg", "")}
                 className="absolute rounded-lg shadow-lg transition-all duration-300 bg-white hover:z-50"
                 style={{
                   transform: `rotate(${rotation}deg)`,
                   zIndex: index,
                   width: "50px",
                   height: "60px",
-                  objectFit: "cover",
                 }}
-                loading="lazy"
-                decoding="async"
-              />
+              >
+                {!hasError ? (
+                  <Image
+                    width={50}
+                    height={60}
+                    src={`/gallery/${getCategoryPath(title)}/${img}`}
+                    alt={img.replace(/_/g, " ").replace(".jpg", "")}
+                    className={`rounded-lg transition-opacity duration-300 ${
+                      isLoaded ? "opacity-100" : "opacity-0"
+                    }`}
+                    style={{
+                      width: "50px",
+                      height: "60px",
+                      objectFit: "cover",
+                    }}
+                    loading={index === 0 ? "eager" : "lazy"}
+                    priority={index === 0}
+                    quality={75}
+                    onLoad={() => handleImageLoad(index)}
+                    onError={() => handleImageError(index)}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-200 rounded-lg flex items-center justify-center text-xs text-gray-500">
+                    Error
+                  </div>
+                )}
+
+                {/* Loading placeholder */}
+                {!isLoaded && !hasError && (
+                  <div className="absolute inset-0 bg-gray-200 rounded-lg animate-pulse flex items-center justify-center">
+                    <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
@@ -211,13 +306,12 @@ const GalleryCard = ({
               src={`/money.png`}
               alt="$"
               className=""
+              priority
             />
             <p className="text-gray-600">{price}</p>
           </div>
         </div>
       </div>
-
-      {/* Add magnifying glass icon */}
     </div>
   );
 };
@@ -252,7 +346,7 @@ const ImageModal = ({
     }
   }, [modalIndex, images.length]);
 
-  // Preload adjacent images
+  // Preload adjacent images with better error handling
   useEffect(() => {
     if (isOpen && images.length > 0) {
       const nextIndex = (modalIndex + 1) % images.length;
@@ -265,11 +359,19 @@ const ImageModal = ({
           img.onload = () => {
             setLoadedImages((prev) => new Set([...prev, index]));
           };
+          img.onerror = () => {
+            console.warn(`Failed to preload image: ${images[index]}`);
+          };
         }
       };
 
-      preloadImage(nextIndex);
-      preloadImage(prevIndex);
+      // Preload with a small delay to avoid blocking the UI
+      const timeoutId = setTimeout(() => {
+        preloadImage(nextIndex);
+        preloadImage(prevIndex);
+      }, 100);
+
+      return () => clearTimeout(timeoutId);
     }
   }, [modalIndex, isOpen, images, category, loadedImages]);
 
@@ -489,13 +591,16 @@ const QuestPopup = ({
     }
   };
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (isDragging && popupRef.current) {
-      const x = e.clientX - dragOffset.x;
-      const y = e.clientY - dragOffset.y;
-      popupRef.current.style.transform = `translate(${x}px, ${y}px)`;
-    }
-  };
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (isDragging && popupRef.current) {
+        const x = e.clientX - dragOffset.x;
+        const y = e.clientY - dragOffset.y;
+        popupRef.current.style.transform = `translate(${x}px, ${y}px)`;
+      }
+    },
+    [isDragging, dragOffset]
+  );
 
   const handleMouseUp = () => {
     setIsDragging(false);
@@ -510,7 +615,7 @@ const QuestPopup = ({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDragging]);
+  }, [isDragging, handleMouseMove]);
 
   const handleImageClick = (index: number, category: number) => {
     setModalIndex(index);
@@ -573,7 +678,14 @@ const QuestPopup = ({
                 <span className="text-xl font-bold">{content.title}</span>
                 <span className="text-sm">{content.level}</span>
               </div>
-              <img src={content.npc} className="quest-details-npc" alt="NPC" />
+              <Image
+                src={content.npc}
+                className="quest-details-npc"
+                alt="NPC"
+                width={100}
+                height={100}
+                priority
+              />
             </div>
             {section === "Art & Event" && isArtEventContent(content) ? (
               <>
@@ -603,6 +715,22 @@ const QuestPopup = ({
                       touchAction: "pan-y",
                     }}
                   >
+                    {/* auto sliding preview of 1 image from each category */}
+                    <div className="flex flex-row gap-4 md:gap-2">
+                      {/* {getSampleCategoryImages().map((item, index) => (
+                        <div
+                          key={`sample-${item.category}-${index}`}
+                          className="flex flex-col gap-2"
+                        >
+                          <Image
+                            src={item.image}
+                            alt={item.image}
+                            width={100}
+                            height={100}
+                          />
+                        </div>
+                      ))} */}
+                    </div>
                     <div className="flex flex-col gap-4 md:gap-2">
                       {/* Service Description */}
 
