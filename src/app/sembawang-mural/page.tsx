@@ -1,0 +1,1400 @@
+"use client";
+
+import React, { useState, useEffect, useRef } from "react";
+import { IconX, IconLoader2 } from "@tabler/icons-react";
+import { muralPromptThemes } from "../utils/constants";
+
+interface MuralItem {
+  id: string;
+  imageUrl: string;
+  videoUrl: string;
+  fallbackVideoUrl?: string;
+  gridPosition: number;
+  finalMuralGridPosition?: number | null;
+  timestamp: string;
+  userDetails: {
+    name: string;
+    description: string;
+  };
+}
+
+interface AnimationState {
+  isPlaying: boolean;
+  currentItem: MuralItem | null;
+  animationPhase:
+    | "idle"
+    | "enlarging"
+    | "video-playing"
+    | "image-showing"
+    | "shrinking"
+    | "placing";
+  clickedPosition?: { x: number; y: number; width: number; height: number };
+}
+
+const PROMPT_SPAWN_INTERVAL = 7500; // ms (slower spawn)
+
+const PROMPT_DIRECTIONS = ["lr", "rl"] as const;
+type PromptDirection = (typeof PROMPT_DIRECTIONS)[number];
+
+export default function MuralPage() {
+  const [muralItems, setMuralItems] = useState<MuralItem[]>([]);
+  const [animationState, setAnimationState] = useState<AnimationState>({
+    isPlaying: false,
+    currentItem: null,
+    animationPhase: "idle",
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const animationContainerRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const bgVideoRef = useRef<HTMLVideoElement>(null);
+  // Add refs for timeouts and preloaded videos
+  const animationTimeoutsRef = useRef<number[]>([]);
+  const preloadedVideosRef = useRef<Map<string, HTMLVideoElement>>(new Map());
+  // Add ref for floating prompt container
+  const promptContainerRef = useRef<HTMLDivElement>(null);
+  // Add state to track video fallback
+  const [videoErrorState, setVideoErrorState] = useState<
+    "none" | "main-failed" | "fallback-failed"
+  >("none");
+
+  // Add state to track video loading
+  const [videoLoadingState, setVideoLoadingState] = useState<
+    "loading" | "loaded" | "error"
+  >("loading");
+
+  // Add state to track if video has finished playing
+  const [videoFinished, setVideoFinished] = useState(false);
+
+  // Add timeout for video loading
+  const [videoLoadTimeout, setVideoLoadTimeout] =
+    useState<NodeJS.Timeout | null>(null);
+
+  // Add loading progress state
+  const [videoLoadProgress, setVideoLoadProgress] = useState(0);
+
+  // Mural animation state
+  const [isMuralAnimationPlaying, setIsMuralAnimationPlaying] = useState(false);
+  const [muralAnimationVersion, setMuralAnimationVersion] = useState(1); // 1 or 2
+  const muralVideoRef = useRef<HTMLVideoElement>(null);
+
+  // Mobile zoom state
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [showMobileHint, setShowMobileHint] = useState(false);
+
+  // Function to check video format compatibility
+  const checkVideoCompatibility = (videoUrl: string): boolean => {
+    const supportedFormats = [".mp4", ".webm", ".ogg", ".mov"];
+    const url = videoUrl.toLowerCase();
+    return supportedFormats.some((format) => url.includes(format));
+  };
+
+  // Function to debug video loading issues
+  const debugVideoLoading = (videoUrl: string, error?: unknown) => {
+    console.group("Video Loading Debug");
+    console.log("Video URL:", videoUrl);
+    console.log("Format supported:", checkVideoCompatibility(videoUrl));
+    console.log("User Agent:", navigator.userAgent);
+    console.log("Error details:", error);
+    console.groupEnd();
+  };
+
+  // Floating prompt words state
+  const [floatingPrompts, setFloatingPrompts] = useState<
+    {
+      key: string;
+      text: string;
+      startTop: number;
+      startLeft: number;
+      endTop: number;
+      endLeft: number;
+      fontSize: number;
+      rotate: number;
+      duration: number;
+      direction: PromptDirection;
+      wobbleAmp: number;
+      wobbleFreq: number;
+      speed: number;
+    }[]
+  >([]);
+
+  // Helper to get a random prompt config
+  function getRandomPromptConfig() {
+    const allPrompts = muralPromptThemes.flatMap((theme) => theme.prompts);
+    const text = allPrompts[Math.floor(Math.random() * allPrompts.length)];
+    const directionIdx = Math.floor(Math.random() * 2); // Only lr, rl
+    const direction: PromptDirection = PROMPT_DIRECTIONS[directionIdx];
+    // Restrict to top 8-25%
+    const top = Math.random() * 15 + 5; // 10% to 20%
+    const startTop = top,
+      endTop = top;
+    let startLeft, endLeft;
+    if (direction === "lr") {
+      startLeft = -20;
+      endLeft = 110;
+    } else {
+      // rl
+      startLeft = 110;
+      endLeft = -20;
+    }
+    // --- NEW: Calculate duration based on container width and random speed ---
+    const containerWidth =
+      promptContainerRef.current?.offsetWidth || window.innerWidth;
+    const travelDistance = containerWidth * 1.3; // from -20% to 110%
+    const minSpeed = 60; // px/sec
+    const maxSpeed = 100; // px/sec
+    const speed = Math.random() * (maxSpeed - minSpeed) + minSpeed;
+    const duration = (travelDistance / speed) * 1000; // ms
+
+    // Organic motion: random wobble amplitude (px/em) and frequency
+    const wobbleAmp = Math.random() * 12 + 8; // 8-20px
+    const wobbleFreq = Math.random() * 1.2 + 0.7; // 0.7-1.9 (cycles per anim)
+    return {
+      key: `${Date.now()}-${Math.random()}`,
+      text,
+      startTop,
+      startLeft,
+      endTop,
+      endLeft,
+      fontSize: Math.random() * 0.8 + 1.1,
+      rotate: Math.random() * 16 - 8,
+      duration, // use calculated duration
+      speed, // store speed for possible future use
+      direction,
+      wobbleAmp,
+      wobbleFreq,
+    };
+  }
+
+  // Spawn new prompts at intervals
+  useEffect(() => {
+    const spawnPrompt = () => {
+      const newPrompt = getRandomPromptConfig();
+      console.log("Spawning new prompt:", newPrompt.text);
+      setFloatingPrompts((prev) => [...prev, newPrompt].slice(-4)); // keep at most 4 prompts at a time
+    };
+    spawnPrompt();
+    const interval = setInterval(spawnPrompt, PROMPT_SPAWN_INTERVAL);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Remove prompts after their animation ends
+  useEffect(() => {
+    if (floatingPrompts.length === 0) return;
+    console.log("Current floating prompts:", floatingPrompts.length);
+    const timers = floatingPrompts.map((prompt) =>
+      setTimeout(() => {
+        setFloatingPrompts((prev) => prev.filter((p) => p.key !== prompt.key));
+      }, prompt.duration)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [floatingPrompts]);
+
+  // Fixed 12x8 grid dimensions for overlay
+  const GRID_ROWS = 8;
+  const GRID_COLS = 12;
+  const TOTAL_CELLS = GRID_ROWS * GRID_COLS;
+
+  // listen to shortcut key
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "e" && !isLoading) {
+        event.preventDefault();
+        handleRefresh();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isLoading]);
+
+  useEffect(() => {
+    // Check if mobile on mount and window resize
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Show mobile hint for 3 seconds
+  useEffect(() => {
+    if (isMobile) {
+      console.log("Mobile detected, showing hint");
+      setShowMobileHint(true);
+      const timer = setTimeout(() => {
+        console.log("Hiding mobile hint");
+        setShowMobileHint(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isMobile]);
+
+  // Fallback: Show hint after component mounts (for mobile)
+  useEffect(() => {
+    const fallbackTimer = setTimeout(() => {
+      if (isMobile && !showMobileHint) {
+        console.log("Fallback: showing mobile hint");
+        setShowMobileHint(true);
+        setTimeout(() => {
+          setShowMobileHint(false);
+        }, 3000);
+      }
+    }, 500);
+    return () => clearTimeout(fallbackTimer);
+  }, []);
+
+  useEffect(() => {
+    if (bgVideoRef.current) {
+      bgVideoRef.current.playbackRate = 0.9; // Set to your desired speed (e.g., 0.5 for half speed)
+    }
+  }, [animationState.animationPhase]);
+
+  useEffect(() => {
+    // Load mural items from API
+    console.log("Mural page mounted, fetching items...");
+    fetchMuralItems();
+  }, []);
+
+  const fetchMuralItems = async () => {
+    try {
+      console.log("Fetching mural items from Cloudinary API...");
+      const response = await fetch("/api/upload-mongodb");
+      console.log("API response status:", response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("API response data:", data);
+
+        if (data.success && data.data && Array.isArray(data.data)) {
+          console.log("Setting mural items:", data.data);
+          setMuralItems(data.data);
+        } else {
+          console.warn("API returned invalid data format");
+          setMuralItems([]); // Empty array instead of mock data
+        }
+      } else {
+        console.error("Failed to fetch mural items, status:", response.status);
+        const errorText = await response.text();
+        console.error("Error response:", errorText);
+        setMuralItems([]); // Empty array instead of mock data
+      }
+    } catch (error) {
+      console.error("Error fetching mural items:", error);
+      setMuralItems([]); // Empty array instead of mock data
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsLoading(true);
+    try {
+      await fetchMuralItems();
+    } catch (error) {
+      console.error("Failed to refresh mural:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const toggleMuralAnimation = () => {
+    setIsMuralAnimationPlaying(!isMuralAnimationPlaying);
+  };
+
+  const switchMuralAnimationVersion = () => {
+    setMuralAnimationVersion(muralAnimationVersion === 1 ? 2 : 1);
+  };
+
+  // Mobile zoom functions
+  const handleZoomIn = () => {
+    if (isMobile) {
+      setZoomLevel(2);
+      setIsZoomed(true);
+    }
+  };
+
+  const handleZoomOut = () => {
+    if (isMobile) {
+      setZoomLevel(1);
+      setIsZoomed(false);
+      setPanX(0);
+      setPanY(0);
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!isMobile || !isZoomed) return;
+    setIsDragging(true);
+    setDragStart({
+      x: e.touches[0].clientX - panX,
+      y: e.touches[0].clientY - panY,
+    });
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isMobile || !isZoomed || !isDragging) return;
+    e.preventDefault();
+    const newPanX = e.touches[0].clientX - dragStart.x;
+    const newPanY = e.touches[0].clientY - dragStart.y;
+
+    // Constrain panning within bounds
+    const maxPanX = 100; // Adjust based on zoom level
+    const maxPanY = 100;
+
+    setPanX(Math.max(-maxPanX, Math.min(maxPanX, newPanX)));
+    setPanY(Math.max(-maxPanY, Math.min(maxPanY, newPanY)));
+  };
+
+  const handleTouchEnd = () => {
+    if (!isMobile) return;
+    setIsDragging(false);
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (!isMobile) return;
+    e.preventDefault();
+    if (e.deltaY < 0) {
+      handleZoomIn();
+    } else {
+      handleZoomOut();
+    }
+  };
+
+  // Set playback rate based on version
+  useEffect(() => {
+    if (muralVideoRef.current) {
+      if (muralAnimationVersion === 1) {
+        muralVideoRef.current.playbackRate = 0.7; // 30% slower for version 1
+      } else {
+        muralVideoRef.current.playbackRate = 1.0; // Normal speed for version 2
+      }
+    }
+  }, [muralAnimationVersion, isMuralAnimationPlaying]);
+
+  const startAnimation = (item: MuralItem, event: React.MouseEvent) => {
+    // Clear all previous animation timeouts
+    animationTimeoutsRef.current.forEach((id) => clearTimeout(id));
+    animationTimeoutsRef.current = [];
+
+    // Get the clicked element's position and dimensions
+    const clickedElement = event.currentTarget as HTMLElement;
+    const rect = clickedElement.getBoundingClientRect();
+
+    setAnimationState({
+      isPlaying: true,
+      currentItem: item,
+      animationPhase: "enlarging",
+      clickedPosition: {
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+      },
+    });
+
+    // Enlarge animation (0.3s)
+    const t1 = window.setTimeout(() => {
+      setAnimationState((prev) => ({
+        ...prev,
+        animationPhase: "video-playing",
+      }));
+
+      // Don't auto-advance to next phase - let user control when to close
+      // The animation will stay in "video-playing" phase until user clicks close
+    }, 300);
+    animationTimeoutsRef.current.push(t1);
+  };
+
+  // Clean up timeouts on unmount
+  useEffect(() => {
+    return () => {
+      animationTimeoutsRef.current.forEach((id) => clearTimeout(id));
+      animationTimeoutsRef.current = [];
+    };
+  }, []);
+
+  // Preload video on hover
+  const handleGridItemMouseEnter = (item: MuralItem) => {
+    if (!item.videoUrl) return;
+    if (preloadedVideosRef.current.has(item.videoUrl)) return;
+    const video = document.createElement("video");
+    video.src = item.videoUrl;
+    video.preload = "auto";
+    video.muted = true;
+    video.style.display = "none";
+    document.body.appendChild(video);
+    preloadedVideosRef.current.set(item.videoUrl, video);
+  };
+
+  const handleGridItemMouseLeave = (item: MuralItem) => {
+    if (!item.videoUrl) return;
+    const video = preloadedVideosRef.current.get(item.videoUrl);
+    if (video) {
+      video.pause();
+      video.remove();
+      preloadedVideosRef.current.delete(item.videoUrl);
+    }
+  };
+
+  const getAnimationStyles = () => {
+    if (!animationState.clickedPosition) return {};
+
+    const { x, y, width, height } = animationState.clickedPosition;
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
+
+    // Mobile-responsive sizing
+    const mobileMaxWidth = Math.min(window.innerWidth - 32, 350);
+    const mobileMaxHeight = Math.min(window.innerHeight - 32, 350);
+    const desktopMaxWidth = 700;
+    const desktopMaxHeight = 700;
+
+    switch (animationState.animationPhase) {
+      case "enlarging":
+        return {
+          position: "fixed" as const,
+          left: `${centerX}px`,
+          top: `${centerY}px`,
+          transform: "translate(-50%, -50%) scale(0.1)",
+          transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+          zIndex: 1000,
+        };
+      case "video-playing":
+      case "image-showing":
+        return {
+          position: "fixed" as const,
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%, -50%) scale(1)",
+          transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+          zIndex: 1000,
+          maxWidth: isMobile ? `${mobileMaxWidth}px` : `${desktopMaxWidth}px`,
+          maxHeight: isMobile
+            ? `${mobileMaxHeight}px`
+            : `${desktopMaxHeight}px`,
+        };
+      case "shrinking":
+        return {
+          position: "fixed" as const,
+          left: `${centerX}px`,
+          top: `${centerY}px`,
+          transform: "translate(-50%, -50%) scale(0.1)",
+          transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+          zIndex: 1000,
+        };
+      default:
+        return {};
+    }
+  };
+
+  // Reset video error state when opening a new animation
+  useEffect(() => {
+    if (animationState.isPlaying) {
+      setVideoErrorState("none");
+      setVideoLoadingState("loading");
+      setVideoFinished(false);
+      setVideoLoadProgress(0);
+
+      // Set a timeout to prevent infinite loading
+      const timeout = setTimeout(() => {
+        if (videoLoadingState === "loading") {
+          console.warn(
+            "Video loading timeout - switching to fallback or image"
+          );
+          setVideoLoadingState("error");
+          if (animationState.currentItem?.fallbackVideoUrl) {
+            setVideoErrorState("main-failed");
+          } else {
+            setVideoErrorState("fallback-failed");
+          }
+        }
+      }, 15000); // 15 second timeout
+
+      setVideoLoadTimeout(timeout);
+    }
+
+    return () => {
+      if (videoLoadTimeout) {
+        clearTimeout(videoLoadTimeout);
+        setVideoLoadTimeout(null);
+      }
+    };
+  }, [animationState.currentItem, animationState.isPlaying]);
+
+  const PLANE_WIDTH = 220; // px, adjust to your plane image
+  const FLAG_WIDTH = 350; // px, adjust to your flag image and desired text area
+  const PLANE_HEIGHT = 120; // px, adjust to your images
+
+  return (
+    <>
+      <style jsx global>{`
+        @keyframes muralPromptFloat-lr {
+          0% {
+            opacity: 0;
+            left: -20%;
+            transform: translateY(0) scale(1) rotate(var(--rotate, 0deg));
+          }
+          10% {
+            opacity: 1;
+          }
+          20% {
+            transform: translateY(calc(var(--wobble-amp, 12px) * 1)) scale(1.04)
+              rotate(var(--rotate, 0deg));
+          }
+          40% {
+            transform: translateY(calc(var(--wobble-amp, 12px) * -1))
+              scale(0.98) rotate(var(--rotate, 0deg));
+          }
+          60% {
+            transform: translateY(calc(var(--wobble-amp, 12px) * 0.7))
+              scale(1.02) rotate(var(--rotate, 0deg));
+          }
+          80% {
+            opacity: 1;
+            transform: translateY(0) scale(1) rotate(var(--rotate, 0deg));
+          }
+          100% {
+            opacity: 0;
+            left: 110%;
+            transform: translateY(0) scale(1) rotate(var(--rotate, 0deg));
+          }
+        }
+        @keyframes muralPromptFloat-rl {
+          0% {
+            opacity: 0;
+            left: 110%;
+            transform: translateY(0) scale(1) rotate(var(--rotate, 0deg));
+          }
+          10% {
+            opacity: 1;
+          }
+          20% {
+            transform: translateY(calc(var(--wobble-amp, 12px) * -1))
+              scale(1.04) rotate(var(--rotate, 0deg));
+          }
+          40% {
+            transform: translateY(calc(var(--wobble-amp, 12px) * 1)) scale(0.98)
+              rotate(var(--rotate, 0deg));
+          }
+          60% {
+            transform: translateY(calc(var(--wobble-amp, 12px) * -0.7))
+              scale(1.02) rotate(var(--rotate, 0deg));
+          }
+          80% {
+            opacity: 1;
+            transform: translateY(0) scale(1) rotate(var(--rotate, 0deg));
+          }
+          100% {
+            opacity: 0;
+            left: -20%;
+            transform: translateY(0) scale(1) rotate(var(--rotate, 0deg));
+          }
+        }
+
+        @keyframes scroll-text {
+          0% {
+            transform: translateX(50%);
+          }
+          100% {
+            transform: translateX(-260%);
+          }
+        }
+
+        .animate-scroll-text {
+          animation: scroll-text 25s linear infinite;
+        }
+
+        @keyframes borderGlow {
+          0% {
+            border-color: rgba(59, 130, 246, 0.6);
+            box-shadow: 0 0 5px rgba(59, 130, 246, 0.3);
+          }
+          100% {
+            border-color: rgba(59, 130, 246, 0.8);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+          }
+        }
+      `}</style>
+      <div
+        className="min-h-screen bg-gradient-to-b from-blue-200 to-blue-500 py-4 md:py-8 relative"
+        style={{
+          backgroundImage:
+            animationState.animationPhase === "video-playing"
+              ? undefined
+              : "url('/images/mural-background.png')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          overflow: "hidden",
+        }}
+      >
+        {/* Background video, always rendered and looping */}
+        {animationState.animationPhase !== "video-playing" && (
+          <video
+            ref={bgVideoRef}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="fixed inset-0 w-full h-full object-cover z-0 transition-opacity duration-700"
+            style={{
+              pointerEvents: "none",
+              opacity: 1,
+            }}
+            src={
+              isMobile
+                ? "/videos/mural-bg-main-mobile.mp4"
+                : "/videos/mural-bg-main-pc.mp4"
+            }
+            poster="/images/mural-background.png"
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
+        )}
+        {/* Floating animated prompts in the background */}
+        <div
+          ref={promptContainerRef}
+          className="pointer-events-none select-none absolute inset-0 z-0"
+        >
+          {floatingPrompts.map((prompt) => {
+            const style: React.CSSProperties & {
+              [key: string]: string | number;
+            } = {
+              position: "absolute",
+              top: `${prompt.startTop}%`,
+              left: `${prompt.startLeft}%`,
+              width: `${PLANE_WIDTH + FLAG_WIDTH}px`,
+              height: `${PLANE_HEIGHT}px`,
+              gap: "16px",
+              zIndex: -1,
+              animation: `muralPromptFloat-${prompt.direction} ${prompt.duration}ms linear forwards`,
+              "--wobble-amp": `${prompt.wobbleAmp}px`,
+              "--rotate": `${prompt.rotate}deg`,
+              display: "flex",
+              flexDirection: prompt.direction === "lr" ? "row-reverse" : "row",
+              alignItems: "center",
+              pointerEvents: "none",
+              userSelect: "none",
+            };
+            return (
+              <div key={prompt.key} style={style}>
+                {/* Plane */}
+                <img
+                  src="/images/plane-only.png"
+                  alt=""
+                  style={{
+                    width: `${PLANE_WIDTH}px`,
+                    height: `${PLANE_HEIGHT}px`,
+                    objectFit: "contain",
+                    zIndex: 2,
+                    transform:
+                      prompt.direction === "rl" ? "none" : "scaleX(-1)",
+                    pointerEvents: "none",
+                    userSelect: "none",
+                    filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.18))",
+                  }}
+                  draggable={false}
+                />
+                {/* Flag/banner */}
+                <div
+                  style={{
+                    position: "relative",
+                    width: `${FLAG_WIDTH}px`,
+                    height: `${PLANE_HEIGHT * 0.7}px`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 1,
+                    marginLeft: prompt.direction === "lr" ? 0 : "-16px",
+                    marginRight: prompt.direction === "lr" ? "-16px" : 0,
+                  }}
+                >
+                  <img
+                    src="/images/flag.png"
+                    alt=""
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: 6,
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      zIndex: 1,
+                      pointerEvents: "none",
+                      userSelect: "none",
+                      rotate: prompt.direction === "rl" ? "-4deg" : "4deg",
+                      transform:
+                        prompt.direction === "rl" ? "none" : "scaleX(-1) ",
+                    }}
+                    draggable={false}
+                  />
+                  <div
+                    style={{
+                      position: "relative",
+                      zIndex: 2,
+                      width: "90%",
+                      textAlign: "center",
+                      fontWeight: 600,
+                      color: "#000",
+                      textShadow: "0 2px 12px rgba(0,0,0,0.18)",
+                      letterSpacing: "0.03em",
+                      padding: "2px ",
+                      whiteSpace: "normal",
+                      lineHeight: "1.2",
+                      pointerEvents: "none",
+                      userSelect: "none",
+                      fontFamily: "'quicksand', sans-serif",
+                    }}
+                  >
+                    {prompt.text}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {/* Background video, always rendered, fades in/out */}
+        <video
+          ref={bgVideoRef}
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="fixed inset-0 w-full h-full object-cover z-20 transition-opacity duration-700"
+          style={{
+            pointerEvents: "none",
+            opacity: animationState.animationPhase === "video-playing" ? 1 : 0,
+          }}
+          src="/videos/mural-background.mp4"
+        />
+
+        {/* Scrolling Project Banner */}
+        <div className="fixed top-0 left-0 right-0 z-30 bg-black/60 backdrop-blur-sm border-b border-white/20">
+          <div className="overflow-hidden whitespace-nowrap py-2">
+            <div className="animate-scroll-text text-white text-sm md:text-base font-medium tracking-wide">
+              🎨 This is a project with Sebawang West, hosted at Woodlands
+              Galaxy CC • Let kids draw their city and dreams and animate it
+              into art
+            </div>
+          </div>
+        </div>
+
+        <div
+          className="max-w-7xl mx-auto px-2 md:px-4"
+          style={{ position: "relative" }}
+        >
+          {/* Header - Responsive text sizing */}
+          <div
+            className="text-center text-white p-2 md:p-4 m-2 md:m-8 lg:m-12"
+            style={{ marginTop: "60px" }}
+          >
+            <h1
+              className="text-6xl lg:text-8xl font-bold mb-2 tracking-wider md:tracking-widest"
+              style={{
+                fontFamily: "'Acallon', sans-serif",
+                letterSpacing: isMobile ? "0.1em" : "0.2em",
+                textShadow: "2px 2px 6px rgba(0, 0, 0, 0.4)",
+              }}
+            >
+              CANVAS OF
+            </h1>
+            <div
+              className="text-3xl lg:text-4xl m-1 md:m-2"
+              style={{
+                fontFamily: "'LePetitCochon', cursive",
+                fontWeight: 400,
+                letterSpacing: "0.05em",
+                textShadow: "2px 2px 6px rgba(0, 0, 0, 0.4)",
+              }}
+            >
+              THE HiDDEN STARTS
+            </div>
+          </div>
+
+          {/* Animation Container */}
+          {animationState.currentItem && (
+            <div
+              ref={animationContainerRef}
+              className={`fixed inset-0 z-50 transition-all duration-500 ${
+                animationState.animationPhase === "idle"
+                  ? "opacity-0 pointer-events-none scale-95"
+                  : "opacity-100 scale-100"
+              }`}
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+            >
+              <div
+                className={
+                  // Mobile-responsive animation container
+                  ["video-playing", "image-showing"].includes(
+                    animationState.animationPhase
+                  )
+                    ? `relative mx-auto my-auto z-50 ${
+                        isMobile
+                          ? "w-[90vw] h-[50vh] max-w-sm max-h-96"
+                          : "w-[700px] h-[700px] max-w-3xl max-h-3xl"
+                      }`
+                    : "relative w-48 h-48 md:w-96 md:h-96 max-w-2xl max-h-2xl mx-auto my-auto z-50"
+                }
+                style={{
+                  ...getAnimationStyles(),
+                  border:
+                    animationState.animationPhase === "video-playing"
+                      ? videoFinished
+                        ? "2px solid rgba(59, 130, 246, 0.6)"
+                        : "2px solid rgba(255, 255, 255, 0.3)"
+                      : "none",
+                  animation: videoFinished
+                    ? "borderGlow 2s ease-in-out infinite alternate"
+                    : "none",
+                  borderRadius: "12px",
+                  boxShadow:
+                    animationState.animationPhase === "video-playing"
+                      ? videoFinished
+                        ? "0 20px 40px rgba(59, 130, 246, 0.3), 0 0 20px rgba(59, 130, 246, 0.2)"
+                        : "0 20px 40px rgba(0, 0, 0, 0.5)"
+                      : "none",
+                }}
+              >
+                {/* Video Player - Real or Simulated */}
+                {animationState.animationPhase === "video-playing" && (
+                  <div className="relative w-full h-full">
+                    {/* Loading overlay */}
+                    {videoLoadingState === "loading" && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10 rounded-lg animate-in fade-in duration-300">
+                        <div className="text-center text-white">
+                          <IconLoader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                          <p className="text-sm">Loading video...</p>
+                          <div className="mt-2 w-32 h-1 bg-gray-600 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                              style={{ width: `${videoLoadProgress}%` }}
+                            ></div>
+                          </div>
+                          <p className="text-xs text-gray-300 mt-1">
+                            {videoLoadProgress < 50
+                              ? "Loading video data..."
+                              : videoLoadProgress < 80
+                              ? "Preparing playback..."
+                              : videoLoadProgress < 100
+                              ? "Almost ready..."
+                              : "Ready to play!"}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Try main videoUrl first, then fallbackVideoUrl, then fallback image */}
+                    {videoErrorState === "none" &&
+                      animationState.currentItem.videoUrl && (
+                        <video
+                          src={animationState.currentItem.videoUrl}
+                          controls
+                          autoPlay
+                          muted
+                          playsInline
+                          loop
+                          preload="metadata"
+                          className="w-full h-full object-contain rounded-lg"
+                          style={{ background: "rgba(0, 0, 0, 0.30)" }}
+                          onError={(e) => {
+                            console.error("Main video failed to load:", e);
+                            if (animationState.currentItem?.videoUrl) {
+                              debugVideoLoading(
+                                animationState.currentItem.videoUrl,
+                                e
+                              );
+                            }
+                            setVideoErrorState("main-failed");
+                            setVideoLoadingState("error");
+                          }}
+                          onLoadStart={() => {
+                            console.log("Main video loading started");
+                            setVideoLoadingState("loading");
+                            setVideoLoadProgress(10);
+                          }}
+                          onCanPlay={() => {
+                            console.log("Main video can play");
+                            setVideoLoadingState("loaded");
+                            setVideoLoadProgress(100);
+                          }}
+                          onCanPlayThrough={() => {
+                            console.log("Main video can play through");
+                            setVideoLoadingState("loaded");
+                            setVideoLoadProgress(100);
+                          }}
+                          onLoadedData={() => {
+                            console.log("Main video data loaded");
+                            setVideoLoadingState("loaded");
+                            setVideoLoadProgress(90);
+                          }}
+                          onLoadedMetadata={() => {
+                            console.log("Main video metadata loaded");
+                            setVideoLoadingState("loaded");
+                            setVideoLoadProgress(80);
+                          }}
+                          onEnded={() => {
+                            console.log("Main video finished playing");
+                            setVideoLoadingState("loaded");
+                            setVideoFinished(true);
+                          }}
+                          onStalled={() => {
+                            console.log("Main video stalled");
+                            setVideoLoadingState("error");
+                          }}
+                          onSuspend={() => {
+                            console.log("Main video suspended");
+                            setVideoLoadingState("error");
+                          }}
+                          onAbort={() => {
+                            console.log("Main video aborted");
+                            setVideoErrorState("main-failed");
+                            setVideoLoadingState("error");
+                          }}
+                        />
+                      )}
+                    {videoErrorState === "main-failed" &&
+                      animationState.currentItem.fallbackVideoUrl && (
+                        <>
+                          {/* Loading overlay for fallback video */}
+                          {videoLoadingState === "loading" && (
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10 rounded-lg animate-in fade-in duration-300">
+                              <div className="text-center text-white">
+                                <IconLoader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                                <p className="text-sm">
+                                  Loading fallback video...
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                          <video
+                            src={animationState.currentItem.fallbackVideoUrl}
+                            controls
+                            autoPlay
+                            muted
+                            playsInline
+                            loop
+                            preload="metadata"
+                            className="w-full h-full object-contain rounded-lg"
+                            style={{ background: "rgba(0, 0, 0, 0.30)" }}
+                            onError={(e) => {
+                              console.error(
+                                "Fallback video failed to load:",
+                                e
+                              );
+                              if (
+                                animationState.currentItem?.fallbackVideoUrl
+                              ) {
+                                debugVideoLoading(
+                                  animationState.currentItem.fallbackVideoUrl,
+                                  e
+                                );
+                              }
+                              setVideoErrorState("fallback-failed");
+                              setVideoLoadingState("error");
+                            }}
+                            onLoadStart={() => {
+                              console.log("Fallback video loading started");
+                              setVideoLoadingState("loading");
+                              setVideoLoadProgress(10);
+                            }}
+                            onCanPlay={() => {
+                              console.log("Fallback video can play");
+                              setVideoLoadingState("loaded");
+                              setVideoLoadProgress(100);
+                            }}
+                            onCanPlayThrough={() => {
+                              console.log("Fallback video can play through");
+                              setVideoLoadingState("loaded");
+                              setVideoLoadProgress(100);
+                            }}
+                            onLoadedData={() => {
+                              console.log("Fallback video data loaded");
+                              setVideoLoadingState("loaded");
+                              setVideoLoadProgress(90);
+                            }}
+                            onLoadedMetadata={() => {
+                              console.log("Fallback video metadata loaded");
+                              setVideoLoadingState("loaded");
+                              setVideoLoadProgress(80);
+                            }}
+                            onEnded={() => {
+                              console.log("Fallback video finished playing");
+                              setVideoLoadingState("loaded");
+                              setVideoFinished(true);
+                            }}
+                            onStalled={() => {
+                              console.log("Fallback video stalled");
+                              setVideoLoadingState("error");
+                            }}
+                            onSuspend={() => {
+                              console.log("Fallback video suspended");
+                              setVideoLoadingState("error");
+                            }}
+                            onAbort={() => {
+                              console.log("Fallback video aborted");
+                              setVideoErrorState("fallback-failed");
+                              setVideoLoadingState("error");
+                            }}
+                          />
+                        </>
+                      )}
+                    {(videoErrorState === "fallback-failed" ||
+                      (!animationState.currentItem.videoUrl &&
+                        !animationState.currentItem.fallbackVideoUrl)) && (
+                      // Fallback: Simulated animation
+                      <img
+                        src={animationState.currentItem.imageUrl}
+                        alt="Video Animation"
+                        className="w-full h-full object-contain rounded-lg"
+                      />
+                    )}
+                    {/* Video status overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent flex items-end rounded-lg">
+                      <div className="p-2 md:p-4 text-white">
+                        <div className="flex items-center space-x-2">
+                          <div
+                            className={`w-2 h-2 md:w-3 md:h-3 rounded-full ${
+                              videoLoadingState === "loading"
+                                ? "bg-yellow-500 animate-pulse"
+                                : videoLoadingState === "loaded"
+                                ? videoFinished
+                                  ? "bg-blue-500 animate-pulse"
+                                  : "bg-green-500"
+                                : "bg-red-500 animate-pulse"
+                            }`}
+                          ></div>
+                          <span className="text-xs md:text-sm">
+                            {videoErrorState === "fallback-failed" ||
+                            (!animationState.currentItem.videoUrl &&
+                              !animationState.currentItem.fallbackVideoUrl)
+                              ? "Image Display (No Video Available)"
+                              : videoLoadingState === "loading"
+                              ? "Loading Video..."
+                              : videoLoadingState === "loaded"
+                              ? videoFinished
+                                ? "🎬 Video Finished - Click X to close"
+                                : "Video Ready - Click X to close"
+                              : "Video Error - Try again or close"}
+                          </span>
+                        </div>
+
+                        {/* Error state with retry button */}
+                        {videoLoadingState === "error" && (
+                          <div className="mt-2 flex items-center space-x-2">
+                            <button
+                              onClick={() => {
+                                setVideoErrorState("none");
+                                setVideoLoadingState("loading");
+                                setVideoFinished(false);
+                                // Force video reload by updating the key
+                                const videoElement =
+                                  document.querySelector("video");
+                                if (videoElement) {
+                                  videoElement.load();
+                                }
+                              }}
+                              className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors"
+                            >
+                              🔄 Retry Video
+                            </button>
+                            <span className="text-xs text-red-200">
+                              Video failed to load
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Video format compatibility warning */}
+                        {animationState.currentItem?.videoUrl &&
+                          !checkVideoCompatibility(
+                            animationState.currentItem.videoUrl
+                          ) && (
+                            <div className="mt-2 p-2 bg-yellow-900/30 border border-yellow-400/30 rounded-lg">
+                              <p className="text-xs text-yellow-200">
+                                ⚠️ Video format may not be supported by your
+                                browser
+                              </p>
+                              <p className="text-xs text-yellow-100 mt-1">
+                                Supported formats: MP4, WebM, OGG, MOV
+                              </p>
+                            </div>
+                          )}
+
+                        <div className="mt-2 text-xs text-white/80">
+                          {videoFinished
+                            ? "🎬 Video completed! Click the X button to close when ready"
+                            : videoLoadingState === "error"
+                            ? "❌ Video loading failed. Click retry or close."
+                            : "Click the X button to close when you&apos;re done watching"}
+                        </div>
+                        <div className="mt-1 text-xs text-white/60">
+                          {videoFinished
+                            ? "🎬 Video completed! Animation will stay open until you close it"
+                            : videoLoadingState === "error"
+                            ? "💡 Try refreshing the page if the problem persists"
+                            : "Animation will stay open until you close it"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Static Image */}
+                {animationState.animationPhase === "image-showing" && (
+                  <img
+                    src={animationState.currentItem.imageUrl}
+                    alt="Artwork"
+                    className="w-full h-full object-contain rounded-lg"
+                  />
+                )}
+
+                {/* Enlarging/Shrinking Animation */}
+                {(animationState.animationPhase === "enlarging" ||
+                  animationState.animationPhase === "shrinking") && (
+                  <img
+                    src={animationState.currentItem.imageUrl}
+                    alt="Artwork"
+                    className="w-full h-full object-contain rounded-lg"
+                  />
+                )}
+
+                {/* Animation Controls */}
+                <div className="absolute top-2 right-2 md:top-4 md:right-4 flex space-x-2">
+                  <button
+                    onClick={() =>
+                      setAnimationState({
+                        isPlaying: false,
+                        currentItem: null,
+                        animationPhase: "idle",
+                      })
+                    }
+                    className={`p-2 md:p-3 rounded-full transition-all duration-300 shadow-lg hover:scale-110 ${
+                      videoFinished
+                        ? "bg-blue-600 hover:bg-blue-700 animate-pulse ring-2 ring-blue-300"
+                        : videoLoadingState === "loaded"
+                        ? "bg-green-600 hover:bg-green-700 animate-pulse"
+                        : "bg-black/50 hover:bg-black/70"
+                    }`}
+                    title={
+                      videoFinished
+                        ? "Video completed! Click to close"
+                        : "Close animation"
+                    }
+                  >
+                    <IconX className="h-4 w-4 md:h-5 md:w-5 text-white" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* WIP Mural with Overlay Grid */}
+          <div className="mt-20 md:mt-0 bg-white/50 rounded-lg md:rounded-2xl shadow-xl p-4 md:p-8 mb-6 md:mb-10 relative z-10">
+            <div className="text-center text-gray-500 text-sm mb-4">
+              <h1
+                className="text-2xl md:text-4xl font-bold mb-2"
+                style={{
+                  fontFamily: "'LePetitCochon',sans-serif",
+                  letterSpacing: isMobile ? "0.1em" : "0.2em",
+                }}
+              >
+                OUR STORY, OUR MURAL
+              </h1>
+            </div>
+
+            {/* WIP Mural Image Container */}
+            <div
+              className="relative w-full max-w-4xl mx-auto overflow-hidden rounded-lg"
+              style={{
+                touchAction: isMobile ? "none" : "auto",
+                userSelect: "none",
+              }}
+            >
+              {/* Main WIP Mural Image or Animation */}
+              <div
+                className="transition-all duration-300 ease-out"
+                style={{
+                  transform:
+                    isMobile && isZoomed
+                      ? `scale(${zoomLevel}) translate(${panX}px, ${panY}px)`
+                      : "scale(1) translate(0px, 0px)",
+                  transformOrigin: "center center",
+                }}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onWheel={handleWheel}
+              >
+                {!isMuralAnimationPlaying ? (
+                  <img
+                    src="/sembawang/wip_mural.png"
+                    alt="Work in Progress Mural"
+                    className="w-full h-auto rounded-lg shadow-lg transition-all duration-1000 ease-in-out"
+                    style={{
+                      maxHeight: isMobile ? "400px" : "600px",
+                      objectFit: "contain",
+                    }}
+                  />
+                ) : (
+                  <video
+                    ref={muralVideoRef}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-auto rounded-lg shadow-lg transition-all duration-1000 ease-in-out"
+                    style={{
+                      maxHeight: isMobile ? "400px" : "600px",
+                      objectFit: "contain",
+                    }}
+                    onError={(e) => {
+                      console.error("Mural animation failed to load:", e);
+                      setIsMuralAnimationPlaying(false);
+                    }}
+                    onLoadedData={() => {
+                      // Set playback rate after video loads
+                      if (muralVideoRef.current) {
+                        if (muralAnimationVersion === 1) {
+                          muralVideoRef.current.playbackRate = 0.7; // 30% slower for version 1
+                        } else {
+                          muralVideoRef.current.playbackRate = 1.0; // Normal speed for version 2
+                        }
+                      }
+                    }}
+                  >
+                    <source
+                      src={`/sembawang/mural_anim_${muralAnimationVersion}.mp4`}
+                      type="video/mp4"
+                    />
+                  </video>
+                )}
+
+                {/* 12x8 Grid Overlay */}
+                <div
+                  ref={gridRef}
+                  className="absolute inset-0 grid gap-0 rounded-lg"
+                  style={{
+                    gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
+                    gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
+                  }}
+                >
+                  {Array.from({ length: TOTAL_CELLS }, (_, index) => {
+                    const item = muralItems.find(
+                      (item) => item.finalMuralGridPosition === index
+                    );
+                    return (
+                      <div
+                        key={index}
+                        className={
+                          `transition-all duration-300 cursor-pointer hover:bg-blue-500/20 ${
+                            item
+                              ? "hover:bg-blue-500/30"
+                              : "hover:bg-gray-500/10"
+                          }` +
+                          (animationState.currentItem
+                            ?.finalMuralGridPosition === index &&
+                          animationState.animationPhase === "placing"
+                            ? " bg-blue-500/40"
+                            : "")
+                        }
+                        onClick={(e) => item && startAnimation(item, e)}
+                        onMouseEnter={() =>
+                          item && handleGridItemMouseEnter(item)
+                        }
+                        onMouseLeave={() =>
+                          item && handleGridItemMouseLeave(item)
+                        }
+                        style={{
+                          border: item
+                            ? "2px solid rgba(59, 130, 246, 0.6)"
+                            : "1px solid rgba(0, 0, 0, 0.1)",
+                          borderRadius: "4px",
+                        }}
+                      >
+                        {item && (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full opacity-60"></div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats - Mobile responsive grid */}
+          {/* <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white/50 rounded-lg p-4 md:p-6 text-center">
+              <div className="text-xl md:text-2xl font-bold text-blue-600 font-quicksand">
+                {muralItems.length}
+              </div>
+              <div className="text-xs md:text-sm text-gray-600 font-quicksand">
+                Sketches Shared
+              </div>
+            </div>
+            <div className="bg-white/50 rounded-lg p-4 md:p-6 text-center">
+              <div className="text-xl md:text-2xl font-bold text-green-600 font-quicksand">
+                {TOTAL_CELLS - muralItems.length}
+              </div>
+              <div className="text-xs md:text-sm text-gray-600 font-quicksand">
+                Room for More Magic
+              </div>
+            </div>
+            <div className="bg-white/50 rounded-lg p-4 md:p-6 text-center">
+              <div className="text-xl md:text-2xl font-bold text-purple-600 font-quicksand">
+                {Math.round((muralItems.length / TOTAL_CELLS) * 100)}%
+              </div>
+              <div className="text-xs md:text-sm text-gray-600 font-quicksand">
+                Wall of Wonder
+              </div>
+            </div>
+          </div> */}
+          {/* Mural Animation Controls */}
+          <div className="flex flex-row justify-center items-center mb-6 space-y-4 space-y-0 mt-8 gap-4">
+            <div className="flex flex-row items-center space-y-0 space-x-4 gap-4">
+              <button
+                onClick={toggleMuralAnimation}
+                className="flex items-center space-x-2 px-4 md:px-6 py-2 bg-purple-600/20 text-white rounded-lg hover:bg-purple-700 transition-all duration-300 text-sm md:text-base font-quicksand shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                <span className="text-lg p-2">
+                  {isMuralAnimationPlaying ? "⏸️" : "▶️"}
+                </span>
+              </button>
+
+              <button
+                onClick={switchMuralAnimationVersion}
+                className="flex items-center space-x-2 px-4 md:px-6 py-2 bg-indigo-600/20 text-white rounded-lg hover:bg-indigo-700 transition-all duration-300 text-sm md:text-base font-quicksand shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                <span className="text-lg">🔄</span>
+                <span>{muralAnimationVersion === 1 ? 2 : 1}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile Pinch Hint */}
+        {isMobile && showMobileHint && (
+          <div className="flex justify-center mb-4">
+            <div className="bg-white/50 rounded-lg p-4 flex items-center space-x-3 shadow-lg">
+              <img
+                src="/sembawang/pinch.png"
+                alt="Pinch gesture"
+                className="w-12 h-12 object-contain"
+              />
+              <span className="text-gray-700 font-quicksand text-sm">
+                Pinch to move around
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
