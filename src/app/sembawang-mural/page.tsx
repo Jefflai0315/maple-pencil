@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { IconX, IconLoader2 } from "@tabler/icons-react";
 import { muralPromptThemes } from "../utils/constants";
+import QRCode from "qrcode";
 
 interface MuralItem {
   id: string;
@@ -74,8 +75,9 @@ export default function MuralPage() {
   const [videoLoadProgress, setVideoLoadProgress] = useState(0);
 
   // Mural animation state
-  const [isMuralAnimationPlaying, setIsMuralAnimationPlaying] = useState(false);
-  const [muralAnimationVersion, setMuralAnimationVersion] = useState(1); // 1 or 2
+  const [muralAnimationState, setMuralAnimationState] = useState<"off" | 1 | 2>(
+    "off"
+  );
   const muralVideoRef = useRef<HTMLVideoElement>(null);
 
   // Mobile zoom state
@@ -86,6 +88,8 @@ export default function MuralPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [showMobileHint, setShowMobileHint] = useState(false);
+  const [lastTouchDistance, setLastTouchDistance] = useState(0);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
 
   // Function to check video format compatibility
   const checkVideoCompatibility = (videoUrl: string): boolean => {
@@ -224,7 +228,7 @@ export default function MuralPage() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Show mobile hint for 3 seconds
+  // Show mobile hint for 6 seconds
   useEffect(() => {
     if (isMobile) {
       console.log("Mobile detected, showing hint");
@@ -232,7 +236,7 @@ export default function MuralPage() {
       const timer = setTimeout(() => {
         console.log("Hiding mobile hint");
         setShowMobileHint(false);
-      }, 3000);
+      }, 4500);
       return () => clearTimeout(timer);
     }
   }, [isMobile]);
@@ -245,11 +249,40 @@ export default function MuralPage() {
         setShowMobileHint(true);
         setTimeout(() => {
           setShowMobileHint(false);
-        }, 3000);
+        }, 6000);
       }
-    }, 500);
+    }, 1000);
     return () => clearTimeout(fallbackTimer);
   }, []);
+
+  // Generate QR code for desktop
+  useEffect(() => {
+    console.log("QR Code effect running, isMobile:", isMobile);
+    if (!isMobile) {
+      const generateQRCode = async () => {
+        try {
+          console.log("Generating QR code...");
+          const url = "https://www.playingwithpencil.art/sembawang-mural";
+          const qrDataUrl = await QRCode.toDataURL(url, {
+            width: 200,
+            margin: 2,
+            color: {
+              dark: "#000000",
+              light: "#FFFFFF",
+            },
+          });
+          console.log(
+            "QR code generated successfully:",
+            qrDataUrl.substring(0, 50) + "..."
+          );
+          setQrCodeDataUrl(qrDataUrl);
+        } catch (error) {
+          console.error("Error generating QR code:", error);
+        }
+      };
+      generateQRCode();
+    }
+  }, [isMobile]);
 
   useEffect(() => {
     if (bgVideoRef.current) {
@@ -303,12 +336,12 @@ export default function MuralPage() {
     }
   };
 
-  const toggleMuralAnimation = () => {
-    setIsMuralAnimationPlaying(!isMuralAnimationPlaying);
-  };
-
-  const switchMuralAnimationVersion = () => {
-    setMuralAnimationVersion(muralAnimationVersion === 1 ? 2 : 1);
+  const cycleMuralAnimation = () => {
+    setMuralAnimationState((current) => {
+      if (current === "off") return 1;
+      if (current === 1) return 2;
+      return "off";
+    });
   };
 
   // Mobile zoom functions
@@ -328,32 +361,85 @@ export default function MuralPage() {
     }
   };
 
+  // Calculate distance between two touches
+  const getTouchDistance = (touches: React.TouchList) => {
+    if (touches.length < 2) return 0;
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    return Math.sqrt(
+      Math.pow(touch2.clientX - touch1.clientX, 2) +
+        Math.pow(touch2.clientY - touch1.clientY, 2)
+    );
+  };
+
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (!isMobile || !isZoomed) return;
-    setIsDragging(true);
-    setDragStart({
-      x: e.touches[0].clientX - panX,
-      y: e.touches[0].clientY - panY,
-    });
+    if (!isMobile) return;
+    console.log("Touch start:", e.touches.length, "fingers");
+
+    if (e.touches.length === 2) {
+      // Two finger pinch gesture
+      const distance = getTouchDistance(e.touches);
+      console.log("Pinch start, distance:", distance);
+      setLastTouchDistance(distance);
+      setIsDragging(false);
+    } else if (e.touches.length === 1 && isZoomed) {
+      // Single finger drag when zoomed
+      console.log("Drag start");
+      setIsDragging(true);
+      setDragStart({
+        x: e.touches[0].clientX - panX,
+        y: e.touches[0].clientY - panY,
+      });
+    }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isMobile || !isZoomed || !isDragging) return;
+    if (!isMobile) return;
     e.preventDefault();
-    const newPanX = e.touches[0].clientX - dragStart.x;
-    const newPanY = e.touches[0].clientY - dragStart.y;
 
-    // Constrain panning within bounds
-    const maxPanX = 100; // Adjust based on zoom level
-    const maxPanY = 100;
+    if (e.touches.length === 2) {
+      // Pinch to zoom
+      const distance = getTouchDistance(e.touches);
+      if (lastTouchDistance > 0) {
+        const scale = distance / lastTouchDistance;
+        console.log("Pinch move, scale:", scale);
+        if (scale > 1.1) {
+          // Pinch out - zoom in
+          if (!isZoomed) {
+            console.log("Zooming in");
+            setZoomLevel(2);
+            setIsZoomed(true);
+          }
+        } else if (scale < 0.9) {
+          // Pinch in - zoom out
+          if (isZoomed) {
+            console.log("Zooming out");
+            setZoomLevel(1);
+            setIsZoomed(false);
+            setPanX(0);
+            setPanY(0);
+          }
+        }
+      }
+      setLastTouchDistance(distance);
+    } else if (e.touches.length === 1 && isDragging && isZoomed) {
+      // Single finger drag when zoomed
+      const newPanX = e.touches[0].clientX - dragStart.x;
+      const newPanY = e.touches[0].clientY - dragStart.y;
 
-    setPanX(Math.max(-maxPanX, Math.min(maxPanX, newPanX)));
-    setPanY(Math.max(-maxPanY, Math.min(maxPanY, newPanY)));
+      // Constrain panning within bounds
+      const maxPanX = 100;
+      const maxPanY = 100;
+
+      setPanX(Math.max(-maxPanX, Math.min(maxPanX, newPanX)));
+      setPanY(Math.max(-maxPanY, Math.min(maxPanY, newPanY)));
+    }
   };
 
   const handleTouchEnd = () => {
     if (!isMobile) return;
     setIsDragging(false);
+    setLastTouchDistance(0);
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -366,16 +452,20 @@ export default function MuralPage() {
     }
   };
 
-  // Set playback rate based on version
+  // Set playback rate and restart video when switching states
   useEffect(() => {
-    if (muralVideoRef.current) {
-      if (muralAnimationVersion === 1) {
+    if (muralVideoRef.current && muralAnimationState !== "off") {
+      // Restart the video to ensure it plays the correct version
+      muralVideoRef.current.load();
+
+      // Set playback rate based on version
+      if (muralAnimationState === 1) {
         muralVideoRef.current.playbackRate = 0.7; // 30% slower for version 1
       } else {
         muralVideoRef.current.playbackRate = 1.0; // Normal speed for version 2
       }
     }
-  }, [muralAnimationVersion, isMuralAnimationPlaying]);
+  }, [muralAnimationState]);
 
   const startAnimation = (item: MuralItem, event: React.MouseEvent) => {
     // Clear all previous animation timeouts
@@ -620,6 +710,25 @@ export default function MuralPage() {
             box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
           }
         }
+
+        @keyframes blueDotPulse {
+          0% {
+            opacity: 0.3;
+            transform: scale(0.7);
+          }
+          50% {
+            opacity: 0.8;
+            transform: scale(1);
+          }
+          100% {
+            opacity: 0.3;
+            transform: scale(0.7);
+          }
+        }
+
+        .blue-dot-pulse {
+          animation: blueDotPulse 2s ease-in-out infinite;
+        }
       `}</style>
       <div
         className="min-h-screen bg-gradient-to-b from-blue-200 to-blue-500 py-4 md:py-8 relative"
@@ -779,8 +888,8 @@ export default function MuralPage() {
           <div className="overflow-hidden whitespace-nowrap py-2">
             <div className="animate-scroll-text text-white text-sm md:text-base font-medium tracking-wide">
               🎨 This is a project with Sebawang West, hosted at Woodlands
-              Galaxy CC • Let kids draw their city and dreams and animate it
-              into art
+              Galaxy CC • Let kids draw their city and dreams. Then bring it to
+              life! into art
             </div>
           </div>
         </div>
@@ -1057,32 +1166,7 @@ export default function MuralPage() {
                     {/* Video status overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent flex items-end rounded-lg">
                       <div className="p-2 md:p-4 text-white">
-                        <div className="flex items-center space-x-2">
-                          <div
-                            className={`w-2 h-2 md:w-3 md:h-3 rounded-full ${
-                              videoLoadingState === "loading"
-                                ? "bg-yellow-500 animate-pulse"
-                                : videoLoadingState === "loaded"
-                                ? videoFinished
-                                  ? "bg-blue-500 animate-pulse"
-                                  : "bg-green-500"
-                                : "bg-red-500 animate-pulse"
-                            }`}
-                          ></div>
-                          <span className="text-xs md:text-sm">
-                            {videoErrorState === "fallback-failed" ||
-                            (!animationState.currentItem.videoUrl &&
-                              !animationState.currentItem.fallbackVideoUrl)
-                              ? "Image Display (No Video Available)"
-                              : videoLoadingState === "loading"
-                              ? "Loading Video..."
-                              : videoLoadingState === "loaded"
-                              ? videoFinished
-                                ? "🎬 Video Finished - Click X to close"
-                                : "Video Ready - Click X to close"
-                              : "Video Error - Try again or close"}
-                          </span>
-                        </div>
+                        <div className="flex items-center space-x-2"></div>
 
                         {/* Error state with retry button */}
                         {videoLoadingState === "error" && (
@@ -1124,20 +1208,10 @@ export default function MuralPage() {
                               </p>
                             </div>
                           )}
-
                         <div className="mt-2 text-xs text-white/80">
-                          {videoFinished
-                            ? "🎬 Video completed! Click the X button to close when ready"
-                            : videoLoadingState === "error"
-                            ? "❌ Video loading failed. Click retry or close."
-                            : "Click the X button to close when you&apos;re done watching"}
-                        </div>
-                        <div className="mt-1 text-xs text-white/60">
-                          {videoFinished
-                            ? "🎬 Video completed! Animation will stay open until you close it"
-                            : videoLoadingState === "error"
-                            ? "💡 Try refreshing the page if the problem persists"
-                            : "Animation will stay open until you close it"}
+                          <span>
+                            {animationState.currentItem.userDetails.name}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1177,7 +1251,7 @@ export default function MuralPage() {
                       videoFinished
                         ? "bg-blue-600 hover:bg-blue-700 animate-pulse ring-2 ring-blue-300"
                         : videoLoadingState === "loaded"
-                        ? "bg-green-600 hover:bg-green-700 animate-pulse"
+                        ? " hover:bg-gray-700 animate-pulse"
                         : "bg-black/50 hover:bg-black/70"
                     }`}
                     title={
@@ -1230,7 +1304,7 @@ export default function MuralPage() {
                 onTouchEnd={handleTouchEnd}
                 onWheel={handleWheel}
               >
-                {!isMuralAnimationPlaying ? (
+                {muralAnimationState === "off" ? (
                   <img
                     src="/sembawang/wip_mural.png"
                     alt="Work in Progress Mural"
@@ -1254,12 +1328,12 @@ export default function MuralPage() {
                     }}
                     onError={(e) => {
                       console.error("Mural animation failed to load:", e);
-                      setIsMuralAnimationPlaying(false);
+                      setMuralAnimationState("off");
                     }}
                     onLoadedData={() => {
                       // Set playback rate after video loads
                       if (muralVideoRef.current) {
-                        if (muralAnimationVersion === 1) {
+                        if (muralAnimationState === 1) {
                           muralVideoRef.current.playbackRate = 0.7; // 30% slower for version 1
                         } else {
                           muralVideoRef.current.playbackRate = 1.0; // Normal speed for version 2
@@ -1268,7 +1342,7 @@ export default function MuralPage() {
                     }}
                   >
                     <source
-                      src={`/sembawang/mural_anim_${muralAnimationVersion}.mp4`}
+                      src={`/sembawang/mural_anim_${muralAnimationState}.mp4`}
                       type="video/mp4"
                     />
                   </video>
@@ -1311,14 +1385,14 @@ export default function MuralPage() {
                         }
                         style={{
                           border: item
-                            ? "2px solid rgba(59, 130, 246, 0.6)"
-                            : "1px solid rgba(0, 0, 0, 0.1)",
+                            ? "2px solid rgba(59, 130, 246, 0.5)"
+                            : "1px solid rgba(0, 0, 0, 0.05)",
                           borderRadius: "4px",
                         }}
                       >
                         {item && (
                           <div className="w-full h-full flex items-center justify-center">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full opacity-60"></div>
+                            <div className="w-2 h-2 bg-blue-500 rounded-full blue-dot-pulse"></div>
                           </div>
                         )}
                       </div>
@@ -1356,41 +1430,64 @@ export default function MuralPage() {
               </div>
             </div>
           </div> */}
-          {/* Mural Animation Controls */}
-          <div className="flex flex-row justify-center items-center mb-6 space-y-4 space-y-0 mt-8 gap-4">
-            <div className="flex flex-row items-center space-y-0 space-x-4 gap-4">
-              <button
-                onClick={toggleMuralAnimation}
-                className="flex items-center space-x-2 px-4 md:px-6 py-2 bg-purple-600/20 text-white rounded-lg hover:bg-purple-700 transition-all duration-300 text-sm md:text-base font-quicksand shadow-lg hover:shadow-xl transform hover:scale-105"
-              >
-                <span className="text-lg p-2">
-                  {isMuralAnimationPlaying ? "⏸️" : "▶️"}
-                </span>
-              </button>
-
-              <button
-                onClick={switchMuralAnimationVersion}
-                className="flex items-center space-x-2 px-4 md:px-6 py-2 bg-indigo-600/20 text-white rounded-lg hover:bg-indigo-700 transition-all duration-300 text-sm md:text-base font-quicksand shadow-lg hover:shadow-xl transform hover:scale-105"
-              >
-                <span className="text-lg">🔄</span>
-                <span>{muralAnimationVersion === 1 ? 2 : 1}</span>
-              </button>
-            </div>
+          {/* Mural Animation Control - Single button */}
+          <div className="fixed bottom-4 left-4 z-30">
+            <button
+              onClick={cycleMuralAnimation}
+              className="w-12 h-12 bg-black/20 backdrop-blur-sm text-white rounded-full hover:bg-black/40 transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl"
+              title={
+                muralAnimationState === "off"
+                  ? "Turn on Animation"
+                  : muralAnimationState === 1
+                  ? "Switch to Version 2"
+                  : "Turn off Animation"
+              }
+            >
+              <span className="text-lg font-medium">
+                {muralAnimationState === "off" ? "⏸️" : muralAnimationState}
+              </span>
+            </button>
           </div>
         </div>
 
         {/* Mobile Pinch Hint */}
         {isMobile && showMobileHint && (
-          <div className="flex justify-center mb-4">
-            <div className="bg-white/50 rounded-lg p-4 flex items-center space-x-3 shadow-lg">
+          <div className="absolute inset-0 w-full h-full flex justify-center mb-4">
+            <div className="w-full h-full flex justify-center bg-white/50 rounded-lg p-4 flex items-center space-x-3 shadow-lg z-50">
               <img
                 src="/sembawang/pinch.png"
                 alt="Pinch gesture"
-                className="w-12 h-12 object-contain"
+                className="w-24 h-24 object-contain animate-pulse "
               />
               <span className="text-gray-700 font-quicksand text-sm">
                 Pinch to move around
               </span>
+            </div>
+          </div>
+        )}
+
+        {/* Desktop QR Code */}
+        {!isMobile && (
+          <div className="fixed top-10 right-4 z-40">
+            <div className=" rounded-lg p-3 shadow-lg backdrop-blur-sm">
+              <div className="text-center">
+                <div className="w-32 h-32 bg-white rounded border-2 border-gray-200 flex items-center justify-center">
+                  {qrCodeDataUrl ? (
+                    <img
+                      src={qrCodeDataUrl}
+                      alt="QR Code for playingwithpencil.art/sembawang-mural"
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <div className="text-xs text-gray-400 text-center leading-tight">
+                      Loading QR...
+                    </div>
+                  )}
+                </div>
+                <div className="text-xs text-center leading-tight font-quicksand mt-2">
+                  Share this mural
+                </div>
+              </div>
             </div>
           </div>
         )}
