@@ -112,6 +112,7 @@ export default function UploadPage() {
     name: "",
     description: "",
   });
+  const [finalMuralGridPosition, setFinalMuralGridPosition] = useState("");
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   // Add state to keep last generated video preview visible
@@ -459,6 +460,7 @@ export default function UploadPage() {
       formData.append("file", file);
       formData.append("name", previewData.userDetails.name);
       formData.append("description", previewData.userDetails.description);
+      formData.append("finalMuralGridPosition", finalMuralGridPosition);
       formData.append("videoUrl", previewData.videoUrl);
       formData.append("prompt", advancedPrompt);
       // Add upload source information
@@ -499,6 +501,7 @@ export default function UploadPage() {
         setCapturedImage("");
         setPreviewUrl("");
         setUserDetails({ name: "", description: "" });
+        setFinalMuralGridPosition("");
         setElapsedTime(0);
         setMuralItemId(null); // Reset mural item ID
 
@@ -771,6 +774,24 @@ export default function UploadPage() {
                   placeholder="Tell us about your art"
                 />
               </div>
+            </div>
+
+            {/* Final Mural Grid Position */}
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                Final Mural Grid Position (Optional)
+              </label>
+              <input
+                type="text"
+                value={finalMuralGridPosition}
+                onChange={(e) => setFinalMuralGridPosition(e.target.value)}
+                className="w-full px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-sm md:text-base"
+                placeholder="e.g., 0-95"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Specify the final grid position for your art in the mural (e.g.,
+                26)
+              </p>
             </div>
 
             {/* Advanced Prompt */}
@@ -1064,6 +1085,13 @@ export default function UploadPage() {
                     <strong>Description:</strong>{" "}
                     {previewData.userDetails.description || "No description"}
                   </p>
+
+                  {finalMuralGridPosition && (
+                    <p className="text-xs sm:text-sm md:text-base">
+                      <strong>Final Mural Grid Position:</strong>{" "}
+                      {finalMuralGridPosition}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -1174,6 +1202,13 @@ export default function UploadPage() {
                 <br />
                 <strong>Description:</strong>{" "}
                 {lastVideoPreview.userDetails.description || "No description"}
+                {finalMuralGridPosition && (
+                  <>
+                    <br />
+                    <strong>Final Mural Grid Position:</strong>{" "}
+                    {finalMuralGridPosition}
+                  </>
+                )}
               </div>
             </div>
           </div>

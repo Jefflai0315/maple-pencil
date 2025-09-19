@@ -47,13 +47,13 @@ export default function Hero() {
           className="mural-button"
           src="/sketch/mural.png"
           alt="Mural"
-          onClick={() => router.push("/mural")}
+          onClick={() => router.push("/sembawang-mural")}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              router.push("/mural");
+              router.push("/sembawang-mural");
             }
           }}
         />

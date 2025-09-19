@@ -150,7 +150,7 @@ export default function Navbar() {
               Upload
             </Link>
             <Link
-              href="/mural"
+              href="/sembawang-mural"
               className="font-sketch text-lg text-charcoal-medium hover:text-charcoal transition-colors flex items-center gap-2"
             >
               <Palette size={18} />
@@ -206,7 +206,7 @@ export default function Navbar() {
                 Upload
               </Link>
               <Link
-                href="/mural"
+                href="/sembawang-mural"
                 className="font-sketch text-lg text-left text-charcoal-medium hover:text-charcoal flex items-center gap-2"
                 onClick={() => setIsMenuOpen(false)}
               >

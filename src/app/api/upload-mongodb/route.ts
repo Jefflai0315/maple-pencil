@@ -28,6 +28,7 @@ interface MuralItem {
   fallbackVideoUrl?: string; // Add fallback video URL if Cloudinary fails
   cloudinaryVideoUrl?: string; // Store Cloudinary video URL if available
   gridPosition: number;
+  finalMuralGridPosition?: number; // Add final mural grid position
   timestamp: string;
   userDetails: {
     name: string;
@@ -56,6 +57,9 @@ export async function POST(request: NextRequest) {
     const uploadSource = (formData.get("uploadSource") as string) || "file";
     const userEmail = formData.get("userEmail") as string;
     const muralItemId = formData.get("muralItemId") as string; // Get the mural item ID from client
+    const finalMuralGridPosition = formData.get(
+      "finalMuralGridPosition"
+    ) as string; // Get final mural grid position
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -264,6 +268,9 @@ export async function POST(request: NextRequest) {
         {
           $set: {
             gridPosition: nextPosition,
+            finalMuralGridPosition: finalMuralGridPosition
+              ? parseInt(finalMuralGridPosition)
+              : undefined,
             userDetails: {
               name: name || "Anonymous",
               description: description || "",
@@ -323,6 +330,9 @@ export async function POST(request: NextRequest) {
           ? videoUrl
           : undefined,
         gridPosition: nextPosition,
+        finalMuralGridPosition: finalMuralGridPosition
+          ? parseInt(finalMuralGridPosition)
+          : undefined,
         timestamp: new Date().toISOString(),
         userDetails: {
           name: name || "Anonymous",
