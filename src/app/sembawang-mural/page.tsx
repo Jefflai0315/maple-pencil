@@ -228,7 +228,7 @@ export default function MuralPage() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Show mobile hint for 6 seconds
+  // Show mobile hint for a few seconds
   useEffect(() => {
     if (isMobile) {
       console.log("Mobile detected, showing hint");
@@ -236,7 +236,7 @@ export default function MuralPage() {
       const timer = setTimeout(() => {
         console.log("Hiding mobile hint");
         setShowMobileHint(false);
-      }, 4500);
+      }, 3000);
       return () => clearTimeout(timer);
     }
   }, [isMobile]);
@@ -403,15 +403,15 @@ export default function MuralPage() {
       if (lastTouchDistance > 0) {
         const scale = distance / lastTouchDistance;
         console.log("Pinch move, scale:", scale);
-        if (scale > 1.1) {
-          // Pinch out - zoom in
+        if (scale > 1.04) {
+          // Pinch out - zoom in (reduced from 1.1 to 1.05 for more sensitivity)
           if (!isZoomed) {
             console.log("Zooming in");
             setZoomLevel(2);
             setIsZoomed(true);
           }
-        } else if (scale < 0.9) {
-          // Pinch in - zoom out
+        } else if (scale < 0.96) {
+          // Pinch in - zoom out (reduced from 0.9 to 0.95 for more sensitivity)
           if (isZoomed) {
             console.log("Zooming out");
             setZoomLevel(1);
@@ -1167,31 +1167,6 @@ export default function MuralPage() {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent flex items-end rounded-lg">
                       <div className="p-2 md:p-4 text-white">
                         <div className="flex items-center space-x-2"></div>
-
-                        {/* Error state with retry button */}
-                        {videoLoadingState === "error" && (
-                          <div className="mt-2 flex items-center space-x-2">
-                            <button
-                              onClick={() => {
-                                setVideoErrorState("none");
-                                setVideoLoadingState("loading");
-                                setVideoFinished(false);
-                                // Force video reload by updating the key
-                                const videoElement =
-                                  document.querySelector("video");
-                                if (videoElement) {
-                                  videoElement.load();
-                                }
-                              }}
-                              className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors"
-                            >
-                              🔄 Retry Video
-                            </button>
-                            <span className="text-xs text-red-200">
-                              Video failed to load
-                            </span>
-                          </div>
-                        )}
 
                         {/* Video format compatibility warning */}
                         {animationState.currentItem?.videoUrl &&
