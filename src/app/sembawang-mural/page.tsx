@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { IconX, IconLoader2 } from "@tabler/icons-react";
 import { muralPromptThemes } from "../utils/constants";
 import QRCode from "qrcode";
@@ -22,6 +22,8 @@ interface MuralItem {
 interface AnimationState {
   isPlaying: boolean;
   currentItem: MuralItem | null;
+  currentVideoIndex: number; // Index in the carousel for this grid position
+  allVideosForPosition: MuralItem[]; // All videos for the current grid position
   animationPhase:
     | "idle"
     | "enlarging"
@@ -42,6 +44,8 @@ export default function MuralPage() {
   const [animationState, setAnimationState] = useState<AnimationState>({
     isPlaying: false,
     currentItem: null,
+    currentVideoIndex: 0,
+    allVideosForPosition: [],
     animationPhase: "idle",
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -107,6 +111,45 @@ export default function MuralPage() {
     console.log("Error details:", error);
     console.groupEnd();
   };
+
+  // Helper function to get all videos for a specific grid position
+  const getVideosForGridPosition = (gridPosition: number): MuralItem[] => {
+    return muralItems.filter(
+      (item) => item.finalMuralGridPosition === gridPosition
+    );
+  };
+
+  // Helper function to navigate carousel
+  const navigateCarousel = useCallback(
+    (direction: "prev" | "next") => {
+      if (animationState.allVideosForPosition.length <= 1) return;
+
+      const currentIndex = animationState.currentVideoIndex;
+      const totalVideos = animationState.allVideosForPosition.length;
+      let newIndex;
+
+      if (direction === "prev") {
+        newIndex = currentIndex > 0 ? currentIndex - 1 : totalVideos - 1;
+      } else {
+        newIndex = currentIndex < totalVideos - 1 ? currentIndex + 1 : 0;
+      }
+
+      const newItem = animationState.allVideosForPosition[newIndex];
+
+      // Reset video states when navigating to a new video
+      setVideoErrorState("none");
+      setVideoLoadingState("loading");
+      setVideoFinished(false);
+      setVideoLoadProgress(0);
+
+      setAnimationState((prev) => ({
+        ...prev,
+        currentVideoIndex: newIndex,
+        currentItem: newItem,
+      }));
+    },
+    [animationState.allVideosForPosition, animationState.currentVideoIndex]
+  );
 
   // Floating prompt words state
   const [floatingPrompts, setFloatingPrompts] = useState<
@@ -204,6 +247,17 @@ export default function MuralPage() {
   const GRID_COLS = 12;
   const TOTAL_CELLS = GRID_ROWS * GRID_COLS;
 
+  const handleRefresh = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      await fetchMuralItems();
+    } catch (error) {
+      console.error("Failed to refresh mural:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   // listen to shortcut key
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -211,10 +265,30 @@ export default function MuralPage() {
         event.preventDefault();
         handleRefresh();
       }
+
+      // Carousel navigation with arrow keys
+      if (
+        animationState.isPlaying &&
+        animationState.allVideosForPosition.length > 1
+      ) {
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          navigateCarousel("prev");
+        } else if (event.key === "ArrowRight") {
+          event.preventDefault();
+          navigateCarousel("next");
+        }
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isLoading]);
+  }, [
+    isLoading,
+    handleRefresh,
+    animationState.isPlaying,
+    animationState.allVideosForPosition.length,
+    navigateCarousel,
+  ]);
 
   useEffect(() => {
     // Check if mobile on mount and window resize
@@ -322,17 +396,6 @@ export default function MuralPage() {
     } catch (error) {
       console.error("Error fetching mural items:", error);
       setMuralItems([]); // Empty array instead of mock data
-    }
-  };
-
-  const handleRefresh = async () => {
-    setIsLoading(true);
-    try {
-      await fetchMuralItems();
-    } catch (error) {
-      console.error("Failed to refresh mural:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -476,9 +539,19 @@ export default function MuralPage() {
     const clickedElement = event.currentTarget as HTMLElement;
     const rect = clickedElement.getBoundingClientRect();
 
+    // Get all videos for this grid position
+    const allVideosForPosition = getVideosForGridPosition(
+      item.finalMuralGridPosition!
+    );
+    const currentIndex = allVideosForPosition.findIndex(
+      (video) => video.id === item.id
+    );
+
     setAnimationState({
       isPlaying: true,
       currentItem: item,
+      currentVideoIndex: currentIndex >= 0 ? currentIndex : 0,
+      allVideosForPosition: allVideosForPosition,
       animationPhase: "enlarging",
       clickedPosition: {
         x: rect.left,
@@ -583,9 +656,9 @@ export default function MuralPage() {
     }
   };
 
-  // Reset video error state when opening a new animation
+  // Reset video error state when opening a new animation or changing video in carousel
   useEffect(() => {
-    if (animationState.isPlaying) {
+    if (animationState.isPlaying && animationState.currentItem) {
       setVideoErrorState("none");
       setVideoLoadingState("loading");
       setVideoFinished(false);
@@ -615,7 +688,11 @@ export default function MuralPage() {
         setVideoLoadTimeout(null);
       }
     };
-  }, [animationState.currentItem, animationState.isPlaying]);
+  }, [
+    animationState.currentItem,
+    animationState.isPlaying,
+    animationState.currentVideoIndex,
+  ]);
 
   const PLANE_WIDTH = 220; // px, adjust to your plane image
   const FLAG_WIDTH = 350; // px, adjust to your flag image and desired text area
@@ -972,7 +1049,62 @@ export default function MuralPage() {
               >
                 {/* Video Player - Real or Simulated */}
                 {animationState.animationPhase === "video-playing" && (
-                  <div className="relative w-full h-full">
+                  <div className="relative w-full h-full flex flex-col items-center justify-center">
+                    {/* Carousel Navigation - Only show if multiple videos */}
+                    {animationState.allVideosForPosition.length > 1 && (
+                      <div className="absolute -bottom-10 z-20 flex justify-between items-center">
+                        {/* Previous button */}
+                        <div className=" flex flex-row w-40 justify-between items-center">
+                          <button
+                            onClick={() => navigateCarousel("prev")}
+                            className="bg-black/70 backdrop-blur-sm text-white rounded-full p-2 hover:bg-black/90 transition-all duration-200 flex items-center justify-center"
+                            title="Previous video"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M15 19l-7-7 7-7"
+                              />
+                            </svg>
+                          </button>
+
+                          {/* Video counter */}
+                          <div className="bg-black/70 backdrop-blur-sm text-white rounded-lg px-3 py-1 text-sm">
+                            {animationState.currentVideoIndex + 1} /{" "}
+                            {animationState.allVideosForPosition.length}
+                          </div>
+
+                          {/* Next button */}
+                          <button
+                            onClick={() => navigateCarousel("next")}
+                            className="bg-black/70 backdrop-blur-sm text-white rounded-full p-2 hover:bg-black/90 transition-all duration-200 flex items-center justify-center"
+                            title="Next video"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 5l7 7-7 7"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Loading overlay */}
                     {videoLoadingState === "loading" && (
                       <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10 rounded-lg animate-in fade-in duration-300">
@@ -1002,6 +1134,7 @@ export default function MuralPage() {
                     {videoErrorState === "none" &&
                       animationState.currentItem.videoUrl && (
                         <video
+                          key={`video-${animationState.currentItem.id}-${animationState.currentVideoIndex}`}
                           src={animationState.currentItem.videoUrl}
                           controls
                           autoPlay
@@ -1082,6 +1215,7 @@ export default function MuralPage() {
                             </div>
                           )}
                           <video
+                            key={`fallback-video-${animationState.currentItem.id}-${animationState.currentVideoIndex}`}
                             src={animationState.currentItem.fallbackVideoUrl}
                             controls
                             autoPlay
@@ -1188,6 +1322,9 @@ export default function MuralPage() {
                             {animationState.currentItem.userDetails.name}
                           </span>
                         </div>
+                        <div className="text-xs text-white/80">
+                          {animationState.currentItem.userDetails.description}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1219,6 +1356,8 @@ export default function MuralPage() {
                       setAnimationState({
                         isPlaying: false,
                         currentItem: null,
+                        currentVideoIndex: 0,
+                        allVideosForPosition: [],
                         animationPhase: "idle",
                       })
                     }
@@ -1333,9 +1472,12 @@ export default function MuralPage() {
                   }}
                 >
                   {Array.from({ length: TOTAL_CELLS }, (_, index) => {
-                    const item = muralItems.find(
+                    const itemsForPosition = muralItems.filter(
                       (item) => item.finalMuralGridPosition === index
                     );
+                    const item = itemsForPosition[0]; // Use first item for the main interaction
+                    const hasMultipleVideos = itemsForPosition.length > 1;
+
                     return (
                       <div
                         key={index}
@@ -1366,7 +1508,7 @@ export default function MuralPage() {
                         }}
                       >
                         {item && (
-                          <div className="w-full h-full flex items-center justify-center">
+                          <div className="w-full h-full flex items-center justify-center relative">
                             <div className="w-2 h-2 bg-blue-500 rounded-full blue-dot-pulse"></div>
                           </div>
                         )}
