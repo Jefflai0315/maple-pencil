@@ -970,9 +970,9 @@ export default function MuralPage() {
         <div className="fixed top-0 left-0 right-0 z-30 bg-black/60 backdrop-blur-sm border-b border-white/20">
           <div className="overflow-hidden whitespace-nowrap py-2">
             <div className="animate-scroll-text text-white text-sm md:text-base font-medium tracking-wide">
-              🎨 This is a project with Sebawang West Community Arts and Culture
-              Club, hosted at Woodlands Galaxy CC & Circle Geen Park • Let kids
-              draw their city and dreams. Then bring it to life!
+              🎨 This is a project with Sembawang West Community Arts and
+              Culture Club, hosted at Woodlands Galaxy CC & Circle Geen Park •
+              Let kids draw their city and dreams. Then bring it to life!
             </div>
           </div>
         </div>
@@ -1005,7 +1005,7 @@ export default function MuralPage() {
                 textShadow: "2px 2px 6px rgba(0, 0, 0, 0.4)",
               }}
             >
-              THE HiDDEN STARTS
+              THE HiDDEN STARS
             </div>
           </div>
 
