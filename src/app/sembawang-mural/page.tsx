@@ -80,7 +80,7 @@ export default function MuralPage() {
 
   // Mural animation state
   const [muralAnimationState, setMuralAnimationState] = useState<"off" | 1 | 2>(
-    "off"
+    1
   );
   const muralVideoRef = useRef<HTMLVideoElement>(null);
 
@@ -777,6 +777,12 @@ export default function MuralPage() {
           animation: scroll-text 25s linear infinite;
         }
 
+        @media (min-width: 768px) {
+          .animate-scroll-text {
+            animation: scroll-text 55s linear infinite;
+          }
+        }
+
         @keyframes borderGlow {
           0% {
             border-color: rgba(59, 130, 246, 0.6);
@@ -964,9 +970,9 @@ export default function MuralPage() {
         <div className="fixed top-0 left-0 right-0 z-30 bg-black/60 backdrop-blur-sm border-b border-white/20">
           <div className="overflow-hidden whitespace-nowrap py-2">
             <div className="animate-scroll-text text-white text-sm md:text-base font-medium tracking-wide">
-              🎨 This is a project with Sebawang West, hosted at Woodlands
-              Galaxy CC • Let kids draw their city and dreams. Then bring it to
-              life! into art
+              🎨 This is a project with Sebawang West Community Arts and Culture
+              Club, hosted at Woodlands Galaxy CC & Circle Geen Park • Let kids
+              draw their city and dreams. Then bring it to life!
             </div>
           </div>
         </div>
@@ -1476,7 +1482,6 @@ export default function MuralPage() {
                       (item) => item.finalMuralGridPosition === index
                     );
                     const item = itemsForPosition[0]; // Use first item for the main interaction
-                    const hasMultipleVideos = itemsForPosition.length > 1;
 
                     return (
                       <div
@@ -1608,6 +1613,17 @@ export default function MuralPage() {
             </div>
           </div>
         )}
+
+        {/* PassionArts Logo - Bottom Right */}
+        <div className="fixed bottom-4 right-4 z-40">
+          <div className="">
+            <img
+              src="/passionarts.png"
+              alt="PassionArts"
+              className="h-12 w-auto object-contain"
+            />
+          </div>
+        </div>
       </div>
     </>
   );
