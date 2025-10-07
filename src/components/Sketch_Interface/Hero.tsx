@@ -19,52 +19,81 @@ export default function Hero() {
         />
       </div>
 
-      {/* background blob top-left - now clickable */}
-      <div className="world-container">
-        <img
-          className="bg world-button"
-          src="/sketch/world.png"
-          alt="World"
-          onClick={handleWorldClick}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              handleWorldClick();
-            }
-          }}
-        />
-        {/* Tooltip positioned relative to the world image */}
-        <div className="tooltip">
-          <span>enter my world</span>
+      {/* CTA group: world + mural share same left gutter and scale together */}
+      <div className="cta-container">
+        {/* background blob top-left - now clickable */}
+        <div className="world-container">
+          <img
+            className="bg world-button"
+            src="/sketch/world.png"
+            alt="World"
+            onClick={handleWorldClick}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleWorldClick();
+              }
+            }}
+          />
+          {/* Tooltip positioned relative to the world image */}
+          <div
+            className="tooltip"
+            role="button"
+            tabIndex={0}
+            onClick={handleWorldClick}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleWorldClick();
+              }
+            }}
+          >
+            <span>enter my world</span>
+          </div>
         </div>
-      </div>
 
-      {/* mural button - clickable */}
-      <div className="mural-container">
-        <img
-          className="mural-button"
-          src="/sketch/mural.png"
-          alt="Mural"
-          onClick={() => router.push("/sembawang-mural")}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              router.push("/sembawang-mural");
-            }
-          }}
-        />
-        {/* Tooltip for mural button */}
-        <div className="mural-tooltip">
-          <span>view my murals</span>
+        {/* mural button - clickable */}
+        <div className="mural-container">
+          <img
+            className="mural-button"
+            src="/sketch/mural.png"
+            alt="Mural"
+            onClick={() => router.push("/sembawang-mural")}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                router.push("/sembawang-mural");
+              }
+            }}
+          />
+          {/* Tooltip for mural button */}
+          <div
+            className="mural-tooltip"
+            role="button"
+            tabIndex={0}
+            onClick={() => router.push("/sembawang-mural")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                router.push("/sembawang-mural");
+              }
+            }}
+          >
+            <span>view my murals</span>
+          </div>
         </div>
       </div>
 
       {/* portrait right */}
-      <img className="portrait" src="/sketch/face.png" alt="Sketch portrait" />
+      <img
+        className="portrait"
+        src="/sketch/face_white.svg"
+        alt="Sketch portrait"
+      />
 
       {/* hand-drawn note + arrow bottom-right */}
       <div className="note">
@@ -81,7 +110,7 @@ export default function Hero() {
         }
         .content {
           position: absolute;
-          bottom: 5vh;
+          bottom: 0px;
           right: 30%;
           max-width: 620px;
           z-index: 10;
@@ -118,31 +147,38 @@ export default function Hero() {
           box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.1);
         }
 
-        .world-container {
+        /* Shared container to align world + mural and scale together */
+        .cta-container {
           position: absolute;
-          top: 15%;
+          top: 5%;
+          left: 10%;
+          width: calc(100% - min(40vw, 520px));
+          max-width: 900px;
+        }
+
+        .world-container {
+          position: relative;
           left: 0;
           align-self: left;
-          width: calc(100% - min(40vw, 520px));
+          width: 100%;
           height: auto;
         }
 
         .mural-container {
-          position: absolute;
-          bottom: 7%;
+          position: relative;
+          margin-top: clamp(12px, 4vw, 32px);
           width: 300px;
-          left: 5%;
+          max-width: 540px;
+          left: 0;
           height: auto;
           z-index: 10;
           align-self: left;
         }
 
         .bg {
-          position: absolute;
-          top: 0;
-          left: 0;
+          position: relative;
           width: 100%;
-          max-height: 320px;
+          height: auto;
           object-fit: contain;
           opacity: 0.6;
           pointer-events: none;
@@ -184,9 +220,9 @@ export default function Hero() {
 
         .tooltip {
           position: absolute;
-          bottom: -80px;
+          top: calc(100% - 150px);
           left: 15%;
-          background: rgba(255, 255, 255, 0.95);
+          background: rgba(255, 255, 255, 0.7);
           border: 2px solid #333;
           border-radius: 50px;
           padding: 12px 20px;
@@ -198,7 +234,8 @@ export default function Hero() {
           z-index: 10;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
           animation: subtleFloat 3s ease-in-out infinite;
-          pointer-events: none;
+          pointer-events: auto;
+          cursor: pointer;
         }
 
         .tooltip::before {
@@ -217,9 +254,9 @@ export default function Hero() {
 
         .mural-tooltip {
           position: absolute;
-          bottom: -50px;
+          top: calc(100% - 5vh);
           transform: translateX(-50%);
-          background: rgba(255, 255, 255, 0.95);
+          background: rgba(255, 255, 255, 0.7);
           border: 2px solid #333;
           border-radius: 50px;
           padding: 10px 16px;
@@ -231,7 +268,8 @@ export default function Hero() {
           z-index: 10;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
           animation: subtleFloat 3s ease-in-out infinite;
-          pointer-events: none;
+          pointer-events: auto;
+          cursor: pointer;
         }
 
         .mural-tooltip::before {
@@ -282,6 +320,12 @@ export default function Hero() {
           width: 90px;
           height: auto;
         }
+
+        @media (max-width: 1300px) {
+          .cta-container {
+            left: 2%;
+          }
+        }
         @media (max-width: 900px) {
           .content {
             position: absolute;
@@ -292,26 +336,28 @@ export default function Hero() {
           }
           .portrait {
             width: 70vw;
+            max-width: 400px;
             margin: 24px 0 0;
             right: 0;
           }
-          .world-container {
-            width: 60%;
-            top: 0;
-            left: 0;
+          .cta-container {
+            width: 100%;
+            top: 0%;
           }
-
+          .world-container {
+            width: 100%;
+            max-width: 500px;
+          }
           .bg {
             width: 100%;
             height: auto;
-            top: 0;
-            left: 0;
           }
           .mural-container {
             position: relative;
-            bottom: -10rem;
+            margin-top: clamp(8px, 5vw, 24px);
             left: 0;
-            width: 250px;
+            width: 50%;
+            max-width: 200px;
           }
           .hero {
             padding-bottom: 4rem;
@@ -323,9 +369,9 @@ export default function Hero() {
           }
           .mural-container {
             position: relative;
-            bottom: -9rem;
-            left: -4.5%;
-            width: 160px;
+            margin-top: clamp(6px, 6vw, 18px);
+            left: 0;
+            max-width: 200px;
           }
         }
       `}</style>

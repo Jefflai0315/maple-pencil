@@ -122,7 +122,7 @@ export default function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            {["about", "services", "portfolio", "contact"].map((section) => (
+            {["services", "portfolio", "contact"].map((section) => (
               <button
                 key={section}
                 onClick={() => scrollToSection(section)}
