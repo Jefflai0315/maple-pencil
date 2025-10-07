@@ -13,7 +13,7 @@ declare global {
   }
 }
 
-import { Gamepad2, Palette, Upload, X, Menu } from "lucide-react";
+import { Gamepad2, Palette, X, Menu } from "lucide-react";
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -49,17 +49,6 @@ export default function Navbar() {
       element.scrollIntoView({ behavior: "smooth" });
       setActiveSection(sectionId);
       setIsMenuOpen(false);
-    }
-  };
-
-  // Track button clicks
-  const trackButtonClick = (buttonName: string, category = "engagement") => {
-    if (typeof window !== "undefined" && window.gtag) {
-      window.gtag("event", "click", {
-        event_category: category,
-        event_label: buttonName,
-        value: 1,
-      });
     }
   };
 
@@ -150,15 +139,6 @@ export default function Navbar() {
               <Palette size={18} />
               Mural
             </Link>
-            <button
-              className="sketch-btn"
-              onClick={() => {
-                trackButtonClick("Book Now - Nav", "navigation");
-                scrollToSection("contact");
-              }}
-            >
-              Book Now
-            </button>
           </div>
 
           {/* Mobile Menu Button */}
@@ -174,7 +154,7 @@ export default function Navbar() {
         {isMenuOpen && (
           <div className="md:hidden absolute  top-full left-0 right-0 border-t-2 border-sketch-gray">
             <div className="flex flex-col space-y-4 p-4 bg-white rounded-lg border-b-2 border-charcoal-light">
-              {["about", "services", "portfolio", "contact"].map((section) => (
+              {["services", "portfolio", "contact"].map((section) => (
                 <button
                   key={section}
                   onClick={() => scrollToSection(section)}
@@ -190,14 +170,6 @@ export default function Navbar() {
               >
                 <Gamepad2 size={18} />
                 World
-              </Link>
-              <Link
-                href="/upload"
-                className="font-sketch text-lg text-left text-charcoal-medium hover:text-charcoal flex items-center gap-2"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <Upload size={18} />
-                Upload
               </Link>
               <Link
                 href="/sembawang-mural"
@@ -217,7 +189,7 @@ export default function Navbar() {
           top: 0;
           z-index: 50;
           backdrop-filter: blur(6px);
-          background-color: hsl(45, 100%, 62.7%);
+          background-color: rgb(255, 207, 65);
         }
         .rough-border {
           position: absolute;

@@ -46,7 +46,7 @@ export default function ServicesOverview() {
   const router = useRouter();
 
   return (
-    <section className="services-overview">
+    <section id="services" className="services-overview">
       <div className="header">
         <h2>What I Offer</h2>
         <div className="underline-sketch">
@@ -129,6 +129,7 @@ export default function ServicesOverview() {
           font-family: "Courier New", monospace;
           position: relative;
           overflow: hidden;
+          scroll-margin-top: 90px; /* prevent sticky navbar overlap on scroll */
         }
 
         /* Subtle paper texture */
