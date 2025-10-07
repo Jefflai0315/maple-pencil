@@ -282,7 +282,7 @@ export default function ClippathSketchbook() {
   return (
     <section className="sketch-services ">
       <header className="header">
-        <h2>My Sketch Services</h2>
+        <h2>Types of Sketch Services</h2>
         <span className="caption">open for commission</span>
       </header>
 

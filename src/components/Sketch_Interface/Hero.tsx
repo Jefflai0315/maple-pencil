@@ -102,7 +102,13 @@ export default function Hero() {
 
       <style jsx>{`
         .hero {
-          margin-top: 8vh;
+          background: linear-gradient(
+            to bottom,
+            hsl(45, 100%, 62.7%) 0%,
+            #f8f8f8 80%,
+            #fefefe 100%
+          );
+          margin-top: 7vh;
           position: relative;
           min-height: 70vh;
           padding: 10vh 5vw;
@@ -361,6 +367,7 @@ export default function Hero() {
           }
           .hero {
             padding-bottom: 4rem;
+            margin-top: 6vh;
           }
         }
         @media (max-width: 600px) {

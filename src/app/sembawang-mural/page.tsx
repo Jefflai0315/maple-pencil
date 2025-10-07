@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { IconX, IconLoader2 } from "@tabler/icons-react";
 import { muralPromptThemes } from "../utils/constants";
-import QRCode from "qrcode";
 
 interface MuralItem {
   id: string;
@@ -93,7 +92,6 @@ export default function MuralPage() {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [showMobileHint, setShowMobileHint] = useState(false);
   const [lastTouchDistance, setLastTouchDistance] = useState(0);
-  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
 
   // Function to check video format compatibility
   const checkVideoCompatibility = (videoUrl: string): boolean => {
@@ -328,35 +326,6 @@ export default function MuralPage() {
     }, 1000);
     return () => clearTimeout(fallbackTimer);
   }, []);
-
-  // Generate QR code for desktop
-  useEffect(() => {
-    console.log("QR Code effect running, isMobile:", isMobile);
-    if (!isMobile) {
-      const generateQRCode = async () => {
-        try {
-          console.log("Generating QR code...");
-          const url = "https://www.playingwithpencil.art/sembawang-mural";
-          const qrDataUrl = await QRCode.toDataURL(url, {
-            width: 200,
-            margin: 2,
-            color: {
-              dark: "#000000",
-              light: "#FFFFFF",
-            },
-          });
-          console.log(
-            "QR code generated successfully:",
-            qrDataUrl.substring(0, 50) + "..."
-          );
-          setQrCodeDataUrl(qrDataUrl);
-        } catch (error) {
-          console.error("Error generating QR code:", error);
-        }
-      };
-      generateQRCode();
-    }
-  }, [isMobile]);
 
   useEffect(() => {
     if (bgVideoRef.current) {
@@ -1584,32 +1553,6 @@ export default function MuralPage() {
               <span className="text-gray-700 font-quicksand text-sm">
                 Pinch to move around
               </span>
-            </div>
-          </div>
-        )}
-
-        {/* Desktop QR Code */}
-        {!isMobile && (
-          <div className="fixed top-10 right-4 z-40">
-            <div className=" rounded-lg p-3 shadow-lg backdrop-blur-sm">
-              <div className="text-center">
-                <div className="w-32 h-32 bg-white rounded border-2 border-gray-200 flex items-center justify-center">
-                  {qrCodeDataUrl ? (
-                    <img
-                      src={qrCodeDataUrl}
-                      alt="QR Code for playingwithpencil.art/sembawang-mural"
-                      className="w-full h-full object-contain"
-                    />
-                  ) : (
-                    <div className="text-xs text-gray-400 text-center leading-tight">
-                      Loading QR...
-                    </div>
-                  )}
-                </div>
-                <div className="text-xs text-center leading-tight font-quicksand mt-2">
-                  Share this mural
-                </div>
-              </div>
             </div>
           </div>
         )}

@@ -67,7 +67,7 @@ export default function Navbar() {
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      const sections = ["about", "services", "portfolio", "contact"];
+      const sections = ["services", "portfolio", "contact"];
       const scrollPosition = currentScrollY + 100;
 
       // Handle navigation visibility
@@ -142,13 +142,7 @@ export default function Navbar() {
               <Gamepad2 size={18} />
               World
             </Link>
-            <Link
-              href="/upload"
-              className="font-sketch text-lg text-charcoal-medium hover:text-charcoal transition-colors flex items-center gap-2"
-            >
-              <Upload size={18} />
-              Upload
-            </Link>
+
             <Link
               href="/sembawang-mural"
               className="font-sketch text-lg text-charcoal-medium hover:text-charcoal transition-colors flex items-center gap-2"
@@ -223,6 +217,7 @@ export default function Navbar() {
           top: 0;
           z-index: 50;
           backdrop-filter: blur(6px);
+          background-color: hsl(45, 100%, 62.7%);
         }
         .rough-border {
           position: absolute;

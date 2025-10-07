@@ -39,7 +39,7 @@ export default function PhoneGallery() {
   const screenRef = useRef<HTMLDivElement>(null);
 
   return (
-    <section id="moments" className="wrap">
+    <section id="portfolio" className="wrap">
       <h2>My Gallery</h2>
       <h3>Sketching strangers & moments</h3>
       <div className="stage">

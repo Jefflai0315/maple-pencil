@@ -44,8 +44,8 @@ export default function Socials() {
           padding: 24px 5vw;
         }
         img {
-          width: 42px;
-          height: 42px;
+          width: 56px;
+          height: 56px;
           filter: drop-shadow(0 1px 0 #00000010);
         }
         a {

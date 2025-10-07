@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import emailjs from "@emailjs/browser";
 
 export default function ContactNote() {
   const [formData, setFormData] = useState({
@@ -69,8 +70,43 @@ export default function ContactNote() {
     }
   };
 
+  // Function to submit via email using EmailJS
+  const submitViaEmail = async () => {
+    try {
+      const templateParams = {
+        from_name: formData.name,
+        from_email: formData.email,
+        message: formData.message,
+        mobile: formData.mobile || "Not provided",
+        coupon_code: formData.couponCode || "None",
+        source: "ContactNote - Home Page",
+      };
+
+      const emailResult = await emailjs.send(
+        process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID!,
+        process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID!,
+        templateParams,
+        process.env.NEXT_PUBLIC_EMAILJS_USER_ID!
+      );
+
+      if (emailResult.status !== 200) {
+        throw new Error("Email submission failed");
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error submitting via email:", error);
+      return false;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormStatus({
+      submitted: false,
+      success: false,
+      message: "",
+    });
     setIsSubmitting(true);
 
     try {
@@ -84,10 +120,11 @@ export default function ContactNote() {
         return;
       }
 
-      // Submit to Google Sheets
+      // Submit to Google Sheets and Email
       const submissionSuccess = await submitToGoogleSheets();
+      const emailSuccess = await submitViaEmail();
 
-      if (submissionSuccess) {
+      if (submissionSuccess && emailSuccess) {
         // Reset form on success
         setFormData({
           name: "",
@@ -105,11 +142,20 @@ export default function ContactNote() {
         });
       } else {
         // Set error message if submission fails
+        let errorMsg = "Failed to send your message. ";
+        if (!submissionSuccess && !emailSuccess) {
+          errorMsg += "Both Google Sheets and email submission failed.";
+        } else if (!submissionSuccess) {
+          errorMsg += "Google Sheets submission failed, but email was sent.";
+        } else if (!emailSuccess) {
+          errorMsg += "Email submission failed, but saved to Google Sheets.";
+        }
+        errorMsg += " Please try again or contact me directly.";
+
         setFormStatus({
           submitted: false,
           success: false,
-          message:
-            "Failed to send your message. Please try again or contact me directly.",
+          message: errorMsg,
         });
       }
     } catch (error) {
@@ -126,6 +172,21 @@ export default function ContactNote() {
 
   return (
     <section id="contact" className="wrap">
+      <div className="header">
+        <h2>Contact Me</h2>
+        <div className="underline-sketch">
+          <svg viewBox="0 0 200 10" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M 5 5 Q 50 2, 100 5 T 195 5"
+              stroke="#2c2c2c"
+              strokeWidth="2"
+              fill="none"
+              strokeLinecap="round"
+            />
+          </svg>
+        </div>
+      </div>
+
       <div className="note-container">
         {/* Note background - behind */}
         <div className="note-background">
@@ -179,14 +240,20 @@ export default function ContactNote() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="send-button"
+              className={`send-button ${isSubmitting ? "sending" : ""}`}
             >
-              <img
-                src="/sketch/send_a_note.png"
-                alt="Send note"
-                className="send-icon"
-              />
-              {isSubmitting && <span className="sending-text">Sending...</span>}
+              {isSubmitting ? (
+                <div className="loading-spinner">
+                  <div className="spinner"></div>
+                  <span className="sending-text">Sending...</span>
+                </div>
+              ) : (
+                <img
+                  src="/sketch/send_a_note.png"
+                  alt="Send note"
+                  className="send-icon"
+                />
+              )}
             </button>
           </form>
 
@@ -222,20 +289,32 @@ export default function ContactNote() {
         .wrap {
           padding: 60px 5vw 100px;
           display: grid;
-          gap: 20rem;
+
           font-family: "Caveat", cursive;
           --note-height: clamp(600px, 70vh, 800px);
           --info-height: clamp(120px, 15vh, 200px);
           min-height: calc(var(--note-height) + var(--info-height) + 4rem);
           position: relative;
         }
+        .header {
+          font-size: 2rem;
+          align-self: center;
+          font-family: "Brushed", "Georgia", serif;
+          overflow-x: hidden;
+          text-align: center;
+        }
         .note-container {
           position: relative;
           width: min(780px, 90vw);
           margin: 0 auto;
           min-height: var(--note-height);
-          --note-width: min(780px, 90vw);
-          --send-button-size: calc(var(--note-width));
+          --note-width: min(1000px, 90vw);
+          --send-button-size: calc(var(--note-width) - 50vw);
+        }
+        .underline-sketch {
+          width: clamp(150px, 30vw, 300px);
+          margin: 0.5rem auto 0;
+          opacity: 0.6;
         }
         .note-background {
           position: absolute;
@@ -244,6 +323,7 @@ export default function ContactNote() {
           width: calc(100% + 250px);
           left: -80px;
           top: -65px;
+          transform: rotate(10deg);
         }
         .note-background img {
           width: 100%;
@@ -252,16 +332,17 @@ export default function ContactNote() {
           display: block;
           filter: drop-shadow(0 8px 24px #0001);
           object-fit: contain;
+          margin-top: 10vh;
         }
         .form-content {
           width: 70%;
-          top: 20%;
-          left: 10%;
+          top: 18%;
+          left: 8%;
           position: relative;
           z-index: 10;
           align-self: flex-start;
           border-radius: 16px;
-          transform: rotate(-10deg);
+          transform: rotate(0deg);
         }
         h3 {
           margin: 0 0 1rem;
@@ -277,7 +358,7 @@ export default function ContactNote() {
           font-size: 1.2rem;
           margin-bottom: 1.5rem;
           color: #666;
-          margin-top: 10rem;
+          margin-top: 30rem;
           min-height: var(--info-height);
           align-self: end;
         }
@@ -291,17 +372,17 @@ export default function ContactNote() {
         }
         .form {
           display: grid;
-          gap: 0.8rem;
+          gap: 1rem;
         }
         input,
         textarea {
           width: 100%;
           border: 2px solid #1f1f1f;
           border-radius: 8px;
-          padding: 0.75rem;
+          padding: 1rem 1.25rem;
           background: #fff;
           font-family: inherit;
-          font-size: 0.9rem;
+          font-size: 1.1rem;
           transition: all 0.3s ease;
         }
         input:focus,
@@ -313,12 +394,13 @@ export default function ContactNote() {
         }
         textarea {
           resize: vertical;
-          min-height: 100px;
+          min-height: 150px;
+          line-height: 1.6;
         }
         .send-button {
           position: absolute;
-          bottom: calc(-1 * var(--send-button-size) * 0.9);
-          left: calc(-1 * var(--send-button-size) * 0.45);
+          bottom: calc(-1 * var(--send-button-size) * 1.1);
+          left: calc(-1 * var(--send-button-size) * 0.1);
           width: var(--send-button-size);
           height: var(--send-button-size);
           border: none;
@@ -330,6 +412,7 @@ export default function ContactNote() {
           align-items: center;
           justify-content: center;
           transform: rotate(10deg);
+          background-color: hsl(0, 0%, 100%);
         }
 
         .send-button:hover {
@@ -354,6 +437,32 @@ export default function ContactNote() {
           object-fit: contain;
         }
 
+        /* Loading state - clearer, centered, bigger */
+        .send-button.sending {
+          background: #fff;
+        }
+        .loading-spinner {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          width: 70%;
+        }
+        .spinner {
+          width: 40%;
+          aspect-ratio: 1 / 1;
+          border: 6px solid #e5e7eb; /* light gray */
+          border-top-color: #1f1f1f; /* brand/dark */
+          border-radius: 50%;
+          animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
         .sending-text {
           position: absolute;
           bottom: calc(-1 * var(--send-button-size) * 0.4);
@@ -363,10 +472,17 @@ export default function ContactNote() {
           color: #1f1f1f;
           white-space: nowrap;
         }
+        /* When inside the button during sending, use centered bigger text */
+        .send-button.sending .sending-text {
+          position: static;
+          transform: none;
+          font-size: clamp(16px, 2.2vw, 22px);
+          font-weight: 700;
+        }
 
         .send-tooltip {
           position: absolute;
-          bottom: calc(-1 * var(--send-button-size) * 0.55);
+          bottom: calc(-1 * var(--send-button-size) * 1.1);
           left: calc(var(--send-button-size) * 0.2);
           background: rgba(255, 255, 255, 0.95);
           border: 2px solid #333;
