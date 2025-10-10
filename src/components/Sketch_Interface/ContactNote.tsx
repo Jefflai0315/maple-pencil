@@ -411,7 +411,6 @@ export default function ContactNote() {
           display: flex;
           align-items: center;
           justify-content: center;
-          transform: rotate(10deg);
           background-color: hsl(0, 0%, 100%);
         }
 
