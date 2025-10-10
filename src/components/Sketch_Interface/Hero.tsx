@@ -111,6 +111,7 @@ export default function Hero() {
           margin-top: 7vh;
           position: relative;
           min-height: 70vh;
+          height: calc(100vh - 7vh); /* Fixed height that accounts for margin */
           padding: 10vh 5vw;
           overflow: hidden;
         }
@@ -160,6 +161,10 @@ export default function Hero() {
           left: 10%;
           width: calc(100% - min(40vw, 520px));
           max-width: 900px;
+          max-height: calc(
+            100vh - 7vh - 20vh
+          ); /* Account for margin-top and padding */
+          overflow: hidden; /* Hide any overflow */
         }
 
         .world-container {
@@ -330,6 +335,9 @@ export default function Hero() {
         @media (max-width: 1300px) {
           .cta-container {
             left: 2%;
+            max-height: calc(
+              100vh - 7vh - 15vh
+            ); /* Slightly more space on medium screens */
           }
         }
         @media (max-width: 900px) {
@@ -349,6 +357,7 @@ export default function Hero() {
           .cta-container {
             width: 100%;
             top: 0%;
+            max-height: calc(100vh - 7vh - 10vh); /* More space on mobile */
           }
           .world-container {
             width: 100%;
