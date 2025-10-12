@@ -39,34 +39,36 @@ export default function PhoneGallery() {
   const screenRef = useRef<HTMLDivElement>(null);
 
   return (
-    <section id="portfolio" className="wrap">
-      <h2>My Gallery</h2>
-      <h3>Sketching strangers & moments</h3>
-      <div className="stage">
-        {/* Phone and screen share the same wrapper so they stay aligned */}
-        <div className="phone-wrapper">
-          <img
-            src="/sketch/phone.png"
-            className="hand-img"
-            alt=""
-            aria-hidden
-          />
+    <section id="portfolio" className="portfolio-container">
+      <div className="wrap">
+        <h2>My Gallery</h2>
+        <h3>Sketching strangers & moments</h3>
+        <div className="stage">
+          {/* Phone and screen share the same wrapper so they stay aligned */}
+          <div className="phone-wrapper">
+            <img
+              src="/sketch/phone.png"
+              className="hand-img"
+              alt=""
+              aria-hidden
+            />
 
-          {/* Screen overlay precisely positioned in phone frame */}
-          <div className="screen" ref={screenRef}>
-            <div className="screen-scroll">
-              {FEED.map((item, i) => (
-                <div key={i} className="feed-item">
-                  <img src={item.image} alt={item.title} />
-                  <div className="feed-content">
-                    <h4>{item.title}</h4>
-                    <p>{item.description}</p>
+            {/* Screen overlay precisely positioned in phone frame */}
+            <div className="screen" ref={screenRef}>
+              <div className="screen-scroll">
+                {FEED.map((item, i) => (
+                  <div key={i} className="feed-item">
+                    <img src={item.image} alt={item.title} />
+                    <div className="feed-content">
+                      <h4>{item.title}</h4>
+                      <p>{item.description}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+              <div className="screen-fade top" aria-hidden />
+              <div className="screen-fade bottom" aria-hidden />
             </div>
-            <div className="screen-fade top" aria-hidden />
-            <div className="screen-fade bottom" aria-hidden />
           </div>
         </div>
       </div>
@@ -78,17 +80,36 @@ export default function PhoneGallery() {
           font-style: normal;
         }
 
+        .portfolio-container {
+          position: relative;
+          width: 100%;
+          overflow: hidden; /* Ensure background stays contained */
+          background: linear-gradient(
+            to bottom,
+            #fefefe 0%,
+            #f8f8f8 50%,
+            #fefefe 100%
+          );
+          margin-bottom: 2rem; /* Ensure separation from next section */
+        }
+
         .wrap {
           padding: 10px;
           padding-top: 60px;
+          padding-bottom: 4rem; /* Ensure proper bottom spacing */
           --header-height: clamp(80px, 15vh, 100px);
           --header-spacing: clamp(2rem, 4vh, 3rem);
-          --stage-height: clamp(40vh, 80vh, 90vh);
+          --stage-height: clamp(
+            60vh,
+            100vh,
+            120vh
+          ); /* Increased height to show full content */
           --phone-width: 90%;
           min-height: calc(
             var(--header-height) + var(--header-spacing) + var(--stage-height) +
-              4rem
+              6rem /* Increased bottom padding */
           );
+          position: relative; /* Ensure proper positioning context */
         }
         h2 {
           text-align: center;
@@ -134,7 +155,8 @@ export default function PhoneGallery() {
           max-width: 900px;
           margin: 0 auto;
           aspect-ratio: 16/10;
-          min-height: 60vh;
+          min-height: 80vh; /* Increased to show more content */
+          height: auto; /* Allow height to grow with content */
         }
 
         /* Shared wrapper keeps image and screen in perfect sync */
@@ -255,7 +277,7 @@ export default function PhoneGallery() {
         @media (max-width: 768px) {
           .stage {
             aspect-ratio: 4/3;
-            min-height: 50vh;
+            min-height: 70vh; /* Increased for mobile too */
           }
           .phone-wrapper {
             top: 10%;
@@ -271,7 +293,11 @@ export default function PhoneGallery() {
           .wrap {
             padding: 5vw;
             padding-top: 60px;
-            --stage-height: clamp(30vh, 40vh, 50vh);
+            --stage-height: clamp(
+              50vh,
+              60vh,
+              70vh
+            ); /* Increased for small screens */
           }
         }
       `}</style>

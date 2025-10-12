@@ -19,7 +19,7 @@ const SERVICES: Service[] = [
     subtitle: "Interactive digital art",
     shortDescription:
       "Interactive installations, AI Art experiences, and Creative art solutions.",
-    sketchIcon: "/NPC/Camera.png",
+    sketchIcon: "/NPC/Art_tech_booth.png",
     route: "/services/art-tech",
   },
   {

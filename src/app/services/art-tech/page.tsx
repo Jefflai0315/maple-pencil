@@ -18,7 +18,7 @@ export default function ArtTechServicePage() {
         <section className="hero-section">
           <div className="hero-content">
             <div className="hero-image">
-              <img src="/NPC/Camera.png" alt="Art & Tech Services" />
+              <img src="/NPC/Art_tech_booth.png" alt="Art & Tech Services" />
             </div>
             <div className="hero-text">
               <h1>Art & Tech Services</h1>
@@ -177,7 +177,6 @@ export default function ArtTechServicePage() {
                   <div className="case-study-item corporate-card">
                   <div className="case-study-item creative-card">
                   <div className="case-study-item tech-card">
-                  <div className="case-study-item event-card">
               */}
               </div>
             </div>
@@ -691,6 +690,59 @@ export default function ArtTechServicePage() {
 
         .work-item:hover img {
           transform: scale(1.05);
+        }
+
+        /* Event Details Styles */
+        .event-details {
+          background: white;
+          border: 2px solid #1f1f1f;
+          border-radius: 8px;
+          padding: 2rem;
+          margin-top: 2rem;
+        }
+
+        .event-details h3 {
+          font-family: "Brushed", "Georgia", serif;
+          font-size: 1.8rem;
+          color: #1f1f1f;
+          margin: 0 0 2rem 0;
+          text-align: center;
+          transform: rotate(-0.5deg);
+        }
+
+        .details-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 1.5rem;
+        }
+
+        .detail-item {
+          background: #f8f9fa;
+          border: 1px solid #dee2e6;
+          border-radius: 8px;
+          padding: 1.5rem;
+          text-align: center;
+          transition: all 0.3s ease;
+        }
+
+        .detail-item:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .detail-item h4 {
+          font-family: "Comic Sans MS", cursive;
+          font-size: 1.1rem;
+          color: #1f1f1f;
+          margin: 0 0 0.5rem 0;
+          font-weight: bold;
+        }
+
+        .detail-item p {
+          font-size: 0.9rem;
+          color: #666;
+          margin: 0;
+          line-height: 1.4;
         }
 
         @media (max-width: 900px) {
