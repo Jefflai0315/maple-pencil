@@ -336,7 +336,7 @@ export default function Hero() {
           .cta-container {
             left: 2%;
             max-height: calc(
-              100vh - 7vh - 15vh
+              100vh - 7vh - 30vh
             ); /* Slightly more space on medium screens */
           }
         }
@@ -357,7 +357,7 @@ export default function Hero() {
           .cta-container {
             width: 100%;
             top: 0%;
-            max-height: calc(100vh - 7vh - 10vh); /* More space on mobile */
+            max-height: calc(100vh - 7vh - 15vh); /* More space on mobile */
           }
           .world-container {
             width: 100%;
