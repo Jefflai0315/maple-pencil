@@ -127,28 +127,28 @@ export default function LiveEventsServicePage() {
                       <div className="gallery-grid">
                         <div className="gallery-item">
                           <img
-                            src="/Lakepoint/drawing_little_one.png"
+                            src="/Lakepoint/drawing_little_one.jpg"
                             alt="Drawing a little one at the festival"
                           />
                           <p>Drawing a little one at the festival</p>
                         </div>
                         <div className="gallery-item">
                           <img
-                            src="/Lakepoint/drawing_resident.png"
+                            src="/Lakepoint/drawing_resident.jpg"
                             alt="Residents enjoying the sketching experience"
                           />
                           <p>Residents getting their portraits done</p>
                         </div>
                         <div className="gallery-item">
                           <img
-                            src="/Lakepoint/surprise_vip.png"
+                            src="/Lakepoint/surprise_vip.jpg"
                             alt="Surprise VIP guest at the event"
                           />
                           <p>Surprise VIP guest appearance!</p>
                         </div>
                         <div className="gallery-item">
                           <img
-                            src="/Lakepoint/surprise_family.png"
+                            src="/Lakepoint/surprise_family.jpg"
                             alt="Community celebrating together"
                           />
                           <p>Community celebrating together</p>
@@ -172,7 +172,7 @@ export default function LiveEventsServicePage() {
                             muted
                             loop
                             className="vip-video-player"
-                            poster="/Lakepoint/surprise_vip.png"
+                            poster="/Lakepoint/surprise_vip.jpg"
                           >
                             <source
                               src="/Lakepoint/surprise_vip.mov"
