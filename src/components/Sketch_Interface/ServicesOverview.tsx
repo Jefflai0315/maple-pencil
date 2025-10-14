@@ -168,12 +168,20 @@ export default function ServicesOverview() {
           margin: 0;
           transform: rotate(-1deg);
           display: inline-block;
+          animation: titleSlideIn 1s ease-out;
+          transition: all 0.3s ease;
+        }
+
+        .header h2:hover {
+          transform: rotate(-1deg) scale(1.05);
+          color: #1a1a1a;
         }
 
         .underline-sketch {
           width: clamp(150px, 30vw, 300px);
           margin: 0.5rem auto 0;
           opacity: 0.6;
+          animation: underlineDraw 1.5s ease-out 0.5s both;
         }
 
         .subtitle {
@@ -204,6 +212,18 @@ export default function ServicesOverview() {
           min-height: 360px;
           display: flex;
           flex-direction: column;
+          animation: cardSlideUp 0.8s ease-out;
+          animation-fill-mode: both;
+        }
+
+        .service-card:nth-child(1) {
+          animation-delay: 0.1s;
+        }
+        .service-card:nth-child(2) {
+          animation-delay: 0.2s;
+        }
+        .service-card:nth-child(3) {
+          animation-delay: 0.3s;
         }
 
         /* Hand-drawn sketch border SVG */
@@ -244,6 +264,13 @@ export default function ServicesOverview() {
           height: 100px;
           margin: 0 auto 1.5rem;
           opacity: 0.85;
+          animation: iconBounce 2s ease-in-out infinite;
+          transition: all 0.3s ease;
+        }
+
+        .card-icon:hover {
+          animation-play-state: paused;
+          transform: scale(1.1);
         }
 
         .card-icon img {
@@ -251,6 +278,11 @@ export default function ServicesOverview() {
           height: 100%;
           object-fit: contain;
           filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.1));
+          transition: all 0.3s ease;
+        }
+
+        .card-icon img:hover {
+          filter: drop-shadow(4px 4px 8px rgba(0, 0, 0, 0.2));
         }
 
         h3 {
@@ -293,6 +325,14 @@ export default function ServicesOverview() {
           color: #1f1f1f;
           border-bottom: 2px solid #1f1f1f;
           padding-bottom: 2px;
+          transition: all 0.3s ease;
+          display: inline-block;
+        }
+
+        .service-card:hover .card-cta span {
+          transform: translateX(5px);
+          color: #000;
+          border-bottom-color: #000;
         }
 
         @media (max-width: 768px) {
@@ -308,6 +348,49 @@ export default function ServicesOverview() {
 
           .service-card:hover {
             transform: scale(1.02) rotate(0deg) !important;
+          }
+        }
+
+        @keyframes titleSlideIn {
+          0% {
+            opacity: 0;
+            transform: rotate(-1deg) translateY(-30px);
+          }
+          100% {
+            opacity: 1;
+            transform: rotate(-1deg) translateY(0);
+          }
+        }
+
+        @keyframes underlineDraw {
+          0% {
+            stroke-dasharray: 0 200;
+            opacity: 0;
+          }
+          100% {
+            stroke-dasharray: 200 0;
+            opacity: 0.6;
+          }
+        }
+
+        @keyframes cardSlideUp {
+          0% {
+            opacity: 0;
+            transform: translateY(50px) rotate(var(--initial-rotation, 0deg));
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) rotate(var(--initial-rotation, 0deg));
+          }
+        }
+
+        @keyframes iconBounce {
+          0%,
+          100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-5px);
           }
         }
       `}</style>

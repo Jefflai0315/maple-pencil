@@ -139,7 +139,7 @@ export default function Navbar() {
         }`}
       >
         <div className="max-w-6xl mx-auto px-2 flex items-center justify-between">
-          <div className="font-handwritten text-3xl font-bold text-charcoal">
+          <div className="font-handwritten text-3xl font-bold text-charcoal logo-animated">
             Playing with Pencil
           </div>
 
@@ -150,7 +150,7 @@ export default function Navbar() {
                 <button
                   key={section}
                   onClick={() => scrollToSection(section)}
-                  className={`font-sketch text-lg capitalize transition-colors ${
+                  className={`font-sketch text-lg capitalize transition-all duration-300 nav-item ${
                     activeSection === section
                       ? "text-charcoal font-bold sketch-heading"
                       : "text-charcoal-medium hover:text-charcoal"
@@ -162,7 +162,7 @@ export default function Navbar() {
             )}
             <Link
               href="/world"
-              className="font-sketch text-lg text-charcoal-medium hover:text-charcoal transition-colors flex items-center gap-2"
+              className="font-sketch text-lg text-charcoal-medium hover:text-charcoal transition-all duration-300 flex items-center gap-2 nav-item"
             >
               <Gamepad2 size={18} />
               World
@@ -170,7 +170,7 @@ export default function Navbar() {
 
             <Link
               href="/sembawang-mural"
-              className="font-sketch text-lg text-charcoal-medium hover:text-charcoal transition-colors flex items-center gap-2"
+              className="font-sketch text-lg text-charcoal-medium hover:text-charcoal transition-all duration-300 flex items-center gap-2 nav-item"
             >
               <Palette size={18} />
               Mural
@@ -277,6 +277,81 @@ export default function Navbar() {
           .inner {
             padding: 12px 20px;
             min-height: 50px;
+          }
+        }
+
+        .logo-animated {
+          animation: logoBounce 2s ease-in-out infinite;
+          transition: all 0.3s ease;
+        }
+
+        .logo-animated:hover {
+          animation-play-state: paused;
+          transform: scale(1.05);
+        }
+
+        .nav-item {
+          position: relative;
+          animation: navItemSlide 0.6s ease-out;
+          animation-fill-mode: both;
+        }
+
+        .nav-item:nth-child(1) {
+          animation-delay: 0.1s;
+        }
+        .nav-item:nth-child(2) {
+          animation-delay: 0.2s;
+        }
+        .nav-item:nth-child(3) {
+          animation-delay: 0.3s;
+        }
+        .nav-item:nth-child(4) {
+          animation-delay: 0.4s;
+        }
+        .nav-item:nth-child(5) {
+          animation-delay: 0.5s;
+        }
+        .nav-item:nth-child(6) {
+          animation-delay: 0.6s;
+        }
+
+        .nav-item:hover {
+          transform: translateY(-2px);
+        }
+
+        .nav-item::after {
+          content: "";
+          position: absolute;
+          bottom: -5px;
+          left: 0;
+          width: 0;
+          height: 2px;
+          background: #1f1f1f;
+          transition: width 0.3s ease;
+        }
+
+        .nav-item:hover::after {
+          width: 100%;
+        }
+
+        @keyframes logoBounce {
+          0%,
+          100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-3px);
+          }
+        }
+
+        @keyframes navItemSlide {
+          0% {
+            opacity: 0;
+            transform: translateY(-20px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
           }
         }
       `}</style>

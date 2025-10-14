@@ -123,6 +123,13 @@ export default function PhoneGallery() {
             4px 4px 0px rgba(0, 0, 0, 0.05);
           letter-spacing: 1px;
           position: relative;
+          animation: portfolioTitleSlide 1s ease-out;
+          transition: all 0.3s ease;
+        }
+
+        h2:hover {
+          transform: rotate(-1deg) scale(1.05);
+          color: #000;
         }
         h3 {
           font-family: "Caveat", cursive;
@@ -131,6 +138,13 @@ export default function PhoneGallery() {
           font-weight: 700;
           color: #1f1f1f;
           text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.1);
+          animation: portfolioSubtitleFade 1.2s ease-out 0.3s both;
+          transition: all 0.3s ease;
+        }
+
+        h3:hover {
+          color: #000;
+          transform: scale(1.02);
         }
 
         h2::before {
@@ -185,6 +199,13 @@ export default function PhoneGallery() {
           opacity: 0.95;
           display: block;
           pointer-events: none;
+          animation: phoneFloat 6s ease-in-out infinite;
+          transition: all 0.3s ease;
+        }
+
+        .hand-img:hover {
+          transform: scale(1.02);
+          opacity: 1;
         }
 
         /* Screen positioned relative to the phone-wrapper (same transform) */
@@ -246,6 +267,32 @@ export default function PhoneGallery() {
         .feed-item {
           width: 100%;
           margin-bottom: 1rem;
+          animation: feedItemSlide 0.8s ease-out;
+          animation-fill-mode: both;
+          transition: all 0.3s ease;
+        }
+
+        .feed-item:nth-child(1) {
+          animation-delay: 0.1s;
+        }
+        .feed-item:nth-child(2) {
+          animation-delay: 0.2s;
+        }
+        .feed-item:nth-child(3) {
+          animation-delay: 0.3s;
+        }
+        .feed-item:nth-child(4) {
+          animation-delay: 0.4s;
+        }
+        .feed-item:nth-child(5) {
+          animation-delay: 0.5s;
+        }
+        .feed-item:nth-child(6) {
+          animation-delay: 0.6s;
+        }
+
+        .feed-item:hover {
+          transform: scale(1.02);
         }
 
         .feed-item img {
@@ -253,6 +300,13 @@ export default function PhoneGallery() {
           display: block;
           object-fit: cover;
           aspect-ratio: 1/1;
+          transition: all 0.3s ease;
+          border-radius: 8px;
+        }
+
+        .feed-item:hover img {
+          transform: scale(1.05);
+          filter: brightness(1.1);
         }
 
         .feed-content {
@@ -298,6 +352,49 @@ export default function PhoneGallery() {
               60vh,
               70vh
             ); /* Increased for small screens */
+          }
+        }
+
+        @keyframes portfolioTitleSlide {
+          0% {
+            opacity: 0;
+            transform: rotate(-1deg) translateY(-30px);
+          }
+          100% {
+            opacity: 1;
+            transform: rotate(-1deg) translateY(0);
+          }
+        }
+
+        @keyframes portfolioSubtitleFade {
+          0% {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes phoneFloat {
+          0%,
+          100% {
+            transform: translateY(0px) rotate(0deg);
+          }
+          50% {
+            transform: translateY(-10px) rotate(1deg);
+          }
+        }
+
+        @keyframes feedItemSlide {
+          0% {
+            opacity: 0;
+            transform: translateX(-20px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateX(0);
           }
         }
       `}</style>

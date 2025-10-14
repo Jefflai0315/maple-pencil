@@ -46,18 +46,70 @@ export default function Socials() {
           background: #fefefe; /* Ensure clean background */
           position: relative; /* Ensure proper positioning */
           z-index: 10; /* Ensure it stays above any background elements */
+          animation: socialsFadeIn 1s ease-out 0.5s both;
         }
         img {
           width: 56px;
           height: 56px;
           filter: drop-shadow(0 1px 0 #00000010);
+          transition: all 0.3s ease;
         }
+
         a {
           transform: rotate(-2deg);
-          transition: transform 0.2s;
+          transition: all 0.3s ease;
+          animation: socialIconFloat 3s ease-in-out infinite;
+          display: inline-block;
         }
+
+        a:nth-child(1) {
+          animation-delay: 0s;
+        }
+        a:nth-child(2) {
+          animation-delay: 0.2s;
+        }
+        a:nth-child(3) {
+          animation-delay: 0.4s;
+        }
+        a:nth-child(4) {
+          animation-delay: 0.6s;
+        }
+        a:nth-child(5) {
+          animation-delay: 0.8s;
+        }
+
         a:hover {
-          transform: rotate(2deg) scale(1.06);
+          transform: rotate(2deg) scale(1.15);
+          animation-play-state: paused;
+        }
+
+        a:hover img {
+          filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2)) brightness(1.1);
+        }
+
+        a:active {
+          transform: rotate(1deg) scale(1.05);
+        }
+
+        @keyframes socialsFadeIn {
+          0% {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes socialIconFloat {
+          0%,
+          100% {
+            transform: rotate(-2deg) translateY(0px);
+          }
+          50% {
+            transform: rotate(-2deg) translateY(-5px);
+          }
         }
       `}</style>
     </section>

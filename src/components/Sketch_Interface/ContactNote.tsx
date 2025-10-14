@@ -202,6 +202,7 @@ export default function ContactNote() {
             </div>
             <input
               name="name"
+              type="text"
               value={formData.name}
               onChange={handleInputChange}
               placeholder="Your name"

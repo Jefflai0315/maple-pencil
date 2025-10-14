@@ -138,6 +138,14 @@ export default function Hero() {
           display: inline-block;
           filter: drop-shadow(2px 2px 0px rgba(0, 0, 0, 0.1))
             drop-shadow(4px 4px 0px rgba(0, 0, 0, 0.05));
+          animation: titleFloat 6s ease-in-out infinite;
+          transition: all 0.3s ease;
+        }
+
+        .title-image:hover {
+          transform: rotate(-1deg) scale(1.02);
+          filter: drop-shadow(4px 4px 0px rgba(0, 0, 0, 0.15))
+            drop-shadow(8px 8px 0px rgba(0, 0, 0, 0.08));
         }
         .title::before {
           content: "";
@@ -204,16 +212,18 @@ export default function Hero() {
           pointer-events: auto !important;
           cursor: pointer;
           transition: all 0.3s ease;
+          animation: worldPulse 4s ease-in-out infinite;
         }
 
         .world-button:hover {
           opacity: 0.8 !important;
-          transform: scale(1.02);
-          filter: brightness(1.1) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+          transform: scale(1.05);
+          filter: brightness(1.1) drop-shadow(0 6px 12px rgba(0, 0, 0, 0.3));
+          animation-play-state: paused;
         }
 
         .world-button:active {
-          transform: scale(0.98);
+          transform: scale(0.95);
         }
 
         .mural-button {
@@ -222,16 +232,18 @@ export default function Hero() {
           cursor: pointer;
           transition: all 0.3s ease;
           opacity: 0.8;
+          animation: muralBounce 3s ease-in-out infinite;
         }
 
         .mural-button:hover {
           opacity: 1;
-          transform: scale(1.05);
-          filter: brightness(1.1) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+          transform: scale(1.08);
+          filter: brightness(1.15) drop-shadow(0 6px 12px rgba(0, 0, 0, 0.25));
+          animation-play-state: paused;
         }
 
         .mural-button:active {
-          transform: scale(0.98);
+          transform: scale(0.95);
         }
 
         .tooltip {
@@ -311,6 +323,64 @@ export default function Hero() {
           }
         }
 
+        @keyframes titleFloat {
+          0%,
+          100% {
+            transform: rotate(-1deg) translateY(0px);
+          }
+          50% {
+            transform: rotate(-1deg) translateY(-8px);
+          }
+        }
+
+        @keyframes worldPulse {
+          0%,
+          100% {
+            transform: scale(1);
+            opacity: 0.6;
+          }
+          50% {
+            transform: scale(1.02);
+            opacity: 0.7;
+          }
+        }
+
+        @keyframes muralBounce {
+          0%,
+          100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-3px);
+          }
+        }
+
+        @keyframes portraitSway {
+          0%,
+          100% {
+            transform: rotate(0deg) translateY(0px);
+          }
+          25% {
+            transform: rotate(0.5deg) translateY(-2px);
+          }
+          75% {
+            transform: rotate(-0.5deg) translateY(2px);
+          }
+        }
+
+        @keyframes noteWiggle {
+          0%,
+          100% {
+            transform: rotate(-5deg);
+          }
+          25% {
+            transform: rotate(-3deg);
+          }
+          75% {
+            transform: rotate(-7deg);
+          }
+        }
+
         .portrait {
           position: absolute;
           right: 3vw;
@@ -318,6 +388,13 @@ export default function Hero() {
           width: min(40vw, 520px);
           height: auto;
           object-fit: contain;
+          animation: portraitSway 8s ease-in-out infinite;
+          transition: all 0.3s ease;
+        }
+
+        .portrait:hover {
+          transform: scale(1.02) rotate(1deg);
+          filter: brightness(1.05);
         }
         .note {
           position: absolute;
@@ -327,6 +404,13 @@ export default function Hero() {
           place-items: center;
           gap: 4px;
           transform: rotate(-5deg);
+          animation: noteWiggle 2s ease-in-out infinite;
+          transition: all 0.3s ease;
+        }
+
+        .note:hover {
+          transform: rotate(-3deg) scale(1.1);
+          animation-play-state: paused;
         }
         .note span {
           font-family: "Comic Sans MS", "Bradley Hand", system-ui;
