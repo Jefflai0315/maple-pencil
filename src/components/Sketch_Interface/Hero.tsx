@@ -162,17 +162,20 @@ export default function Hero() {
           width: calc(100% - min(40vw, 520px));
           max-width: 900px;
           max-height: calc(
-            100vh - 7vh - 20vh
-          ); /* Account for margin-top and padding */
+            100vh - 7vh - 25vh
+          ); /* More restrictive height to prevent overflow */
           overflow: hidden; /* Hide any overflow */
+          display: flex;
+          flex-direction: column;
         }
 
         .world-container {
           position: relative;
           left: 0;
-          align-self: left;
+          align-self: flex-start;
           width: 100%;
-          height: auto;
+          max-height: 60%; /* Limit world container height */
+          overflow: hidden;
         }
 
         .mural-container {
@@ -182,8 +185,10 @@ export default function Hero() {
           max-width: 540px;
           left: 0;
           height: auto;
+          max-height: 30%; /* Limit mural container height */
           z-index: 10;
-          align-self: left;
+          align-self: flex-start;
+          overflow: hidden;
         }
 
         .bg {
