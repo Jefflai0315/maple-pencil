@@ -165,7 +165,7 @@ export default function Hero() {
         /* Shared container to align world + mural and scale together */
         .cta-container {
           position: absolute;
-          top: 5%;
+          top: 10%;
           left: 10%;
           width: calc(100% - min(40vw, 520px));
           max-width: 900px;
@@ -445,7 +445,7 @@ export default function Hero() {
           }
           .cta-container {
             width: 100%;
-            top: 0%;
+            top: 5%;
             max-height: calc(100vh - 7vh - 15vh); /* More space on mobile */
           }
           .world-container {
