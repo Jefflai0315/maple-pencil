@@ -1,13 +1,35 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import CircularGallery from "../CircularGallery";
 
 export default function Hero() {
-  const router = useRouter();
+  const items = [
+    {
+      image: "/gallery/quick/Com_1.jpg",
+    },
+    {
+      image: "/gallery/quick/Com_2.jpg",
+    },
+    {
+      image: "/gallery/detailed/1.jpg",
+    },
 
-  const handleWorldClick = () => {
-    router.push("/world");
-  };
+    {
+      image: "/gallery/quick/Com_3.jpg",
+    },
+    {
+      image: "/gallery/big/1.jpg",
+    },
+    {
+      image: "/gallery/quick/Com_4.jpg",
+    },
+    {
+      image: "/gallery/big/2.jpg",
+    },
+    {
+      image: "/gallery/quick/Com_5.jpg",
+    },
+  ];
 
   return (
     <section className="hero">
@@ -19,74 +41,13 @@ export default function Hero() {
         />
       </div>
 
-      {/* CTA group: world + mural share same left gutter and scale together */}
-      <div className="cta-container">
-        {/* background blob top-left - now clickable */}
-        <div className="world-container">
-          <img
-            className="bg world-button"
-            src="/sketch/world_colored.png"
-            alt="World"
-            onClick={handleWorldClick}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                handleWorldClick();
-              }
-            }}
-          />
-          {/* Tooltip positioned relative to the world image */}
-          <div
-            className="tooltip"
-            role="button"
-            tabIndex={0}
-            onClick={handleWorldClick}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                handleWorldClick();
-              }
-            }}
-          >
-            <span>enter my world</span>
-          </div>
-        </div>
-
-        {/* mural button - clickable */}
-        <div className="mural-container">
-          <img
-            className="mural-button"
-            src="/sketch/mural_colored.png"
-            alt="Mural"
-            onClick={() => router.push("/sembawang-mural")}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                router.push("/sembawang-mural");
-              }
-            }}
-          />
-          {/* Tooltip for mural button */}
-          <div
-            className="mural-tooltip"
-            role="button"
-            tabIndex={0}
-            onClick={() => router.push("/sembawang-mural")}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                router.push("/sembawang-mural");
-              }
-            }}
-          >
-            <span>view my murals</span>
-          </div>
-        </div>
-      </div>
+      <CircularGallery
+        items={items}
+        bend={3}
+        textColor="#ffffff"
+        borderRadius={0.05}
+        scrollEase={0.02}
+      />
 
       {/* portrait right */}
       <img
@@ -113,7 +74,7 @@ export default function Hero() {
           height: calc(
             100vh - 17vh
           ); /* Fixed height that accounts for margin */
-          padding: 10vh 5vw;
+
           overflow: hidden;
         }
         .content {
