@@ -132,7 +132,7 @@ export default function AuthPage() {
     <div
       className="min-h-screen flex flex-col items-center justify-center organic-paper p-4"
       style={{
-        backgroundImage: "url('/sketch/mural.png')",
+        backgroundImage: "url('/sketch/mural_colored.png')",
         backgroundSize: "contain",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",

@@ -26,7 +26,7 @@ const SERVICES: Service[] = [
       "Digital art & animation",
       "Custom web experiences",
     ],
-    image: "/sketch/world.png",
+    image: "/sketch/world_colored.png",
     sketchIcon: "/NPC/Camera.png",
   },
   {

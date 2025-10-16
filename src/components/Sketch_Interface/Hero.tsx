@@ -25,7 +25,7 @@ export default function Hero() {
         <div className="world-container">
           <img
             className="bg world-button"
-            src="/sketch/world.png"
+            src="/sketch/world_colored.png"
             alt="World"
             onClick={handleWorldClick}
             role="button"
@@ -58,7 +58,7 @@ export default function Hero() {
         <div className="mural-container">
           <img
             className="mural-button"
-            src="/sketch/mural.png"
+            src="/sketch/mural_colored.png"
             alt="Mural"
             onClick={() => router.push("/sembawang-mural")}
             role="button"
@@ -282,7 +282,7 @@ export default function Hero() {
 
         .mural-tooltip {
           position: absolute;
-          top: calc(100% - 5vh);
+          top: calc(100% - 8vh);
           transform: translateX(-50%);
           background: rgba(255, 255, 255, 0.7);
           border: 2px solid #333;
