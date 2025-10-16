@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import rough from "roughjs";
+import BubbleMenu from "../BubbleMenu";
 
 declare global {
   interface Window {
@@ -21,6 +22,46 @@ export default function Navbar() {
   const [isNavVisible, setIsNavVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // BubbleMenu items configuration
+  const bubbleMenuItems = [
+    {
+      label: "services",
+      href: "#services",
+      ariaLabel: "Services",
+      hoverStyles: { bgColor: "#3b82f6", textColor: "#ffffff" },
+    },
+    {
+      label: "portfolio",
+      href: "#portfolio",
+      ariaLabel: "Portfolio",
+      hoverStyles: { bgColor: "#10b981", textColor: "#ffffff" },
+    },
+    {
+      label: "case studies",
+      href: "#casestudy",
+      ariaLabel: "Case Studies",
+      hoverStyles: { bgColor: "#f59e0b", textColor: "#ffffff" },
+    },
+    {
+      label: "contact",
+      href: "#contact",
+      ariaLabel: "Contact",
+      hoverStyles: { bgColor: "#ef4444", textColor: "#ffffff" },
+    },
+    {
+      label: "world",
+      href: "/world",
+      ariaLabel: "World",
+      hoverStyles: { bgColor: "#8b5cf6", textColor: "#ffffff" },
+    },
+    {
+      label: "mural",
+      href: "/sembawang-mural",
+      ariaLabel: "Mural",
+      hoverStyles: { bgColor: "#ec4899", textColor: "#ffffff" },
+    },
+  ];
 
   useEffect(() => {
     if (canvasRef.current) {
@@ -62,6 +103,17 @@ export default function Navbar() {
       window.location.href = `/#${sectionId}`;
     }
   }, []);
+
+  // Handle BubbleMenu item clicks
+  const handleBubbleMenuItemClick = (item: any) => {
+    if (item.href.startsWith("#")) {
+      // Internal section link
+      scrollToSection(item.href.substring(1));
+    } else {
+      // External page link
+      window.location.href = item.href;
+    }
+  };
 
   // Handle hash navigation when coming from other pages
   useEffect(() => {
@@ -177,49 +229,24 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {/* Mobile Menu Button */}
-          <button
-            className="md:hidden text-charcoal"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
-
-        {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <div className="md:hidden absolute  top-full left-0 right-0 border-t-2 border-sketch-gray">
-            <div className="flex flex-col space-y-4 p-4 bg-white rounded-lg border-b-2 border-charcoal-light">
-              {["services", "portfolio", "contact", "casestudy"].map(
-                (section) => (
-                  <button
-                    key={section}
-                    onClick={() => scrollToSection(section)}
-                    className="font-sketch text-lg capitalize text-left text-charcoal-medium hover:text-charcoal"
-                  >
-                    {section === "casestudy" ? "Case Studies" : section}
-                  </button>
-                )
-              )}
-              <Link
-                href="/world"
-                className="font-sketch text-lg text-left text-charcoal-medium hover:text-charcoal flex items-center gap-2"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <Gamepad2 size={18} />
-                World
-              </Link>
-              <Link
-                href="/sembawang-mural"
-                className="font-sketch text-lg text-left text-charcoal-medium hover:text-charcoal flex items-center gap-2"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <Palette size={18} />
-                Mural
-              </Link>
-            </div>
+          {/* Mobile BubbleMenu */}
+          <div className="md:hidden">
+            <BubbleMenu
+              items={bubbleMenuItems}
+              onMenuClick={() => {}}
+              onItemClick={handleBubbleMenuItemClick}
+              className=""
+              style={{}}
+              menuAriaLabel="Toggle navigation"
+              menuBg="#ffffff"
+              menuContentColor="#1f1f1f"
+              useFixedPosition={false}
+              animationEase="back.out(1.5)"
+              animationDuration={0.5}
+              staggerDelay={0.12}
+            />
           </div>
-        )}
+        </div>
       </nav>
       <style jsx>{`
         .nav {

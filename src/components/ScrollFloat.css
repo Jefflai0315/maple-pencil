@@ -1,0 +1,26 @@
+@font-face {
+  font-family: "Brushed";
+  src: url("/BRUSHED.TTF") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+.scroll-float {
+  overflow: hidden;
+  text-align: center;
+}
+
+.scroll-float-text {
+  display: inline-block;
+  font-family: "Brushed", "Georgia", serif;
+  font-size: clamp(1.6rem, 8vw, 10rem);
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.5;
+  color: #2c2c2c;
+}
+
+.char {
+  display: inline-block;
+}

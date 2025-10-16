@@ -1,5 +1,6 @@
 "use client";
 import { useRef } from "react";
+import ScrollFloat from "../ScrollFloat";
 
 const FEED = [
   {
@@ -41,7 +42,15 @@ export default function PhoneGallery() {
   return (
     <section id="portfolio" className="portfolio-container">
       <div className="wrap">
-        <h2>My Gallery</h2>
+        <ScrollFloat
+          animationDuration={2}
+          ease="back.inOut(4)"
+          scrollStart="center bottom+=20%"
+          scrollEnd="bottom bottom-=40%"
+          stagger={0.06}
+        >
+          My Gallery
+        </ScrollFloat>
         <h3>Sketching strangers & moments</h3>
         <div className="stage">
           {/* Phone and screen share the same wrapper so they stay aligned */}

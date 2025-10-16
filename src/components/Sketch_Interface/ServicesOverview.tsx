@@ -1,5 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
+import ScrollFloat from "../ScrollFloat";
 
 type ServiceType = "art-tech" | "live-events" | "commissions";
 
@@ -48,7 +49,15 @@ export default function ServicesOverview() {
   return (
     <section id="services" className="services-overview">
       <div className="header">
-        <h2>What I Offer</h2>
+        <ScrollFloat
+          animationDuration={2}
+          ease="back.inOut(4)"
+          scrollStart="center bottom+=20%"
+          scrollEnd="bottom bottom-=40%"
+          stagger={0.06}
+        >
+          What I Offer
+        </ScrollFloat>
         <div className="underline-sketch">
           <svg viewBox="0 0 200 10" xmlns="http://www.w3.org/2000/svg">
             <path

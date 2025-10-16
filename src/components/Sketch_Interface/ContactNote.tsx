@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import emailjs from "@emailjs/browser";
+import ScrollFloat from "../ScrollFloat";
 
 export default function ContactNote() {
   const [formData, setFormData] = useState({
@@ -173,7 +174,15 @@ export default function ContactNote() {
   return (
     <section id="contact" className="wrap">
       <div className="header">
-        <h2>Contact Me</h2>
+        <ScrollFloat
+          animationDuration={2}
+          ease="back.inOut(4)"
+          scrollStart="center bottom+=20%"
+          scrollEnd="bottom bottom-=40%"
+          stagger={0.06}
+        >
+          Contact Me
+        </ScrollFloat>
         <div className="underline-sketch">
           <svg viewBox="0 0 200 10" xmlns="http://www.w3.org/2000/svg">
             <path

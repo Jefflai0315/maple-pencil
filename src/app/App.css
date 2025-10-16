@@ -1,7 +1,11 @@
 /* Import Google Fonts */
+
+@plugin "tailwindcss-animate";
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Kalam:wght@300;400;700&family=Caveat:wght@400;500;600;700&display=swap');
 
 @import "tailwindcss";
+
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -45,8 +49,6 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -76,6 +78,8 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
 }
 
 .dark {
@@ -169,16 +173,16 @@ a:hover {
   --paper-white: #FEFCF7;
   --paper-cream: #F8F6F0;
   --paper-light: #F5F3ED;
-  
+
   /* Charcoal Colors */
   --charcoal-dark: #2C2C2C;
   --charcoal-medium: #4A4A4A;
   --charcoal-light: #6B6B6B;
-  
+
   /* Accent Colors */
   --graphite-blue: #B8C5D1;
   --sketch-gray: #E8E6E0;
-  
+
   /* Shadows */
   --paper-shadow: 0 4px 12px rgba(44, 44, 44, 0.1);
   --sketch-shadow: 0 2px 8px rgba(44, 44, 44, 0.15);
@@ -357,7 +361,7 @@ a:hover {
   padding: 1rem 0;
   z-index: 9999;
   background-color: hsl(45, 100%, 62.7%);
-  
+
 }
 
 .organic-nav::after {
@@ -682,16 +686,16 @@ a:hover {
     grid-template-columns: 1fr;
     gap: 1.5rem;
   }
-  
+
   .organic-card {
     margin: 0.5rem;
     padding: 1.5rem;
   }
-  
+
   .sketch-container {
     padding: 1.5rem;
   }
-  
+
   .sketch-btn {
     padding: 10px 20px;
     font-size: 16px;

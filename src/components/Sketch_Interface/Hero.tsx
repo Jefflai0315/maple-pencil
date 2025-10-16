@@ -108,10 +108,11 @@ export default function Hero() {
             #f8f8f8 80%,
             #fefefe 100%
           );
-          margin-top: 7vh;
           position: relative;
           min-height: 70vh;
-          height: calc(100vh - 7vh); /* Fixed height that accounts for margin */
+          height: calc(
+            100vh - 17vh
+          ); /* Fixed height that accounts for margin */
           padding: 10vh 5vw;
           overflow: hidden;
         }
@@ -465,7 +466,6 @@ export default function Hero() {
           }
           .hero {
             padding-bottom: 4rem;
-            margin-top: 6vh;
           }
         }
         @media (max-width: 600px) {
