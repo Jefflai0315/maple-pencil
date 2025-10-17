@@ -180,12 +180,6 @@ export default function Navbar() {
 
   return (
     <header className="nav">
-      <canvas
-        ref={canvasRef}
-        className="rough-border"
-        width={typeof window !== "undefined" ? window.innerWidth : 1200}
-        height={4}
-      />
       <nav
         className={`organic-nav px-4 py-4 transition-transform duration-300 ${
           isNavVisible ? "translate-y-0" : "-translate-y-full"
@@ -250,6 +244,13 @@ export default function Navbar() {
         </div>
       </nav>
       <style jsx>{`
+        @font-face {
+          font-family: "Fiance Rosalie";
+          src: url("/Fiance Rosalie.otf") format("opentype");
+          font-weight: normal;
+          font-style: normal;
+        }
+
         .nav {
           position: sticky;
           top: 0;
@@ -311,6 +312,7 @@ export default function Navbar() {
         .logo-animated {
           animation: logoBounce 2s ease-in-out infinite;
           transition: all 0.3s ease;
+          font-family: "Fiance Rosalie", cursive;
         }
 
         .logo-animated:hover {

@@ -54,6 +54,40 @@
   /* * {
     max-width: 100%;
   } */
+  
+  /* Disable image selection and context menus on mobile for better scroll interaction */
+  img {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+    -khtml-user-drag: none;
+    -moz-user-drag: none;
+    -o-user-drag: none;
+    user-drag: none;
+    pointer-events: none;
+    -webkit-context-menu: none;
+    -moz-context-menu: none;
+    -ms-context-menu: none;
+    context-menu: none;
+  }
+  
+  /* Additional prevention for context menu on mobile */
+  * {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  
+  /* Allow pointer events for interactive images (buttons, links) */
+  img[onclick], img[role="button"], a img, button img {
+    pointer-events: auto;
+  }
 }
 
 

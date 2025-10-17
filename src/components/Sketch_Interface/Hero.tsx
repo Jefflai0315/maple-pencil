@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import CircularGallery from "../CircularGallery";
 import Hyperspeed from "../Hyperspeed";
 import { usePress } from "../../contexts/PressContext";
@@ -34,6 +35,39 @@ const items = [
 
 export default function Hero() {
   const { handlePressStart, handlePressEnd, faceImage, isPressed } = usePress();
+
+  // Prevent context menu on mobile devices
+  useEffect(() => {
+    const preventContextMenu = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    };
+
+    // Add event listeners for context menu prevention
+    document.addEventListener("contextmenu", preventContextMenu, {
+      passive: false,
+    });
+    document.addEventListener("selectstart", preventContextMenu, {
+      passive: false,
+    });
+
+    // For touch devices
+    document.addEventListener(
+      "touchstart",
+      (e) => {
+        if (e.touches.length > 1) {
+          e.preventDefault();
+        }
+      },
+      { passive: false }
+    );
+
+    return () => {
+      document.removeEventListener("contextmenu", preventContextMenu);
+      document.removeEventListener("selectstart", preventContextMenu);
+    };
+  }, []);
 
   return (
     <section
