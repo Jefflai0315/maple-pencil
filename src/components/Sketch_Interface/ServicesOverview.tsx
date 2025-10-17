@@ -20,7 +20,7 @@ const SERVICES: Service[] = [
     subtitle: "Interactive digital art",
     shortDescription:
       "Interactive installations, AI Art experiences, and Creative art solutions.",
-    sketchIcon: "/NPC/Art_tech_booth.png",
+    sketchIcon: "/sketch/mural_colored.png",
     route: "/services/art-tech",
   },
   {
@@ -58,17 +58,25 @@ export default function ServicesOverview() {
         >
           What I Offer
         </ScrollFloat>
-        <div className="underline-sketch">
-          <svg viewBox="0 0 200 10" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M 5 5 Q 50 2, 100 5 T 195 5"
-              stroke="#2c2c2c"
-              strokeWidth="2"
-              fill="none"
-              strokeLinecap="round"
-            />
-          </svg>
-        </div>
+        <ScrollFloat
+          animationDuration={2}
+          ease="back.inOut(4)"
+          scrollStart="center bottom+=20%"
+          scrollEnd="bottom bottom-=40%"
+          stagger={0.06}
+        >
+          <div className="underline-sketch">
+            <svg viewBox="0 0 200 10" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M 5 5 Q 50 2, 100 5 T 195 5"
+                stroke="#2c2c2c"
+                strokeWidth="2"
+                fill="none"
+                strokeLinecap="round"
+              />
+            </svg>
+          </div>
+        </ScrollFloat>
       </div>
 
       <div className="services-grid">
@@ -89,7 +97,7 @@ export default function ServicesOverview() {
             </div>
 
             <h3>{service.title}</h3>
-            <p className="card-subtitle">{service.subtitle}</p>
+
             <p className="description">{service.shortDescription}</p>
 
             <div className="card-cta">
@@ -120,6 +128,8 @@ export default function ServicesOverview() {
       </div>
 
       <style jsx>{`
+        @import url("https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap");
+
         @font-face {
           font-family: "Brushed";
           src: url("/BRUSHED.TTF") format("truetype");
@@ -296,29 +306,34 @@ export default function ServicesOverview() {
 
         h3 {
           font-family: "Brushed", "Georgia", serif;
-          font-size: 1.6rem;
+          font-size: 1.7rem;
           margin: 0 0 0.5rem 0;
-          color: #1f1f1f;
+          color: #1a1a1a;
           text-align: center;
-          line-height: 1.2;
+          line-height: 1.3;
+          font-weight: 600;
         }
 
         .card-subtitle {
-          font-family: "Comic Sans MS", cursive;
-          font-size: 0.95rem;
-          color: #666;
+          font-family: "Quicksand", "Arial", sans-serif;
+          font-size: 1rem;
+          color: #444;
           text-align: center;
           margin: 0 0 1rem 0;
           font-style: italic;
+          font-weight: 500;
         }
 
         .description {
-          font-size: 0.95rem;
-          line-height: 1.5;
-          color: #555;
+          font-family: "Quicksand", "Arial", sans-serif;
+          font-size: 1rem;
+          line-height: 1.6;
+          color: #333;
           text-align: center;
           margin: 0 0 auto 0;
           flex-grow: 1;
+          font-weight: 400;
+          letter-spacing: 0.01em;
         }
 
         .card-cta {
@@ -328,9 +343,9 @@ export default function ServicesOverview() {
         }
 
         .card-cta span {
-          font-family: "Comic Sans MS", cursive;
+          font-family: "Quicksand", "Arial", sans-serif;
           font-size: 0.9rem;
-          font-weight: bold;
+          font-weight: 600;
           color: #1f1f1f;
           border-bottom: 2px solid #1f1f1f;
           padding-bottom: 2px;
