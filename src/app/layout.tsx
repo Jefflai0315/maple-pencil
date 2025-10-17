@@ -15,8 +15,47 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Playing with pencil",
-  description: "Art and code",
+  title: "Playing with pencil - Jeff Lai | Artist & Engineer",
+  description:
+    "Interactive art experiences, live event sketch booths, and creative technology solutions. Bringing art and technology together through innovative digital experiences.",
+  keywords: [
+    "portrait art",
+    "interactive art",
+    "live sketching",
+    "creative technology",
+    "Jeff Lai",
+    "Singapore artist",
+    "traditional art",
+    "mural art",
+  ],
+  authors: [{ name: "Jeff Lai" }],
+  creator: "Jeff Lai",
+  publisher: "Playing with pencil",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://playingwithpencil.com",
+    siteName: "Playing with pencil",
+    title: "Playing with pencil - Jeff Lai | Artist & Engineer",
+    description:
+      "Interactive art experiences, live event sketch booths, and creative technology solutions. Bringing art and technology together through innovative digital experiences.",
+    images: [
+      {
+        url: "/sketch/cover_page.png",
+        width: 1200,
+        height: 630,
+        alt: "Jeff Lai - Digital Artist & Creative Technologist",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Playing with pencil - Jeff Lai | Artist & Engineer",
+    description:
+      "Interactive art experiences, live event sketch booths, and creative technology solutions.",
+    images: ["/jeff.png"],
+    creator: "@jefflai",
+  },
   icons: {
     icon: [
       { rel: "shortcut icon", url: "/favicon.svg" },
@@ -79,6 +118,51 @@ export default function RootLayout({
         <meta name="msapplication-config" content="/browserconfig.xml" />
         <meta name="msapplication-TileColor" content="#000000" />
         <meta name="msapplication-tap-highlight" content="no" />
+
+        {/* Open Graph / Facebook */}
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://playingwithpencil.com" />
+        <meta
+          property="og:title"
+          content="Playing with pencil - Jeff Lai | Digital Artist & Creative Technologist"
+        />
+        <meta
+          property="og:description"
+          content="Interactive art experiences, live event sketch booths, and creative technology solutions. Bringing art and technology together through innovative digital experiences."
+        />
+        <meta
+          property="og:image"
+          content="https://playingwithpencil.com/jeff.png"
+        />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta
+          property="og:image:alt"
+          content="Jeff Lai - Digital Artist & Creative Technologist"
+        />
+        <meta property="og:site_name" content="Playing with pencil" />
+        <meta property="og:locale" content="en_US" />
+
+        {/* Twitter */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:url" content="https://playingwithpencil.com" />
+        <meta
+          name="twitter:title"
+          content="Playing with pencil - Jeff Lai | Digital Artist & Creative Technologist"
+        />
+        <meta
+          name="twitter:description"
+          content="Interactive art experiences, live event sketch booths, and creative technology solutions."
+        />
+        <meta
+          name="twitter:image"
+          content="https://playingwithpencil.com/jeff.png"
+        />
+        <meta
+          name="twitter:image:alt"
+          content="Jeff Lai - Digital Artist & Creative Technologist"
+        />
+        <meta name="twitter:creator" content="@jefflai" />
 
         {/* <link rel="apple-touch-icon" href="/jeff-182x182.png" /> */}
         <link rel="manifest" href="/manifest.json" />
