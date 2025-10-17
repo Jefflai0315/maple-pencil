@@ -41,7 +41,7 @@ export default function Socials() {
           gap: 20px;
           align-items: center;
           justify-content: center;
-          padding: 4rem 5vw; /* Increased padding for better separation */
+          padding: 1rem 5vw; /* Increased padding for better separation */
           margin-top: 2rem; /* Additional margin from previous section */
           background: #fefefe; /* Ensure clean background */
           position: relative; /* Ensure proper positioning */
