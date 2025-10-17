@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://playingwithpencil.com",
+    url: "https://www.playingwithpencil.art",
     siteName: "Playing with pencil",
     title: "Playing with pencil - Jeff Lai | Artist & Engineer",
     description:
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
         url: "/sketch/cover_page.png",
         width: 1200,
         height: 630,
-        alt: "Jeff Lai - Digital Artist & Creative Technologist",
+        alt: "Jeff Lai - Artist & Engineer",
       },
     ],
   },
@@ -121,7 +121,7 @@ export default function RootLayout({
 
         {/* Open Graph / Facebook */}
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://playingwithpencil.com" />
+        <meta property="og:url" content="https://www.playingwithpencil.art" />
         <meta
           property="og:title"
           content="Playing with pencil - Jeff Lai | Artist & Engineer"
@@ -132,7 +132,7 @@ export default function RootLayout({
         />
         <meta
           property="og:image"
-          content="https://playingwithpencil.art/sketch/cover_page.png"
+          content="https://www.playingwithpencil.art/sketch/cover_page.png"
         />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
@@ -142,7 +142,7 @@ export default function RootLayout({
 
         {/* Twitter */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:url" content="https://playingwithpencil.com" />
+        <meta name="twitter:url" content="https://www.playingwithpencil.art" />
         <meta
           name="twitter:title"
           content="Playing with pencil - Jeff Lai | Artist & Engineer"
@@ -153,7 +153,7 @@ export default function RootLayout({
         />
         <meta
           name="twitter:image"
-          content="https://playingwithpencil.art/sketch/cover_page.png"
+          content="https://www.playingwithpencil.art/sketch/cover_page.png"
         />
         <meta name="twitter:image:alt" content="Jeff Lai - Artist & Engineer" />
         <meta name="twitter:creator" content="@jefflai" />
