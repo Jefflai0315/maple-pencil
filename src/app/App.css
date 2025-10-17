@@ -1,7 +1,23 @@
 /* Import Google Fonts */
 
 @plugin "tailwindcss-animate";
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Kalam:wght@300;400;700&family=Caveat:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Kalam:wght@300;400;700&family=Caveat:wght@400;500;600;700&family=Quicksand:wght@300;400;500;600;700&display=swap');
+
+@font-face {
+  font-family: 'Fiance Rosalie';
+  src: url('/Fiance Rosalie.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Brushed';
+  src: url('/BRUSHED.TTF') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
 
 @import "tailwindcss";
 
@@ -203,6 +219,20 @@ a:hover {
 
 .font-sketch {
   font-family: 'Kalam', cursive;
+}
+
+.font-fiance {
+  font-family: 'Quicksand', sans-serif;
+}
+
+.font-fiance-rosalie {
+  font-family: 'Fiance Rosalie', 'Quicksand', sans-serif;
+  font-weight: normal;
+}
+
+.font-brushed {
+  font-family: 'Brushed', 'Georgia', serif;
+  font-weight: normal;
 }
 
 /* Organic Paper Background */

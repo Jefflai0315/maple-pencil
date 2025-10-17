@@ -5,7 +5,7 @@ export default function Footer() {
     <footer className="py-12 px-4">
       <div className="wavy-divider mb-8"></div>
       <div className="max-w-6xl mx-auto text-center">
-        <div className="font-handwritten text-3xl font-bold text-charcoal mb-4">
+        <div className="font-fiance-rosalie text-3xl font-bold text-charcoal mb-4">
           Playing with Pencil
         </div>
         <p className="font-sketch text-charcoal-medium mb-6">

@@ -56,7 +56,7 @@ export default function ServicesOverview() {
           scrollEnd="bottom bottom-=40%"
           stagger={0.06}
         >
-          What I Offer
+          Events & Services
         </ScrollFloat>
       </div>
 
@@ -157,7 +157,7 @@ export default function ServicesOverview() {
 
         .header {
           text-align: center;
-          margin-bottom: clamp(3rem, 8vh, 6rem);
+          margin-bottom: 2rem;
           position: relative;
         }
 
@@ -341,6 +341,10 @@ export default function ServicesOverview() {
         }
 
         @media (max-width: 768px) {
+          .services-overview {
+            padding: 2rem 1rem;
+          }
+
           .services-grid {
             grid-template-columns: 1fr;
             gap: 2rem;

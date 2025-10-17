@@ -183,17 +183,6 @@ export default function ContactNote() {
         >
           Contact Me
         </ScrollFloat>
-        <div className="underline-sketch">
-          <svg viewBox="0 0 200 10" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M 5 5 Q 50 2, 100 5 T 195 5"
-              stroke="#2c2c2c"
-              strokeWidth="2"
-              fill="none"
-              strokeLinecap="round"
-            />
-          </svg>
-        </div>
       </div>
 
       <div className="note-container">
@@ -206,9 +195,9 @@ export default function ContactNote() {
         <div className="form-content">
           <form className="form" onSubmit={handleSubmit}>
             {/* Tooltip for send button */}
-            <div className="send-tooltip">
+            {/* <div className="send-tooltip">
               <span>click to send!</span>
-            </div>
+            </div> */}
             <input
               name="name"
               type="text"
@@ -250,7 +239,9 @@ export default function ContactNote() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`send-button ${isSubmitting ? "sending" : ""}`}
+              className={` rounded-xl border-2 border-charcoal-light p-2 bg-yellow-100 ${
+                isSubmitting ? "sending" : ""
+              }`}
             >
               {isSubmitting ? (
                 <div className="loading-spinner">
@@ -258,11 +249,10 @@ export default function ContactNote() {
                   <span className="sending-text">Sending...</span>
                 </div>
               ) : (
-                <img
-                  src="/sketch/send_a_note.png"
-                  alt="Send note"
-                  className="send-icon"
-                />
+                <div className="send-text font-brushed">
+                  <span className="send-line-1">SEND A</span>
+                  <span className="send-line-2">NOTE</span>
+                </div>
               )}
             </button>
           </form>
@@ -421,7 +411,6 @@ export default function ContactNote() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background-color: hsl(0, 0%, 100%);
         }
 
         .send-button:hover {
@@ -444,6 +433,29 @@ export default function ContactNote() {
           width: 100%;
           height: 100%;
           object-fit: contain;
+        }
+
+        .send-text {
+          font-size: clamp(16px, 3.5vw, 24px);
+          font-weight: bold;
+          text-align: center;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 100%;
+          line-height: 1.1;
+        }
+
+        .send-line-1 {
+          color: #1f1f1f;
+          display: block;
+        }
+
+        .send-line-2 {
+          color: #ffd166;
+          display: block;
         }
 
         /* Loading state - clearer, centered, bigger */
@@ -567,8 +579,9 @@ export default function ContactNote() {
           .wrap {
             --note-height: clamp(350px, 50vh, 400px);
             --info-height: clamp(80px, 10vh, 120px);
-            gap: 5rem;
-            padding: 40px 5vw 80px;
+            gap: 0rem;
+            padding: 0px;
+            margin-top: 0px;
           }
           h3 {
             font-size: 1.5rem;
