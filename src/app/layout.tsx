@@ -124,7 +124,7 @@ export default function RootLayout({
         <meta property="og:url" content="https://playingwithpencil.com" />
         <meta
           property="og:title"
-          content="Playing with pencil - Jeff Lai | Digital Artist & Creative Technologist"
+          content="Playing with pencil - Jeff Lai | Artist & Engineer"
         />
         <meta
           property="og:description"
@@ -136,10 +136,7 @@ export default function RootLayout({
         />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
-        <meta
-          property="og:image:alt"
-          content="Jeff Lai - Digital Artist & Creative Technologist"
-        />
+        <meta property="og:image:alt" content="Jeff Lai - Artist & Engineer" />
         <meta property="og:site_name" content="Playing with pencil" />
         <meta property="og:locale" content="en_US" />
 
@@ -148,7 +145,7 @@ export default function RootLayout({
         <meta name="twitter:url" content="https://playingwithpencil.com" />
         <meta
           name="twitter:title"
-          content="Playing with pencil - Jeff Lai | Digital Artist & Creative Technologist"
+          content="Playing with pencil - Jeff Lai | Artist & Engineer"
         />
         <meta
           name="twitter:description"
@@ -158,10 +155,7 @@ export default function RootLayout({
           name="twitter:image"
           content="https://playingwithpencil.com/jeff.png"
         />
-        <meta
-          name="twitter:image:alt"
-          content="Jeff Lai - Digital Artist & Creative Technologist"
-        />
+        <meta name="twitter:image:alt" content="Jeff Lai - Artist & Engineer" />
         <meta name="twitter:creator" content="@jefflai" />
 
         {/* <link rel="apple-touch-icon" href="/jeff-182x182.png" /> */}
