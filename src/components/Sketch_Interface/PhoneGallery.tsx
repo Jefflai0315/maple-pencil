@@ -1,6 +1,7 @@
 "use client";
 import { useRef } from "react";
 import ScrollFloat from "../ScrollFloat";
+import Socials from "./Socials";
 
 const FEED = [
   {
@@ -53,6 +54,7 @@ export default function PhoneGallery() {
         </ScrollFloat>
         <h3>Sketching strangers & moments</h3>
         <div className="stage">
+          <Socials />
           {/* Phone and screen share the same wrapper so they stay aligned */}
           <div className="phone-wrapper">
             <img
