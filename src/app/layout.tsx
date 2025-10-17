@@ -132,7 +132,7 @@ export default function RootLayout({
         />
         <meta
           property="og:image"
-          content="https://playingwithpencil.com/sketch/cover_page.png"
+          content="https://playingwithpencil.art/sketch/cover_page.png"
         />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
@@ -153,7 +153,7 @@ export default function RootLayout({
         />
         <meta
           name="twitter:image"
-          content="https://playingwithpencil.com/sketch/cover_page.png"
+          content="https://playingwithpencil.art/sketch/cover_page.png"
         />
         <meta name="twitter:image:alt" content="Jeff Lai - Artist & Engineer" />
         <meta name="twitter:creator" content="@jefflai" />
