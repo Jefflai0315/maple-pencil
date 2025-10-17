@@ -1,38 +1,51 @@
 "use client";
 
 import CircularGallery from "../CircularGallery";
+import Hyperspeed from "../Hyperspeed";
+import { usePress } from "../../contexts/PressContext";
+
+// Move items outside component to prevent recreation on every render
+const items = [
+  {
+    image: "/gallery/quick/Com_1.jpg",
+  },
+  {
+    image: "/gallery/quick/Com_2.jpg",
+  },
+  {
+    image: "/gallery/detailed/1.jpg",
+  },
+  {
+    image: "/gallery/quick/Com_3.jpg",
+  },
+  {
+    image: "/gallery/big/1.jpg",
+  },
+  {
+    image: "/gallery/quick/Com_4.jpg",
+  },
+  {
+    image: "/gallery/big/2.jpg",
+  },
+  {
+    image: "/gallery/quick/Com_5.jpg",
+  },
+];
 
 export default function Hero() {
-  const items = [
-    {
-      image: "/gallery/quick/Com_1.jpg",
-    },
-    {
-      image: "/gallery/quick/Com_2.jpg",
-    },
-    {
-      image: "/gallery/detailed/1.jpg",
-    },
-
-    {
-      image: "/gallery/quick/Com_3.jpg",
-    },
-    {
-      image: "/gallery/big/1.jpg",
-    },
-    {
-      image: "/gallery/quick/Com_4.jpg",
-    },
-    {
-      image: "/gallery/big/2.jpg",
-    },
-    {
-      image: "/gallery/quick/Com_5.jpg",
-    },
-  ];
+  const { handlePressStart, handlePressEnd, faceImage, isPressed } = usePress();
 
   return (
-    <section className="hero">
+    <section
+      className="hero"
+      onMouseDown={handlePressStart}
+      onMouseUp={handlePressEnd}
+      onMouseLeave={handlePressEnd}
+      onTouchStart={handlePressStart}
+      onTouchEnd={handlePressEnd}
+      onTouchCancel={handlePressEnd}
+      style={{ cursor: "pointer" }}
+    >
       <div className="content">
         <img
           className="title-image"
@@ -40,6 +53,43 @@ export default function Hero() {
           alt="Jeff E Roaming Artist"
         />
       </div>
+      <Hyperspeed
+        effectOptions={{
+          distortion: "turbulentDistortion",
+          length: 400,
+          roadWidth: 10,
+          islandWidth: 2,
+          lanesPerRoad: 4,
+          fov: 180,
+          fovSpeedUp: 150,
+          speedUp: 2,
+          carLightsFade: 1,
+          totalSideLightSticks: 20,
+          lightPairsPerRoadWay: 40,
+          shoulderLinesWidthPercentage: 0.05,
+          brokenLinesWidthPercentage: 0.1,
+          brokenLinesLengthPercentage: 0.5,
+          lightStickWidth: [0.12, 0.5],
+          lightStickHeight: [1.3, 1.7],
+          movingAwaySpeed: [60, 80],
+          movingCloserSpeed: [-120, -160],
+          carLightsLength: [400 * 0.03, 400 * 0.2],
+          carLightsRadius: [0.05, 0.14],
+          carWidthPercentage: [0.3, 0.5],
+          carShiftX: [-0.8, 0.8],
+          carFloorSeparation: [0, 5],
+          colors: {
+            roadColor: 0xffffff,
+            islandColor: 0xffffff,
+            background: 0x000000,
+            shoulderLines: 0xffffff,
+            brokenLines: 0xffffff,
+            leftCars: [0xffa500, 0xffff00, 0xff6347], // orange, yellow, orangered
+            rightCars: [0xffa500, 0xffff00, 0xff6347], // orange, yellow, orangered
+            sticks: 0xffffff,
+          },
+        }}
+      />
 
       <CircularGallery
         items={items}
@@ -47,13 +97,15 @@ export default function Hero() {
         textColor="#ffffff"
         borderRadius={0.05}
         scrollEase={0.02}
+        scrollSpeed={0.7}
       />
 
       {/* portrait right */}
       <img
-        className="portrait"
-        src="/sketch/face_white.svg"
+        className={`portrait ${isPressed ? "jitter" : ""}`}
+        src={faceImage}
         alt="Sketch portrait"
+        style={{ transition: "all 0.2s ease-in-out" }}
       />
 
       {/* hand-drawn note + arrow bottom-right */}
@@ -343,6 +395,40 @@ export default function Hero() {
           }
         }
 
+        @keyframes jitter {
+          0%,
+          100% {
+            transform: translate(0, 0) rotate(0deg);
+          }
+          10% {
+            transform: translate(-1px, -1px) rotate(-0.5deg);
+          }
+          20% {
+            transform: translate(1px, -1px) rotate(0.5deg);
+          }
+          30% {
+            transform: translate(-1px, 1px) rotate(-0.3deg);
+          }
+          40% {
+            transform: translate(1px, 1px) rotate(0.3deg);
+          }
+          50% {
+            transform: translate(-1px, -1px) rotate(-0.2deg);
+          }
+          60% {
+            transform: translate(1px, -1px) rotate(0.2deg);
+          }
+          70% {
+            transform: translate(-1px, 1px) rotate(-0.1deg);
+          }
+          80% {
+            transform: translate(1px, 1px) rotate(0.1deg);
+          }
+          90% {
+            transform: translate(-1px, -1px) rotate(-0.05deg);
+          }
+        }
+
         .portrait {
           position: absolute;
           right: 3vw;
@@ -357,6 +443,10 @@ export default function Hero() {
         .portrait:hover {
           transform: scale(1.02) rotate(1deg);
           filter: brightness(1.05);
+        }
+
+        .portrait.jitter {
+          animation: jitter 0.1s ease-in-out infinite;
         }
         .note {
           position: absolute;

@@ -14,10 +14,9 @@ declare global {
   }
 }
 
-import { Gamepad2, Palette, X, Menu } from "lucide-react";
+import { Gamepad2, Palette } from "lucide-react";
 
 export default function Navbar() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
   const [isNavVisible, setIsNavVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
@@ -96,7 +95,6 @@ export default function Navbar() {
       if (element) {
         element.scrollIntoView({ behavior: "smooth" });
         setActiveSection(sectionId);
-        setIsMenuOpen(false);
       }
     } else {
       // If not on home page, navigate to home page with hash
@@ -105,7 +103,10 @@ export default function Navbar() {
   }, []);
 
   // Handle BubbleMenu item clicks
-  const handleBubbleMenuItemClick = (item: any) => {
+  const handleBubbleMenuItemClick = (item: {
+    href: string;
+    ariaLabel: string;
+  }) => {
     if (item.href.startsWith("#")) {
       // Internal section link
       scrollToSection(item.href.substring(1));

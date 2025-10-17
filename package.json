@@ -36,6 +36,7 @@
     "p5": "^1.11.10",
     "phaser": "^3.88.2",
     "postcss": "^8.5.3",
+    "postprocessing": "^6.37.8",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

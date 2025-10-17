@@ -6,12 +6,15 @@ import Sketchbook from '../components/Sketch_Interface/Sketchbook'
 import PhoneGallery from '../components/Sketch_Interface/PhoneGallery'
 import ContactNote from '../components/Sketch_Interface/ContactNote'
 import Footer from '../components/Sketch_Interface/Footer'
+import { PressProvider } from '../contexts/PressContext'
 
 export default function App() {
   return (
-    <>
+   <>
       <Navbar />
-      <Hero />
+      <PressProvider>
+        <Hero />
+      </PressProvider>
      
       <ServicesOverview />
       {/* <Sketchbook /> */} 
@@ -20,6 +23,7 @@ export default function App() {
       <Socials />
       <ContactNote />
       <Footer />
-    </>
+      </>
+   
   )
 }
