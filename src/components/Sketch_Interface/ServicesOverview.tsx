@@ -58,25 +58,6 @@ export default function ServicesOverview() {
         >
           What I Offer
         </ScrollFloat>
-        <ScrollFloat
-          animationDuration={2}
-          ease="back.inOut(4)"
-          scrollStart="center bottom+=20%"
-          scrollEnd="bottom bottom-=40%"
-          stagger={0.06}
-        >
-          <div className="underline-sketch">
-            <svg viewBox="0 0 200 10" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M 5 5 Q 50 2, 100 5 T 195 5"
-                stroke="#2c2c2c"
-                strokeWidth="2"
-                fill="none"
-                strokeLinecap="round"
-              />
-            </svg>
-          </div>
-        </ScrollFloat>
       </div>
 
       <div className="services-grid">
