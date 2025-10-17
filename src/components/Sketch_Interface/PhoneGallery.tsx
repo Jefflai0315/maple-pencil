@@ -92,7 +92,7 @@ export default function PhoneGallery() {
         .portfolio-container {
           position: relative;
           width: 100%;
-          overflow: hidden; /* Ensure background stays contained */
+          overflow: visible; /* Allow ScrollFloat animation to extend beyond bounds */
           background: linear-gradient(
             to bottom,
             #fefefe 0%,

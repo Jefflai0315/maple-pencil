@@ -310,7 +310,7 @@ export default function ContactNote() {
           font-size: 2rem;
           align-self: center;
           font-family: "Brushed", "Georgia", serif;
-          overflow-x: hidden;
+          overflow: visible; /* Allow ScrollFloat animation to extend beyond bounds */
           text-align: center;
         }
         .note-container {

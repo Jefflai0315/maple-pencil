@@ -7,7 +7,7 @@
 }
 
 .scroll-float {
-  overflow: hidden;
+  overflow: visible; /* Allow characters to extend beyond bounds during animation */
   text-align: center;
 }
 
@@ -23,4 +23,23 @@
 
 .char {
   display: inline-block;
+  will-change: opacity, transform; /* Optimize for animation */
+}
+
+/* Ensure parent containers don't clip the animation */
+.scroll-float-container {
+  overflow: visible !important;
+  padding: 3rem 0; /* Extra padding for the container */
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .scroll-float {
+    padding: 1.5rem 0; /* Slightly less padding on mobile */
+    margin: 1.5rem 0;
+  }
+  
+  .scroll-float-container {
+    padding: 2rem 0;
+  }
 }
