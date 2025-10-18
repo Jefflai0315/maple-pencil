@@ -249,7 +249,7 @@ export default function ContactNote() {
                   <span className="sending-text">Sending...</span>
                 </div>
               ) : (
-                <div className="send-text font-brushed">
+                <div className="send-text header">
                   <span className="send-line-1">SEND A</span>
                   <span className="send-line-2">NOTE</span>
                 </div>
