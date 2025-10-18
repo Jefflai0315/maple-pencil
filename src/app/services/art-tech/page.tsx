@@ -10,7 +10,7 @@ export default function ArtTechServicePage() {
   return (
     <>
       <Navbar />
-      <main className="service-detail-page">
+      <main className="service-detail-page ">
         <button className="back-button" onClick={() => router.push("/")}>
           ← Back to Home
         </button>
@@ -25,8 +25,9 @@ export default function ArtTechServicePage() {
               <p className="tagline">Creative digital solutions</p>
               <p className="intro">
                 Bridging creativity and technology. From interactive
-                installations to digital art experiences, I create innovative
-                solutions that engage and inspire audiences.
+                installations to digital art experiences, We create fun &
+                engaging solutions that enable people to express themselves and
+                inspire audiences.
               </p>
             </div>
           </div>
@@ -41,37 +42,6 @@ export default function ArtTechServicePage() {
                 and sets you apart. From concept to deployment, you receive
                 fully custom solutions that blend art and technology seamlessly.
               </p>
-            </div>
-
-            <div className="section-block">
-              <h2>Your Deliverables</h2>
-              <div className="features-grid">
-                <div className="feature-card">
-                  <h3>🎨 Interactive Installations</h3>
-                  <p>
-                    <strong>You receive:</strong> Fully functional
-                    motion-responsive art, touch interfaces, and immersive
-                    exhibits ready to engage visitors
-                  </p>
-                </div>
-
-                <div className="feature-card">
-                  <h3>💻 Digital AI Art & Animation</h3>
-                  <p>
-                    <strong>You receive:</strong> High-resolution generative
-                    art, data visualizations, and animations in your preferred
-                    format
-                  </p>
-                </div>
-                <div className="feature-card">
-                  <h3>🌐 Custom Web Experiences</h3>
-                  <p>
-                    <strong>You receive:</strong> A fully responsive,
-                    interactive website with hosting guidance and maintenance
-                    instructions
-                  </p>
-                </div>
-              </div>
             </div>
 
             <div className="section-block">
