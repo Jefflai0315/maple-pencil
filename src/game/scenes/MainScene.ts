@@ -160,7 +160,7 @@ export class MainScene extends Phaser.Scene {
     for (let i = 1; i <= 3; i++) {
       this.load.image(`DRT_top${i}`, `/tiles/DRT_top${i}.png`);
       this.load.image(`DRT_middle${i}`, `/tiles/DRT_middle${i}.png`);
-      this.load.image(`DRT_bottom${i}`, `/tiles/DRT_bottom${i}.png`);
+      this.load.image(`DRT_bottom${i}`, `/tiles/DRT_bottom1.png`); //bottom 1 is working well
     }
     this.load.image("DRT_slope_top", "/tiles/DRT_slope_top.png");
     this.load.image("DRT_slope_bottom", "/tiles/DRT_slope_bottom.png");
@@ -309,7 +309,7 @@ export class MainScene extends Phaser.Scene {
 
       // --- Overlay decorative tiles (no physics) ---
       let x = 0;
-      const tileWidth = 90;
+      const tileWidth = 89;
       // Helper to place a flat set
       const placeFlatSet = (setNum: number, yOffset: number) => {
         this.add.image(
@@ -324,7 +324,7 @@ export class MainScene extends Phaser.Scene {
         );
         this.add.image(
           x + tileWidth / 2,
-          groundY + 110 + yOffset,
+          groundY + 109 + yOffset,
           `DRT_bottom${setNum}`
         );
         x += tileWidth;
@@ -1232,6 +1232,7 @@ export class MainScene extends Phaser.Scene {
       console.warn("Controls not initialized:", {
         cursors: this.cursors,
         spaceKey: this.spaceKey,
+        keyboard: this.input.keyboard,
       });
       return;
     }
@@ -1315,11 +1316,13 @@ export class MainScene extends Phaser.Scene {
     if (!this.isMobile) {
       // === Movement ===
       if (this.cursors.left.isDown) {
+        console.log("Left key pressed");
         this.faceLeft = true;
         this.player.setVelocityX(-160);
         this.player.flipX = false;
         isMoving = true;
       } else if (this.cursors.right.isDown) {
+        console.log("Right key pressed");
         this.faceLeft = false;
         this.player.setVelocityX(160);
         this.player.flipX = true;
