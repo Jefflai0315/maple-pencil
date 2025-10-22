@@ -7,7 +7,13 @@ export class MainScene extends Phaser.Scene {
   private isJumping: boolean = false;
   private hasDoubleJumped: boolean = false;
   private faceLeft: boolean = false;
+  private isProne: boolean = false;
+  private isAttacking: boolean = false;
+  private showDebugBoxes: boolean = true;
+  private debugGraphics!: Phaser.GameObjects.Graphics;
   private spaceKey!: Phaser.Input.Keyboard.Key;
+  private xKey!: Phaser.Input.Keyboard.Key;
+  private dKey!: Phaser.Input.Keyboard.Key;
   private jumpCooldown = 0;
   private worldWidth = 1500; // Increased world width
   private minimap!: Phaser.GameObjects.Graphics;
@@ -15,7 +21,6 @@ export class MainScene extends Phaser.Scene {
   private minimapMap!: Phaser.GameObjects.Graphics; // Graphics for the map layout
   private minimapWidth = 180;
   private minimapHeight = 100;
-  private minimapScale = 0.12; // Scale factor for the minimap
   // Change background layers to regular sprites
   private backgroundLayers: Phaser.GameObjects.Sprite[] = [];
   private layerPositions: number[] = [0, 0, 0, 0]; // Store initial positions
@@ -58,6 +63,8 @@ export class MainScene extends Phaser.Scene {
   private titleBarHeight = 40;
   private minimapDragOffsetX: number = 0;
   private minimapDragOffsetY: number = 0;
+  private mapScaleX = 1;
+  private mapScaleY = 1;
   // Remove VIRTUAL_HEIGHT, keep VIRTUAL_WIDTH for world width
   // private static readonly VIRTUAL_HEIGHT = 720;
   private static readonly WORLD_WIDTH = 1500;
@@ -110,6 +117,23 @@ export class MainScene extends Phaser.Scene {
     this.openNPCPopup(npcType);
   }
 
+  // Resize the body and keep the feet (bottom) aligned to the sprite's bottom.
+  private resizeBodyKeepFeet(newHeight: number) {
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    const newH = Math.max(20, Math.floor(newHeight)); // safety clamp
+    body.setSize(body.width, newH, false);
+    // Origin is (0.5, 1) so sprite.bottom is at player.y.
+    // Set offset so body.bottom == sprite.bottom:
+    body.setOffset(body.offset.x, this.player.displayHeight - newH);
+  }
+
+  // After any texture/frame change (e.g., switching to prone0), call this to
+  // re-sync the offset in case the frame’s displayHeight changed.
+  private resyncOffsetToFrame() {
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    body.setOffset(body.offset.x, this.player.displayHeight - body.height);
+  }
+
   preload() {
     // Add loading error handler
     this.load.on("loaderror", (file: { src: string }) => {
@@ -153,6 +177,21 @@ export class MainScene extends Phaser.Scene {
     // Load jump frames
     for (let i = 0; i <= 1; i++) {
       this.load.image(`jump${i}`, `/sprites/smile/0/jump_${i}.png`);
+    }
+
+    // Load prone frame
+    this.load.image("prone0", "/sprites/smile/0/prone_0.png");
+
+    // Add load complete handler for prone sprite
+    this.load.on("filecomplete", (key: string) => {
+      if (key === "prone0") {
+        console.log("Prone sprite loaded successfully");
+      }
+    });
+
+    // Load attack frames
+    for (let i = 0; i <= 3; i++) {
+      this.load.image(`swingP1_${i}`, `/sprites/smile/0/swingP1_${i}.png`);
     }
 
     // Load game assets
@@ -266,11 +305,16 @@ export class MainScene extends Phaser.Scene {
       const spawnX = this.worldWidth * 0.1; // 10% from left of world
       const spawnY = groundY - 70;
       this.player = this.physics.add.sprite(spawnX, spawnY, "stand0");
+      this.player.setOrigin(0.5, 1); // bottom-center = feet anchor
       this.player.setCollideWorldBounds(true);
       this.player.setGravityY(300);
       this.player.flipX = true;
       this.faceLeft = false;
       this.physics.add.collider(this.player, ground);
+
+      // Create debug graphics for bounding boxes
+      // this.debugGraphics = this.add.graphics();
+      // this.debugGraphics.setScrollFactor(0); // Keep debug boxes on screen
 
       // Slope
       const slopeStartX = 6 * 90 + 30; // wherever your slope starts
@@ -420,16 +464,47 @@ export class MainScene extends Phaser.Scene {
           frameRate: 2,
           repeat: -1,
         });
+
+        // Skip prone animation creation - we'll use static sprite directly
+        // this.anims.create({
+        //   key: "prone",
+        //   frames: [{ key: "prone0" }],
+        //   frameRate: 1,
+        //   repeat: -1,
+        // });
+
+        this.anims.create({
+          key: "attack",
+          frames: [
+            { key: "swingP1_0" },
+            { key: "swingP1_1" },
+            { key: "swingP1_2" },
+            { key: "swingP1_3" },
+          ],
+          frameRate: 8,
+          repeat: 0,
+        });
         console.log("Animations created");
       } catch (error) {
         console.error("Error creating animations:", error);
       }
 
-      // // Add debug text
-      // this.add.text(10, 70, "Use arrow keys to move\nSpace to jump", {
-      //   color: "#000000",
-      //   fontSize: "16px",
-      // });
+      // ---- Keep body bottom glued to sprite bottom on any frame change ----
+      const syncFeet = () => {
+        const body = this.player.body as Phaser.Physics.Arcade.Body;
+        body.setOffset(body.offset.x, this.player.displayHeight - body.height);
+      };
+
+      this.player.on(Phaser.Animations.Events.ANIMATION_START, syncFeet);
+      this.player.on(Phaser.Animations.Events.ANIMATION_UPDATE, syncFeet);
+      this.player.on(Phaser.Animations.Events.ANIMATION_COMPLETE, syncFeet);
+
+      // optional: when you pause/stop the scene, clean up
+      this.events.on(Phaser.Scenes.Events.SHUTDOWN, () => {
+        this.player.off(Phaser.Animations.Events.ANIMATION_START, syncFeet);
+        this.player.off(Phaser.Animations.Events.ANIMATION_UPDATE, syncFeet);
+        this.player.off(Phaser.Animations.Events.ANIMATION_COMPLETE, syncFeet);
+      });
 
       // Create a container for audio controls at bottom left
       const audioControls = this.add.container(20, MainScene.WORLD_HEIGHT - 60);
@@ -625,9 +700,13 @@ export class MainScene extends Phaser.Scene {
       this.spaceKey = this.input.keyboard.addKey(
         Phaser.Input.Keyboard.KeyCodes.SPACE
       );
+      this.xKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X);
+      this.dKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
       console.log("Keyboard controls initialized:", {
         cursors: this.cursors,
         spaceKey: this.spaceKey,
+        xKey: this.xKey,
+        dKey: this.dKey,
       });
     } else {
       console.error("Keyboard input not available!");
@@ -977,7 +1056,9 @@ export class MainScene extends Phaser.Scene {
 
   private drawMinimapMap(minimapX: number, minimapY: number) {
     // Use actual worldWidth and groundY for accurate minimap representation
+    this.mapScaleX = this.minimapWidth / this.worldWidth;
     const groundY = this.cameras.main.height - 50; // Use same as in create()
+    this.mapScaleY = this.minimapHeight / groundY;
     const tileWidth = 90;
     const worldWidth = this.worldWidth;
 
@@ -1119,7 +1200,7 @@ export class MainScene extends Phaser.Scene {
         this.jumpButtonPressed = true;
         this.lastJumpTime = currentTime;
         // Prevent joystick from being affected
-        this.input.stopPropagation();
+        pointer.event?.stopPropagation();
       }
     });
     this.jumpButton.on("pointerup", (pointer: Phaser.Input.Pointer) => {
@@ -1130,7 +1211,7 @@ export class MainScene extends Phaser.Scene {
 
       this.jumpButtonPressed = false;
       // Prevent joystick from being affected
-      this.input.stopPropagation();
+      pointer.event?.stopPropagation();
     });
   }
 
@@ -1179,10 +1260,46 @@ export class MainScene extends Phaser.Scene {
 
     // Update player movement based on joystick position
     const normalizedX = this.joystickPosition.x / maxDistance;
-    if (Math.abs(normalizedX) > 0.1) {
-      this.player.setVelocityX(normalizedX * 160);
-      this.faceLeft = normalizedX < 0;
-      this.player.flipX = !this.faceLeft;
+    const normalizedY = this.joystickPosition.y / maxDistance;
+
+    // Check for prone (joystick down)
+    if (normalizedY > 0.7 && !this.isProne && !this.isAttacking) {
+      if (!this.isProne) {
+        this.isProne = true;
+
+        // Switch visual first (this may change displayHeight)
+        if (this.textures.exists("prone0")) {
+          this.player.setTexture("prone0");
+        }
+
+        // Re-sync offset to this frame, then shrink body keeping feet fixed
+        this.resyncOffsetToFrame();
+        this.resizeBodyKeepFeet(
+          Math.max(24, Math.floor(this.player.body?.height ?? 74 * 0.6))
+        );
+      }
+    } else if (this.isProne && normalizedY <= 0.7) {
+      console.log("Joystick up - getting up from prone");
+      this.isProne = false;
+
+      // Switch back to idle/standing visual (frame height may change again)
+      if (this.anims.exists("idle")) this.player.anims.play("idle", true);
+      else this.player.setTexture("stand0");
+
+      // Re-sync offset to the new frame, then restore body height
+      this.resyncOffsetToFrame();
+      this.resizeBodyKeepFeet(74); // your chosen standing collision height
+    }
+
+    // Handle horizontal movement only if not prone or attacking
+    if (!this.isProne && !this.isAttacking) {
+      if (Math.abs(normalizedX) > 0.1) {
+        this.player.setVelocityX(normalizedX * 160);
+        this.faceLeft = normalizedX < 0;
+        this.player.flipX = !this.faceLeft;
+      } else {
+        this.player.setVelocityX(0);
+      }
     } else {
       this.player.setVelocityX(0);
     }
@@ -1196,7 +1313,7 @@ export class MainScene extends Phaser.Scene {
     this.joystickPointerId = null; // Reset the pointer ID
     // Reset velocity and animation when joystick is released
     this.player.setVelocityX(0);
-    if (this.player.body?.touching.down) {
+    if (this.player.body?.blocked.down) {
       this.player.anims.play("idle", true);
     }
   }
@@ -1228,12 +1345,19 @@ export class MainScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number) {
-    if (!this.cursors || !this.spaceKey) {
+    if (!this.cursors || !this.spaceKey || !this.xKey) {
       console.warn("Controls not initialized:", {
         cursors: this.cursors,
         spaceKey: this.spaceKey,
+        xKey: this.xKey,
         keyboard: this.input.keyboard,
       });
+      return;
+    }
+
+    // Debug player body
+    if (!this.player.body) {
+      console.error("Player body is null!");
       return;
     }
 
@@ -1258,13 +1382,63 @@ export class MainScene extends Phaser.Scene {
 
     // Update player dot position on minimap (relative to content container)
     if (this.isMinimapOpen && this.playerDot) {
-      const minimapX = this.player.x * this.minimapScale;
-      const minimapY = this.player.y * this.minimapScale;
-      this.playerDot.setPosition(minimapX, minimapY);
+      const px = 20 + this.player.x * this.mapScaleX; // 20 = your minimapX
+      const py = this.player.y * this.mapScaleY;
+      this.playerDot.setPosition(px, py);
     }
 
-    const isOnGround = this.player.body?.touching.down;
+    // Draw debug boxes
+    // this.drawDebugBoxes();
+
+    // const isOnGround = this.player.body?.touching.down;
+    const isOnGround = this.player.body?.blocked.down;
     const currentAnim = this.player.anims.currentAnim?.key;
+
+    // === Debug Toggle ===
+    if (Phaser.Input.Keyboard.JustDown(this.dKey)) {
+      this.showDebugBoxes = !this.showDebugBoxes;
+      console.log("Debug boxes:", this.showDebugBoxes ? "ON" : "OFF");
+    }
+
+    // === Attack Handling ===
+    if (this.xKey.isDown && !this.isAttacking && !this.isProne) {
+      // console.log("Attack key pressed");
+      this.isAttacking = true;
+      this.player.anims.play("attack", true);
+      // Reset attack state after animation completes
+      this.time.delayedCall(500, () => {
+        this.isAttacking = false;
+      });
+      // Prevent browser default behavior for X key
+      // Note: This is handled by Phaser's keyboard system automatically
+    }
+
+    // === Prone Handling ===
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    if (this.cursors.down.isDown && isOnGround && !this.isAttacking) {
+      if (!this.isProne) {
+        this.isProne = true;
+
+        // Switch visual first (this may change displayHeight)
+        if (this.textures.exists("prone0")) {
+          this.player.setTexture("prone0");
+        }
+
+        // Re-sync offset to this frame, then shrink body keeping feet fixed
+        this.resyncOffsetToFrame();
+        this.resizeBodyKeepFeet(Math.max(24, Math.floor(body.height * 0.6)));
+      }
+    } else if (this.isProne && !this.cursors.down.isDown) {
+      this.isProne = false;
+
+      // Switch back to idle/standing visual (frame height may change again)
+      if (this.anims.exists("idle")) this.player.anims.play("idle", true);
+      else this.player.setTexture("stand0");
+
+      // Re-sync offset to the new frame, then restore body height
+      this.resyncOffsetToFrame();
+      this.resizeBodyKeepFeet(74); // your chosen standing collision height
+    }
 
     // === Jump Handling ===
     // When Jump is pressed and player is on ground, jump
@@ -1312,24 +1486,45 @@ export class MainScene extends Phaser.Scene {
     this.jumpCooldown -= delta;
     let isMoving = false;
 
-    // Only process keyboard input if not on mobile
-    if (!this.isMobile) {
+    // Only process keyboard input if not on mobile and not prone/attacking
+    if (!this.isMobile && !this.isProne && !this.isAttacking) {
       // === Movement ===
       if (this.cursors.left.isDown) {
-        console.log("Left key pressed");
+        // console.log("Left key pressed, applying force");
         this.faceLeft = true;
         this.player.setVelocityX(-160);
         this.player.flipX = false;
         isMoving = true;
+        // Also try applying force as backup
+        if (this.player.body && "setVelocityX" in this.player.body) {
+          this.player.body.setVelocityX(-160);
+        }
+        // Fallback: direct position update if physics isn't working
+        if (Math.abs(this.player.body.velocity.x) < 1) {
+          this.player.x -= 2;
+        }
       } else if (this.cursors.right.isDown) {
-        console.log("Right key pressed");
         this.faceLeft = false;
         this.player.setVelocityX(160);
         this.player.flipX = true;
         isMoving = true;
+        // Also try applying force as backup
+        if (this.player.body && "setVelocityX" in this.player.body) {
+          this.player.body.setVelocityX(160);
+        }
+        // Fallback: direct position update if physics isn't working
+        if (Math.abs(this.player.body.velocity.x) < 1) {
+          this.player.x += 2;
+        }
       } else {
         this.player.setVelocityX(0);
+        if (this.player.body && "setVelocityX" in this.player.body) {
+          this.player.body.setVelocityX(0);
+        }
       }
+    } else if (this.isProne || this.isAttacking) {
+      // Stop movement when prone or attacking
+      this.player.setVelocityX(0);
     } else {
       // Handle mobile input
       if (this.joystickActive) {
@@ -1352,11 +1547,14 @@ export class MainScene extends Phaser.Scene {
     }
 
     // === Animation Handling ===
-    // Jumping animation: play only when NOT on ground
-    if (isMoving && isOnGround) {
-      if (currentAnim !== "walk") this.player.anims.play("walk", true);
-    } else {
-      if (currentAnim !== "idle") this.player.anims.play("idle", true);
+    // Don't change animation if attacking or prone (let those animations play)
+    if (!this.isAttacking && !this.isProne) {
+      // Jumping animation: play only when NOT on ground
+      if (isMoving && isOnGround) {
+        if (currentAnim !== "walk") this.player.anims.play("walk", true);
+      } else if (isOnGround) {
+        if (currentAnim !== "idle") this.player.anims.play("idle", true);
+      }
     }
 
     // Handle NPC interaction using our custom E key handler
@@ -1504,6 +1702,81 @@ export class MainScene extends Phaser.Scene {
 
   private eKeyDownHandler?: (event: KeyboardEvent) => void;
   private eKeyUpHandler?: (event: KeyboardEvent) => void;
+
+  private drawDebugBoxes() {
+    if (!this.showDebugBoxes || !this.debugGraphics) return;
+
+    // Clear previous debug graphics
+    this.debugGraphics.clear();
+
+    // Draw player bounding box
+    if (this.player && this.player.body) {
+      const bounds = this.player.body;
+      this.debugGraphics.lineStyle(2, 0x00ff00, 1); // Green outline
+
+      // Get the actual physics body position and size
+      const bodyX = bounds.x;
+      const bodyY = bounds.y;
+      const bodyWidth = bounds.width;
+      const bodyHeight = bounds.height;
+
+      // Draw the physics body rectangle at its actual position
+      // Physics body position is the top-left corner
+      const cam = this.cameras.main;
+      this.debugGraphics.strokeRect(
+        bodyX - cam.scrollX,
+        bodyY - cam.scrollY,
+        bodyWidth,
+        bodyHeight
+      );
+
+      // Draw center point
+      this.debugGraphics.fillStyle(0x00ff00, 1);
+      this.debugGraphics.fillCircle(bodyX, bodyY, 3);
+
+      // Draw player sprite bounds for comparison
+      this.debugGraphics.lineStyle(1, 0xffff00, 0.5); // Yellow outline for sprite
+      this.debugGraphics.strokeRect(
+        this.player.x - this.player.width * this.player.originX - cam.scrollX,
+        this.player.y - this.player.height * this.player.originY - cam.scrollY,
+        this.player.width,
+        this.player.height
+      );
+
+      // Add debug text to show dimensions
+      if (
+        Math.floor(this.time.now / 1000) !==
+        Math.floor((this.time.now - 16) / 1000)
+      ) {
+        console.log("Debug Info:", {
+          sprite: {
+            x: this.player.x,
+            y: this.player.y,
+            width: this.player.width,
+            height: this.player.height,
+            originX: this.player.originX,
+            originY: this.player.originY,
+          },
+          physics: {
+            x: bodyX,
+            y: bodyY,
+            width: bodyWidth,
+            height: bodyHeight,
+            offsetX: bounds.offset.x,
+            offsetY: bounds.offset.y,
+          },
+        });
+      }
+    }
+
+    // Draw ground bounding box
+    const groundY = this.cameras.main.height - 50;
+    const groundWidth = this.worldWidth;
+    const groundHeight = 100;
+
+    this.debugGraphics.lineStyle(2, 0xff0000, 1); // Red outline
+    this.debugGraphics.strokeRect(0, groundY, groundWidth, groundHeight);
+  }
 
   shutdown() {
     // Clean up event listeners
