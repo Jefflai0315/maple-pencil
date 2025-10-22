@@ -34,5 +34,9 @@ export const config: Phaser.Types.Core.GameConfig = {
     touch: {
       capture: true,
     },
+    keyboard: {
+      target: window, // default
+      capture: [Phaser.Input.Keyboard.KeyCodes.X], // calls preventDefault on key events
+    },
   },
 };

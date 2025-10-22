@@ -73,6 +73,10 @@ export class MainScene extends Phaser.Scene {
   private backgroundBaseX: number[] = []; // Store base X for each background layer
   private isMinimapDragging: boolean = false; // Track if minimap is being dragged
 
+  private attackButton!: Phaser.GameObjects.Container;
+  private attackCooldown = 300; // ms
+  private lastAttackTime = 0;
+
   constructor() {
     super({ key: "MainScene" });
   }
@@ -711,6 +715,23 @@ export class MainScene extends Phaser.Scene {
     } else {
       console.error("Keyboard input not available!");
     }
+
+    // Prevent the browser from acting on the 'X' key (and keep it inside Phaser)
+    this.input.keyboard?.addCapture([Phaser.Input.Keyboard.KeyCodes.X]);
+
+    // Extra safety: DOM guard
+    const stopXDefault = (ev: KeyboardEvent) => {
+      if (ev.key.toLowerCase() === "x") {
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+    };
+    window.addEventListener("keydown", stopXDefault, { passive: false });
+
+    // Clean up on scene shutdown
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener("keydown", stopXDefault);
+    });
   }
 
   private exposeNPCPopupMethods() {
@@ -1163,6 +1184,52 @@ export class MainScene extends Phaser.Scene {
       }
     });
 
+    // --- Attack Button: bottom-right, left of JUMP ---
+    const atkBg = this.add.graphics();
+    atkBg.fillStyle(0x000000, 0.5);
+    atkBg.fillCircle(0, 0, 36);
+    atkBg.setScrollFactor(0);
+
+    const atkText = this.add.text(0, 0, "ATK", {
+      fontSize: "14px",
+      color: "#ffffff",
+    });
+    atkText.setOrigin(0.5);
+    atkText.setScrollFactor(0);
+
+    this.attackButton = this.add.container(
+      this.cameras.main.width - 60, // a bit left of jump
+      this.cameras.main.height - 160
+    );
+    this.attackButton.add([atkBg, atkText]);
+    this.attackButton.setScrollFactor(0);
+    this.attackButton.setInteractive(
+      new Phaser.Geom.Circle(0, 0, 36),
+      Phaser.Geom.Circle.Contains
+    );
+
+    this.attackButton.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      // ignore if touching joystick
+      if (this.isTouchInJoystickArea(pointer)) return;
+
+      const now = this.time.now;
+      if (
+        now - this.lastAttackTime >= this.attackCooldown &&
+        !this.isAttacking &&
+        !this.isProne
+      ) {
+        this.lastAttackTime = now;
+        // trigger the same attack you do on X key:
+        this.isAttacking = true;
+        this.player.setVelocityX(0);
+        this.player.anims.play("attack", true);
+        this.time.delayedCall(500, () => {
+          this.isAttacking = false;
+        });
+      }
+      pointer.event?.stopPropagation();
+    });
+
     // Create jump button
     const jumpButtonBg = this.add.graphics();
     jumpButtonBg.fillStyle(0x000000, 0.5);
@@ -1373,6 +1440,11 @@ export class MainScene extends Phaser.Scene {
           this.cameras.main.scrollX * this.backgroundParallax[i];
       });
     }
+    // Keep attack button at correct screen position
+    if (this.attackButton) {
+      this.attackButton.x = this.cameras.main.width - 50;
+      this.attackButton.y = this.cameras.main.height - 180;
+    }
     // Keep jump button at correct screen position
     if (this.jumpButton) {
       this.jumpButton.x = this.cameras.main.width - 100;
@@ -1428,8 +1500,12 @@ export class MainScene extends Phaser.Scene {
         this.resyncOffsetToFrame();
         this.resizeBodyKeepFeet(Math.max(24, Math.floor(body.height * 0.6)));
       }
+      return;
     } else if (this.isProne && !this.cursors.down.isDown) {
       this.isProne = false;
+
+      // 🔑 stop the currently running animation so it can't overwrite prone0
+      this.player.anims.stop();
 
       // Switch back to idle/standing visual (frame height may change again)
       if (this.anims.exists("idle")) this.player.anims.play("idle", true);
@@ -1438,6 +1514,8 @@ export class MainScene extends Phaser.Scene {
       // Re-sync offset to the new frame, then restore body height
       this.resyncOffsetToFrame();
       this.resizeBodyKeepFeet(74); // your chosen standing collision height
+      this.player.setVelocityX(0);
+      return;
     }
 
     // === Jump Handling ===
