@@ -1488,19 +1488,16 @@ export class MainScene extends Phaser.Scene {
     // === Prone Handling ===
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     if (this.cursors.down.isDown && isOnGround && !this.isAttacking) {
-      if (!this.isProne) {
-        this.isProne = true;
+      this.isProne = true;
 
-        // Switch visual first (this may change displayHeight)
-        if (this.textures.exists("prone0")) {
-          this.player.setTexture("prone0");
-        }
-
-        // Re-sync offset to this frame, then shrink body keeping feet fixed
-        this.resyncOffsetToFrame();
-        this.resizeBodyKeepFeet(Math.max(24, Math.floor(body.height * 0.6)));
+      // Switch visual first (this may change displayHeight)
+      if (this.textures.exists("prone0")) {
+        this.player.setTexture("prone0");
       }
-      return;
+
+      // Re-sync offset to this frame, then shrink body keeping feet fixed
+      this.resyncOffsetToFrame();
+      this.resizeBodyKeepFeet(Math.max(24, Math.floor(body.height * 0.6)));
     } else if (this.isProne && !this.cursors.down.isDown) {
       this.isProne = false;
 
@@ -1515,7 +1512,6 @@ export class MainScene extends Phaser.Scene {
       this.resyncOffsetToFrame();
       this.resizeBodyKeepFeet(74); // your chosen standing collision height
       this.player.setVelocityX(0);
-      return;
     }
 
     // === Jump Handling ===
