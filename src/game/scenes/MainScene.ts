@@ -77,6 +77,17 @@ export class MainScene extends Phaser.Scene {
   private attackCooldown = 300; // ms
   private lastAttackTime = 0;
 
+  // Monsters
+  private monsters!: Phaser.Physics.Arcade.Group;
+  private monsterTargetCount = 5;
+  private aiTickMs = 500; // how often to change behavior / think
+  private lastAiTick = 0;
+
+  // Make ground accessible outside create()
+  private ground!: Phaser.GameObjects.Rectangle & {
+    body: Phaser.Physics.Arcade.StaticBody;
+  };
+
   constructor() {
     super({ key: "MainScene" });
   }
@@ -198,6 +209,18 @@ export class MainScene extends Phaser.Scene {
       this.load.image(`swingP1_${i}`, `/sprites/smile/0/swingP1_${i}.png`);
     }
 
+    // Load blue ribbon pig sprites (monsters)
+    this.load.image("pig_stand0", "/sprites/blue_ribbon_pig/stand_0.png");
+    this.load.image("pig_stand1", "/sprites/blue_ribbon_pig/stand_1.png");
+    this.load.image("pig_stand2", "/sprites/blue_ribbon_pig/stand_2.png");
+    this.load.image("pig_move0", "/sprites/blue_ribbon_pig/move_0.png");
+    this.load.image("pig_move1", "/sprites/blue_ribbon_pig/move_1.png");
+    this.load.image("pig_die0", "/sprites/blue_ribbon_pig/die1_0.png");
+    this.load.image("pig_die1", "/sprites/blue_ribbon_pig/die1_1.png");
+    this.load.image("pig_die2", "/sprites/blue_ribbon_pig/die1_2.png");
+    this.load.image("pig_die3", "/sprites/blue_ribbon_pig/die1_3.png");
+    this.load.image("pig_hit0", "/sprites/blue_ribbon_pig/hit1_0.png");
+
     // Load game assets
     // Load tiles
     for (let i = 1; i <= 3; i++) {
@@ -218,6 +241,7 @@ export class MainScene extends Phaser.Scene {
     try {
       // Try to load the audio file
       this.load.audio("bgm", "/audio/CBD_town.mp3");
+      this.load.audio("pigDeath", "/audio/orange_mushroom_death.mp3");
     } catch (error) {
       console.error("Error loading audio file:", error);
     }
@@ -262,14 +286,16 @@ export class MainScene extends Phaser.Scene {
       const groundY = this.cameras.main.height - 50; // 50px from the bottom
       const groundWidth = this.worldWidth; // Full world width
       const groundHeight = 100;
-      const ground = this.add.rectangle(
+      this.ground = this.add.rectangle(
         groundWidth / 2,
         groundY + groundHeight / 2,
         groundWidth,
         groundHeight - 10,
         0x000000
-      );
-      this.physics.add.existing(ground, true);
+      ) as Phaser.GameObjects.Rectangle & {
+        body: Phaser.Physics.Arcade.StaticBody;
+      };
+      this.physics.add.existing(this.ground, true);
 
       // --- Responsive Background Layers: parallax, always at % of world width ---
       // Create a temporary background sprite to get its height
@@ -314,11 +340,24 @@ export class MainScene extends Phaser.Scene {
       this.player.setGravityY(300);
       this.player.flipX = true;
       this.faceLeft = false;
-      this.physics.add.collider(this.player, ground);
+      this.physics.add.collider(this.player, this.ground);
+
+      // ---- Monsters group ----
+      this.monsters = this.physics.add.group({
+        classType: Phaser.Physics.Arcade.Sprite,
+        runChildUpdate: false,
+        maxSize: 20, // cap safety, we’ll manage to 5 ourselves
+      });
+
+      // Collide monsters with ground (so they stand/walk)
+      this.physics.add.collider(this.monsters, this.ground);
+
+      // Optional: collide monsters with player (so they don't overlap)
+      this.physics.add.collider(this.player, this.monsters);
 
       // Create debug graphics for bounding boxes
-      // this.debugGraphics = this.add.graphics();
-      // this.debugGraphics.setScrollFactor(0); // Keep debug boxes on screen
+      this.debugGraphics = this.add.graphics();
+      this.debugGraphics.setScrollFactor(0); // Keep debug boxes on screen
 
       // Slope
       const slopeStartX = 6 * 90 + 30; // wherever your slope starts
@@ -339,6 +378,8 @@ export class MainScene extends Phaser.Scene {
         ); // invisible
         this.physics.add.existing(step, true);
         this.physics.add.collider(this.player, step);
+        // Add collision for monsters with slope steps
+        this.physics.add.collider(this.monsters, step);
       }
 
       // Top of slope
@@ -354,6 +395,8 @@ export class MainScene extends Phaser.Scene {
       );
       this.physics.add.existing(topSlope, true);
       this.physics.add.collider(this.player, topSlope);
+      // Add collision for monsters with elevated platform
+      this.physics.add.collider(this.monsters, topSlope);
 
       // --- Overlay decorative tiles (no physics) ---
       let x = 0;
@@ -488,6 +531,46 @@ export class MainScene extends Phaser.Scene {
           frameRate: 8,
           repeat: 0,
         });
+
+        // Create pig animations for monsters
+        this.anims.create({
+          key: "pig_idle",
+          frames: [
+            { key: "pig_stand0" },
+            { key: "pig_stand1" },
+            { key: "pig_stand2" },
+            { key: "pig_stand1" },
+          ],
+          frameRate: 4,
+          repeat: -1,
+        });
+
+        this.anims.create({
+          key: "pig_walk",
+          frames: [{ key: "pig_move0" }, { key: "pig_move1" }],
+          frameRate: 6,
+          repeat: -1,
+        });
+
+        this.anims.create({
+          key: "pig_die",
+          frames: [
+            { key: "pig_die0" },
+            { key: "pig_die1" },
+            { key: "pig_die2" },
+            { key: "pig_die3" },
+          ],
+          frameRate: 8,
+          repeat: 0,
+        });
+
+        this.anims.create({
+          key: "pig_hit",
+          frames: [{ key: "pig_hit0" }],
+          frameRate: 8,
+          repeat: 0,
+        });
+
         console.log("Animations created");
       } catch (error) {
         console.error("Error creating animations:", error);
@@ -1223,6 +1306,12 @@ export class MainScene extends Phaser.Scene {
         this.isAttacking = true;
         this.player.setVelocityX(0);
         this.player.anims.play("attack", true);
+
+        // Check for hits slightly after attack starts (when swing connects)
+        this.time.delayedCall(150, () => {
+          this.checkAttackHits();
+        });
+
         this.time.delayedCall(500, () => {
           this.isAttacking = false;
         });
@@ -1411,6 +1500,159 @@ export class MainScene extends Phaser.Scene {
     }
   }
 
+  // Spawn a single monster at a random x, standing on ground
+  private spawnMonster(x?: number) {
+    const spawnX = x ?? Phaser.Math.Between(40, this.worldWidth - 40);
+    // Spawn slightly above ground, physics will settle it onto the floor
+    const spawnY = 0;
+
+    const m = this.physics.add.sprite(spawnX, spawnY, "pig_stand0");
+    m.setOrigin(0.5, 1); // feet anchor
+    m.setCollideWorldBounds(true);
+    m.setBounce(0); // no bouncing
+    m.setDragX(600); // a bit of friction
+    m.setGravityY(300); // same gravity as player
+
+    // Ensure physics body is properly sized and aligned with sprite bottom (feet)
+    const body = m.body as Phaser.Physics.Arcade.Body;
+    if (body) {
+      // Set a reasonable collision body size (adjust based on pig sprite)
+      const bodyWidth = m.width * 0.7; // Slightly smaller than full width
+      const bodyHeight = m.height * 0.8; // Most of the height
+      body.setSize(bodyWidth, bodyHeight);
+      // Calculate offset to align body bottom with sprite bottom
+      // Origin (0.5, 1) means sprite.y is at the bottom
+      // We want body.y + body.height = sprite.y
+      body.setOffset((m.width - bodyWidth) / 2, m.displayHeight - bodyHeight);
+    }
+
+    // Keep body aligned when animation frames change
+    const syncFeet = () => {
+      const body = m.body as Phaser.Physics.Arcade.Body;
+      if (body) {
+        body.setOffset(body.offset.x, m.displayHeight - body.height);
+      }
+    };
+
+    m.on(Phaser.Animations.Events.ANIMATION_START, syncFeet);
+    m.on(Phaser.Animations.Events.ANIMATION_UPDATE, syncFeet);
+    m.on(Phaser.Animations.Events.ANIMATION_COMPLETE, syncFeet);
+
+    m.setDataEnabled();
+    m.setData("state", "idle"); // "idle" | "walk"
+    m.setData("nextThink", this.time.now + Phaser.Math.Between(800, 1600));
+    m.setData("speed", Phaser.Math.Between(40, 90));
+    m.setData("dir", Phaser.Math.Between(0, 1) ? 1 : -1);
+
+    // Play idle animation
+    m.anims.play("pig_idle", true);
+
+    this.monsters.add(m, true);
+    return m;
+  }
+
+  // Ensure target count exists
+  private maintainMonsterCount() {
+    const alive = this.monsters.countActive(true);
+    for (let i = alive; i < this.monsterTargetCount; i++) {
+      this.spawnMonster();
+    }
+  }
+
+  // Kill a monster with death animation
+  private killMonster(monster: Phaser.Physics.Arcade.Sprite) {
+    // Mark as dying to prevent further AI updates
+    monster.setData("state", "dying");
+    monster.setVelocityX(0);
+
+    // Play death sound
+    this.sound.play("pigDeath", { volume: 0.5 });
+
+    // Play death animation
+    monster.anims.play("pig_die", true);
+
+    // Remove the monster after death animation completes
+    monster.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+      monster.destroy();
+    });
+  }
+
+  // Check if player attack hits any monsters
+  private checkAttackHits() {
+    const attackRange = 80; // How far the attack reaches
+
+    this.monsters.children.iterate((child) => {
+      const monster = child as Phaser.Physics.Arcade.Sprite;
+      if (!monster.active || monster.getData("state") === "dying") return null;
+
+      // Calculate distance between player and monster
+      const distance = Phaser.Math.Distance.Between(
+        this.player.x,
+        this.player.y,
+        monster.x,
+        monster.y
+      );
+
+      // Check if monster is in attack range and in the direction player is facing
+      const inRange = distance < attackRange;
+      const inDirection = this.faceLeft
+        ? monster.x < this.player.x
+        : monster.x > this.player.x;
+
+      if (inRange && inDirection) {
+        this.killMonster(monster);
+      }
+
+      return null;
+    });
+  }
+
+  // Simple wandering AI: idle or walk, flip occasionally, avoid getting stuck
+  private thinkMonsters(now: number) {
+    this.monsters.children.iterate((child) => {
+      const m = child as Phaser.Physics.Arcade.Sprite;
+      if (!m.active || m.getData("state") === "dying") return null;
+
+      const nextThink = m.getData("nextThink") as number;
+      if (now < nextThink) return null;
+
+      // choose next state
+      const shouldWalk = Math.random() < 0.6; // 60% walk, 40% idle
+      const speed = m.getData("speed") as number;
+      let dir = m.getData("dir") as number;
+
+      // flip direction sometimes
+      if (Math.random() < 0.3) dir *= -1;
+
+      if (shouldWalk) {
+        m.setVelocityX(dir * speed);
+        m.flipX = dir < 0 ? false : true; // face moving direction (adjust if your art differs)
+        m.setData("state", "walk");
+        m.anims.play("pig_walk", true);
+      } else {
+        m.setVelocityX(0);
+        m.setData("state", "idle");
+        m.anims.play("pig_idle", true);
+      }
+
+      // keep inside world; if at edge, turn back
+      if (m.x < 16) {
+        m.x = 16;
+        dir = 1;
+      }
+      if (m.x > this.worldWidth - 16) {
+        m.x = this.worldWidth - 16;
+        dir = -1;
+      }
+
+      // schedule next think
+      m.setData("dir", dir);
+      m.setData("nextThink", now + Phaser.Math.Between(800, 1600));
+
+      return null;
+    });
+  }
+
   update(time: number, delta: number) {
     if (!this.cursors || !this.spaceKey || !this.xKey) {
       console.warn("Controls not initialized:", {
@@ -1426,6 +1668,15 @@ export class MainScene extends Phaser.Scene {
     if (!this.player.body) {
       console.error("Player body is null!");
       return;
+    }
+
+    // Keep 5 monsters alive
+    this.maintainMonsterCount();
+
+    // AI ticks
+    if (time - this.lastAiTick >= this.aiTickMs) {
+      this.thinkMonsters(time);
+      this.lastAiTick = time;
     }
 
     // Update parallax backgrounds (no jump, always at % of world width)
@@ -1477,6 +1728,12 @@ export class MainScene extends Phaser.Scene {
       // console.log("Attack key pressed");
       this.isAttacking = true;
       this.player.anims.play("attack", true);
+
+      // Check for hits slightly after attack starts (when swing connects)
+      this.time.delayedCall(500, () => {
+        this.checkAttackHits();
+      });
+
       // Reset attack state after animation completes
       this.time.delayedCall(500, () => {
         this.isAttacking = false;
@@ -1842,6 +2099,43 @@ export class MainScene extends Phaser.Scene {
         });
       }
     }
+
+    // Draw monster bounding boxes
+    const cam = this.cameras.main;
+    this.monsters.children.iterate((child) => {
+      const monster = child as Phaser.Physics.Arcade.Sprite;
+      if (!monster.active || !monster.body) return null;
+
+      const bounds = monster.body as Phaser.Physics.Arcade.Body;
+
+      // Draw physics body (cyan outline)
+      this.debugGraphics.lineStyle(2, 0x00ffff, 1);
+      this.debugGraphics.strokeRect(
+        bounds.x - cam.scrollX,
+        bounds.y - cam.scrollY,
+        bounds.width,
+        bounds.height
+      );
+
+      // Draw sprite bounds for comparison (magenta outline)
+      this.debugGraphics.lineStyle(1, 0xff00ff, 0.5);
+      this.debugGraphics.strokeRect(
+        monster.x - monster.width * monster.originX - cam.scrollX,
+        monster.y - monster.height * monster.originY - cam.scrollY,
+        monster.width,
+        monster.height
+      );
+
+      // Draw center point
+      this.debugGraphics.fillStyle(0x00ffff, 1);
+      this.debugGraphics.fillCircle(
+        bounds.x - cam.scrollX,
+        bounds.y - cam.scrollY,
+        3
+      );
+
+      return null;
+    });
 
     // Draw ground bounding box
     const groundY = this.cameras.main.height - 50;
