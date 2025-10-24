@@ -82,6 +82,7 @@ export class MainScene extends Phaser.Scene {
   private monsterTargetCount = 5;
   private aiTickMs = 500; // how often to change behavior / think
   private lastAiTick = 0;
+  private customPigTextureKey: string | null = null; // Store custom drawing texture
 
   // Make ground accessible outside create()
   private ground!: Phaser.GameObjects.Rectangle & {
@@ -340,6 +341,7 @@ export class MainScene extends Phaser.Scene {
       this.player.setGravityY(300);
       this.player.flipX = true;
       this.faceLeft = false;
+      this.player.setDepth(100); // Set player depth higher so they appear in front of NPCs
       this.physics.add.collider(this.player, this.ground);
 
       // ---- Monsters group ----
@@ -776,6 +778,9 @@ export class MainScene extends Phaser.Scene {
       // Handle URL parameters for NPC popups
       this.handleNPCPopupParameters();
 
+      // Setup event listener for custom drawing on pigs
+      this.setupDrawingEventListener();
+
       console.log("MainScene: create() method completed successfully");
     } catch (error) {
       console.error("Error in create method:", error);
@@ -847,6 +852,170 @@ export class MainScene extends Phaser.Scene {
 
       console.log("NPC popup methods exposed globally");
     }
+  }
+
+  private setupDrawingEventListener() {
+    if (typeof window === "undefined") return;
+
+    const handleDrawing = (event: Event) => {
+      console.log("🎨 Received applyDrawingToPig event!");
+      const customEvent = event as CustomEvent<{ dataURL: string }>;
+      const { dataURL } = customEvent.detail;
+
+      console.log("DataURL received:", dataURL.substring(0, 50) + "...");
+
+      // Generate a unique key for this texture
+      const textureKey = `customPigTexture_${Date.now()}`;
+      console.log("Generated texture key:", textureKey);
+
+      // Create texture from data URL using Phaser's texture manager directly
+      this.textures.once("addtexture", (key: string) => {
+        if (key !== textureKey) return;
+
+        console.log("Custom pig texture loaded:", textureKey);
+        this.customPigTextureKey = textureKey;
+
+        // Wait a frame to ensure texture is fully ready
+        this.time.delayedCall(50, () => {
+          console.log(
+            "Attempting to update monsters. Total monsters:",
+            this.monsters.children.size
+          );
+          let updatedCount = 0;
+
+          // Update all existing pigs with the new texture
+          this.monsters.children.iterate((child) => {
+            const monster = child as Phaser.Physics.Arcade.Sprite;
+            console.log("Checking monster:", {
+              active: monster.active,
+              state: monster.getData("state"),
+            });
+
+            if (monster.active && monster.getData("state") !== "dying") {
+              updatedCount++;
+              console.log("Updating monster #" + updatedCount);
+              // Get reference to original pig texture for sizing
+              const originalTexture = this.textures.get("pig_stand0");
+              const originalFrame = originalTexture.get();
+              const targetWidth = originalFrame.width;
+              const targetHeight = originalFrame.height;
+
+              console.log("Original pig size:", { targetWidth, targetHeight });
+              console.log("Monster BEFORE texture change:", {
+                texture: monster.texture.key,
+                width: monster.width,
+                height: monster.height,
+              });
+
+              // Change texture (use the base frame "__BASE" for single-image textures)
+              monster.setTexture(textureKey, "__BASE");
+
+              console.log("Monster AFTER texture change:", {
+                texture: monster.texture.key,
+                width: monster.width,
+                height: monster.height,
+                frame: monster.frame.name,
+              });
+
+              // Scale the sprite to match the original pig size
+              const scaleX = targetWidth / monster.width;
+              const scaleY = targetHeight / monster.height;
+              console.log("Calculated scale:", { scaleX, scaleY });
+
+              monster.setScale(scaleX, scaleY);
+
+              console.log("Monster AFTER scaling:", {
+                displayWidth: monster.displayWidth,
+                displayHeight: monster.displayHeight,
+                scaleX: monster.scaleX,
+                scaleY: monster.scaleY,
+              });
+
+              monster.setData("hasCustomTexture", true);
+
+              // Stop any playing animations and clear animation state
+              if (monster.anims.isPlaying) {
+                monster.anims.stop();
+              }
+              monster.anims.currentAnim = null;
+              monster.anims.nextAnim = null;
+
+              // Ensure visibility
+              monster.setVisible(true);
+              monster.setAlpha(1);
+              monster.setActive(true);
+
+              // Remove animation event listeners
+              monster.off(Phaser.Animations.Events.ANIMATION_START);
+              monster.off(Phaser.Animations.Events.ANIMATION_UPDATE);
+              monster.off(Phaser.Animations.Events.ANIMATION_COMPLETE);
+
+              console.log("✅ Monster updated:", {
+                visible: monster.visible,
+                alpha: monster.alpha,
+                active: monster.active,
+                currentTexture: monster.texture.key,
+                currentFrame: monster.frame.name,
+              });
+
+              // IMPORTANT: Recalculate physics body AFTER scaling
+              this.time.delayedCall(10, () => {
+                const body = monster.body as Phaser.Physics.Arcade.Body;
+                if (body) {
+                  const bodyWidth = monster.displayWidth * 0.6;
+                  const bodyHeight = monster.displayHeight * 0.7;
+                  body.setSize(bodyWidth, bodyHeight);
+                  body.setOffset(
+                    (monster.displayWidth - bodyWidth) / 2,
+                    monster.displayHeight - bodyHeight
+                  );
+
+                  console.log("Updated monster physics:", {
+                    displayWidth: monster.displayWidth,
+                    displayHeight: monster.displayHeight,
+                    bodyWidth,
+                    bodyHeight,
+                  });
+                }
+              });
+            }
+            return null;
+          });
+
+          console.log(
+            `✅ Updated ${updatedCount} monsters with custom texture!`
+          );
+        });
+      });
+
+      // Load image from data URL
+      const img = new Image();
+      img.onload = () => {
+        console.log(
+          "Image loaded successfully, dimensions:",
+          img.width,
+          "x",
+          img.height
+        );
+        // Create texture from the loaded image
+        this.textures.addImage(textureKey, img);
+        console.log("Texture added to Phaser textures manager");
+      };
+      img.onerror = (err) => {
+        console.error("❌ Failed to load custom pig texture:", err);
+      };
+      console.log("Starting to load image from dataURL...");
+      img.src = dataURL;
+    };
+
+    window.addEventListener("applyDrawingToPig", handleDrawing);
+    console.log("✅ Drawing event listener registered successfully");
+
+    // Clean up on shutdown
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener("applyDrawingToPig", handleDrawing);
+      console.log("❌ Drawing event listener removed");
+    });
   }
 
   private initializeAudio() {
@@ -1506,46 +1675,80 @@ export class MainScene extends Phaser.Scene {
     // Spawn slightly above ground, physics will settle it onto the floor
     const spawnY = 0;
 
-    const m = this.physics.add.sprite(spawnX, spawnY, "pig_stand0");
+    // Use custom drawing texture if available, otherwise use default pig sprite
+    const textureKey = this.customPigTextureKey || "pig_stand0";
+    const m = this.physics.add.sprite(spawnX, spawnY, textureKey);
     m.setOrigin(0.5, 1); // feet anchor
     m.setCollideWorldBounds(true);
     m.setBounce(0); // no bouncing
     m.setDragX(600); // a bit of friction
     m.setGravityY(300); // same gravity as player
+    m.setDepth(100); // Set monster depth same as player, in front of NPCs
+
+    // If using custom texture, scale it to match the original pig sprite size
+    if (this.customPigTextureKey) {
+      // Get the original pig sprite size for reference
+      const originalTexture = this.textures.get("pig_stand0");
+      const originalFrame = originalTexture.get();
+      const targetWidth = originalFrame.width;
+      const targetHeight = originalFrame.height;
+
+      // Scale custom texture to match original pig size
+      const scaleX = targetWidth / m.width;
+      const scaleY = targetHeight / m.height;
+      m.setScale(scaleX, scaleY);
+    }
 
     // Ensure physics body is properly sized and aligned with sprite bottom (feet)
     const body = m.body as Phaser.Physics.Arcade.Body;
     if (body) {
-      // Set a reasonable collision body size (adjust based on pig sprite)
-      const bodyWidth = m.width * 0.7; // Slightly smaller than full width
-      const bodyHeight = m.height * 0.8; // Most of the height
+      // Set a reasonable collision body size
+      const bodyWidth = m.displayWidth * 0.6; // Slightly smaller than full width
+      const bodyHeight = m.displayHeight * 0.7; // Most of the height
       body.setSize(bodyWidth, bodyHeight);
       // Calculate offset to align body bottom with sprite bottom
       // Origin (0.5, 1) means sprite.y is at the bottom
       // We want body.y + body.height = sprite.y
-      body.setOffset((m.width - bodyWidth) / 2, m.displayHeight - bodyHeight);
+      body.setOffset(
+        (m.displayWidth - bodyWidth) / 2,
+        m.displayHeight - bodyHeight
+      );
+
+      console.log("New monster spawned:", {
+        hasCustomTexture: this.customPigTextureKey !== null,
+        displayWidth: m.displayWidth,
+        displayHeight: m.displayHeight,
+        bodyWidth,
+        bodyHeight,
+        y: m.y,
+        bodyY: body.y,
+      });
     }
-
-    // Keep body aligned when animation frames change
-    const syncFeet = () => {
-      const body = m.body as Phaser.Physics.Arcade.Body;
-      if (body) {
-        body.setOffset(body.offset.x, m.displayHeight - body.height);
-      }
-    };
-
-    m.on(Phaser.Animations.Events.ANIMATION_START, syncFeet);
-    m.on(Phaser.Animations.Events.ANIMATION_UPDATE, syncFeet);
-    m.on(Phaser.Animations.Events.ANIMATION_COMPLETE, syncFeet);
 
     m.setDataEnabled();
     m.setData("state", "idle"); // "idle" | "walk"
     m.setData("nextThink", this.time.now + Phaser.Math.Between(800, 1600));
     m.setData("speed", Phaser.Math.Between(40, 90));
     m.setData("dir", Phaser.Math.Between(0, 1) ? 1 : -1);
+    m.setData("hasCustomTexture", this.customPigTextureKey !== null);
 
-    // Play idle animation
-    m.anims.play("pig_idle", true);
+    // Only add animation syncing and play animations if using default texture
+    if (!this.customPigTextureKey) {
+      // Keep body aligned when animation frames change
+      const syncFeet = () => {
+        const body = m.body as Phaser.Physics.Arcade.Body;
+        if (body) {
+          body.setOffset(body.offset.x, m.displayHeight - body.height);
+        }
+      };
+
+      m.on(Phaser.Animations.Events.ANIMATION_START, syncFeet);
+      m.on(Phaser.Animations.Events.ANIMATION_UPDATE, syncFeet);
+      m.on(Phaser.Animations.Events.ANIMATION_COMPLETE, syncFeet);
+
+      // Play idle animation
+      m.anims.play("pig_idle", true);
+    }
 
     this.monsters.add(m, true);
     return m;
@@ -1568,13 +1771,26 @@ export class MainScene extends Phaser.Scene {
     // Play death sound
     this.sound.play("pigDeath", { volume: 0.5 });
 
-    // Play death animation
-    monster.anims.play("pig_die", true);
+    const hasCustomTexture = monster.getData("hasCustomTexture") as boolean;
 
-    // Remove the monster after death animation completes
-    monster.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-      monster.destroy();
-    });
+    // Play death animation only if using default texture
+    if (!hasCustomTexture) {
+      monster.anims.play("pig_die", true);
+      // Remove the monster after death animation completes
+      monster.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+        monster.destroy();
+      });
+    } else {
+      // For custom texture, just fade out and destroy
+      this.tweens.add({
+        targets: monster,
+        alpha: 0,
+        duration: 300,
+        onComplete: () => {
+          monster.destroy();
+        },
+      });
+    }
   }
 
   // Check if player attack hits any monsters
@@ -1624,15 +1840,23 @@ export class MainScene extends Phaser.Scene {
       // flip direction sometimes
       if (Math.random() < 0.3) dir *= -1;
 
+      const hasCustomTexture = m.getData("hasCustomTexture") as boolean;
+
       if (shouldWalk) {
         m.setVelocityX(dir * speed);
         m.flipX = dir < 0 ? false : true; // face moving direction (adjust if your art differs)
         m.setData("state", "walk");
-        m.anims.play("pig_walk", true);
+        // Only play animation if using default texture
+        if (!hasCustomTexture) {
+          m.anims.play("pig_walk", true);
+        }
       } else {
         m.setVelocityX(0);
         m.setData("state", "idle");
-        m.anims.play("pig_idle", true);
+        // Only play animation if using default texture
+        if (!hasCustomTexture) {
+          m.anims.play("pig_idle", true);
+        }
       }
 
       // keep inside world; if at edge, turn back
@@ -1724,13 +1948,17 @@ export class MainScene extends Phaser.Scene {
     }
 
     // === Attack Handling ===
-    if (this.xKey.isDown && !this.isAttacking && !this.isProne) {
+    if (
+      Phaser.Input.Keyboard.JustDown(this.xKey) &&
+      !this.isAttacking &&
+      !this.isProne
+    ) {
       // console.log("Attack key pressed");
       this.isAttacking = true;
       this.player.anims.play("attack", true);
 
       // Check for hits slightly after attack starts (when swing connects)
-      this.time.delayedCall(500, () => {
+      this.time.delayedCall(150, () => {
         this.checkAttackHits();
       });
 
@@ -1786,7 +2014,7 @@ export class MainScene extends Phaser.Scene {
       return;
     }
 
-    // When player is in the air, play jump animation
+    // When player is in the air, play jump animation (unless attacking)
     if (!isOnGround && this.isJumping) {
       // Handle double jump
       if (
@@ -1800,12 +2028,15 @@ export class MainScene extends Phaser.Scene {
         this.hasDoubleJumped = true;
         this.jumpButtonPressed = false; // Reset button state after double jump
       }
-      this.player.anims.play("jump", true);
+      // Only play jump animation if not attacking
+      if (!this.isAttacking) {
+        this.player.anims.play("jump", true);
+      }
       return;
     }
 
-    // When player is on ground and jump animation is playing, reset jumping flag
-    if (isOnGround && this.isJumping && currentAnim === "jump") {
+    // When player is on ground and was jumping, reset jumping flag
+    if (isOnGround && this.isJumping) {
       this.isJumping = false;
       // Only reset velocity if joystick is not active
       if (!this.joystickActive) {

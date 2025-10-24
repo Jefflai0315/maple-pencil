@@ -86,6 +86,10 @@ export const SketchCanvas = ({ isOpen, onClose }: SketchCanvasProps) => {
     canvas.width = newWidth;
     canvas.height = newHeight;
 
+    // Fill canvas with white background (important for proper image export)
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
     // Set initial drawing context
     ctx.strokeStyle = currentColor;
     ctx.lineWidth = brushSize;
@@ -179,7 +183,9 @@ export const SketchCanvas = ({ isOpen, onClose }: SketchCanvasProps) => {
     if (!canvasRef.current) return;
     const ctx = canvasRef.current.getContext("2d");
     if (!ctx) return;
-    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    // Fill with white background instead of clearing to transparent
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     setSelectedSketch(null);
     setSketchName("");
   };
@@ -201,7 +207,19 @@ export const SketchCanvas = ({ isOpen, onClose }: SketchCanvasProps) => {
     localStorage.setItem("sketches", JSON.stringify(updatedSketches));
     setSavedSketches(updatedSketches);
     setSelectedSketch(newSketch);
-    alert(`Saved "${name}"!`);
+
+    // Dispatch custom event to apply drawing to game pigs
+    console.log(
+      "Dispatching applyDrawingToPig event with dataURL:",
+      dataURL.substring(0, 50) + "..."
+    );
+    const event = new CustomEvent("applyDrawingToPig", {
+      detail: { dataURL },
+    });
+    window.dispatchEvent(event);
+
+    console.log("Event dispatched successfully");
+    alert(`Saved "${name}"! Your drawing will appear on the pigs!`);
   };
 
   // Load sketch from gallery
