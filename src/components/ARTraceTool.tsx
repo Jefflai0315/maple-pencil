@@ -71,6 +71,51 @@ const isMobile =
     )) ||
   (typeof window !== "undefined" && window.innerWidth < 768);
 
+/** Visible AR viewport — matches the fixed container, not layout `100vh`. */
+function getTraceViewportSize(container: HTMLElement | null): {
+  width: number;
+  height: number;
+} {
+  if (container) {
+    const { clientWidth, clientHeight } = container;
+    if (clientWidth > 0 && clientHeight > 0) {
+      return { width: clientWidth, height: clientHeight };
+    }
+  }
+  if (typeof window !== "undefined" && window.visualViewport) {
+    return {
+      width: window.visualViewport.width,
+      height: window.visualViewport.height,
+    };
+  }
+  return {
+    width: typeof window !== "undefined" ? window.innerWidth : 0,
+    height: typeof window !== "undefined" ? window.innerHeight : 0,
+  };
+}
+
+function buildCenteredBoxState(
+  container: HTMLElement | null,
+  imageWidth: number,
+  imageHeight: number
+) {
+  const { width: viewportWidth, height: viewportHeight } =
+    getTraceViewportSize(container);
+  const ratio = imageWidth / imageHeight;
+  const width = Math.min(viewportWidth * 0.8, 600);
+  const height = width / ratio;
+  const centerX = (viewportWidth - width) / 2;
+  const centerY = (viewportHeight - height) / 2;
+
+  return {
+    top: `${centerY}px`,
+    left: `${centerX}px`,
+    width: `${width}px`,
+    height: `${height}px`,
+    rotation: 0,
+  };
+}
+
 const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   const growthbook = useGrowthBook();
   const { data: session } = useSession();
@@ -511,24 +556,13 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         // Create a new image to get dimensions and center box
         const img = new Image();
         img.onload = () => {
-          const imageWidth = img.naturalWidth;
-          const imageHeight = img.naturalHeight;
-          const ratio = imageWidth / imageHeight;
-
-          // Use 80% of screen width, maintaining aspect ratio
-          const width = Math.min(window.innerWidth * 0.8, 600); // Max 600px for very wide screens
-          const height = width / ratio;
-
-          const centerX = (window.innerWidth - width) / 2;
-          const centerY = (window.innerHeight - height) / 2;
-
-          setBoxState({
-            top: `${centerY}px`,
-            left: `${centerX}px`,
-            width: `${width}px`,
-            height: `${height}px`,
-            rotation: 0,
-          });
+          setBoxState(
+            buildCenteredBoxState(
+              containerRef.current,
+              img.naturalWidth,
+              img.naturalHeight
+            )
+          );
         };
         img.src = imageData;
       };
@@ -676,22 +710,13 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => {
-        const imageWidth = img.naturalWidth;
-        const imageHeight = img.naturalHeight;
-        const ratio = imageWidth / imageHeight;
-
-        const width = Math.min(window.innerWidth * 0.8, 600);
-        const height = width / ratio;
-        const centerX = (window.innerWidth - width) / 2;
-        const centerY = (window.innerHeight - height) / 2;
-
-        setBoxState({
-          top: `${centerY}px`,
-          left: `${centerX}px`,
-          width: `${width}px`,
-          height: `${height}px`,
-          rotation: 0,
-        });
+        setBoxState(
+          buildCenteredBoxState(
+            containerRef.current,
+            img.naturalWidth,
+            img.naturalHeight
+          )
+        );
       };
       img.src = generatedUrl;
       setAiStatus("success");
@@ -1274,14 +1299,11 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
         </IconButton>
       )}
 
-      {/* Camera/Video Background */}
+      {/* Camera/Video Background — fill container (100dvh), not layout 100vh */}
       <Box
         sx={{
           position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100vw",
-          height: "100vh",
+          inset: 0,
           zIndex: 99998,
           overflow: "hidden",
           backgroundColor: "black",
@@ -1292,9 +1314,10 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           autoPlay
           playsInline
           style={{
-            width: "100vw",
-            height: "100vh",
+            width: "100%",
+            height: "100%",
             objectFit: "cover",
+            objectPosition: "center center",
             zIndex: 10002,
             transform: isFrontCamera ? "scaleX(-1)" : "none",
           }}
