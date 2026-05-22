@@ -72,14 +72,20 @@ const isMobile =
   (typeof window !== "undefined" && window.innerWidth < 768);
 
 /** Visible AR viewport — matches the fixed container, not layout `100vh`. */
-function getTraceViewportSize(container: HTMLElement | null): {
+function getTraceViewportSize(
+  container: HTMLElement | null,
+  bottomChromeHeight = 0
+): {
   width: number;
   height: number;
 } {
   if (container) {
     const { clientWidth, clientHeight } = container;
     if (clientWidth > 0 && clientHeight > 0) {
-      return { width: clientWidth, height: clientHeight };
+      return {
+        width: clientWidth,
+        height: Math.max(0, clientHeight - bottomChromeHeight),
+      };
     }
   }
   if (typeof window !== "undefined" && window.visualViewport) {
@@ -97,10 +103,11 @@ function getTraceViewportSize(container: HTMLElement | null): {
 function buildCenteredBoxState(
   container: HTMLElement | null,
   imageWidth: number,
-  imageHeight: number
+  imageHeight: number,
+  bottomChromeHeight = 0
 ) {
   const { width: viewportWidth, height: viewportHeight } =
-    getTraceViewportSize(container);
+    getTraceViewportSize(container, bottomChromeHeight);
   const ratio = imageWidth / imageHeight;
   const width = Math.min(viewportWidth * 0.8, 600);
   const height = width / ratio;
@@ -166,6 +173,8 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   });
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const bottomToolbarRef = useRef<HTMLDivElement>(null);
+  const [bottomChromeHeight, setBottomChromeHeight] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [moveableReady, setMoveableReady] = useState(false);
@@ -527,6 +536,21 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   }, [image]);
 
   // Strobe effect: smooth pulsing animation when strobeActive
+  // Keep camera + trace overlay centered in the area above the bottom toolbar
+  useEffect(() => {
+    const toolbar = bottomToolbarRef.current;
+    if (!toolbar) return;
+
+    const updateHeight = () => {
+      setBottomChromeHeight(toolbar.offsetHeight);
+    };
+    updateHeight();
+
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(toolbar);
+    return () => observer.disconnect();
+  }, [image, isFixed, aiPanelOpen]);
+
   useEffect(() => {
     if (strobeActive) {
       // Enable smooth pulsing - CSS animation will handle the fade in/out
@@ -560,7 +584,8 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
             buildCenteredBoxState(
               containerRef.current,
               img.naturalWidth,
-              img.naturalHeight
+              img.naturalHeight,
+              bottomToolbarRef.current?.offsetHeight ?? bottomChromeHeight
             )
           );
         };
@@ -714,7 +739,8 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
           buildCenteredBoxState(
             containerRef.current,
             img.naturalWidth,
-            img.naturalHeight
+            img.naturalHeight,
+            bottomToolbarRef.current?.offsetHeight ?? bottomChromeHeight
           )
         );
       };
@@ -1317,7 +1343,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
             width: "100%",
             height: "100%",
             objectFit: "cover",
-            objectPosition: "center center",
+            objectPosition: `center calc(50% - ${bottomChromeHeight / 2}px)`,
             zIndex: 10002,
             transform: isFrontCamera ? "scaleX(-1)" : "none",
           }}
@@ -1413,6 +1439,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
 
       {/* Bottom Toolbar - Minimalist Design */}
       <Box
+        ref={bottomToolbarRef}
         sx={{
           position: "absolute",
           bottom: 0,
