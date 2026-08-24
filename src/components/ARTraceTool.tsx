@@ -47,11 +47,15 @@ import {
   IconLogout,
   IconLogin,
   IconCoins,
+  IconBrush,
 } from "@tabler/icons-react";
 import Moveable from "react-moveable";
+import { pencilSketchFromDataUrl } from "./pencilSketch";
+import type { CourseLesson } from "@/data/faceCourse";
 
 interface ARTraceToolProps {
   onClose?: () => void | null;
+  courseLesson?: CourseLesson | null;
 }
 
 // Define ColorLayer for layers UI
@@ -123,7 +127,96 @@ function buildCenteredBoxState(
   };
 }
 
-const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
+type ZoomRange = { min: number; max: number; step?: number };
+
+/** iPhone / iPad, including iPadOS that reports as MacIntel. */
+function isIOSDevice() {
+  if (typeof navigator === "undefined") return false;
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+function getTrackZoomRange(track: MediaStreamTrack): ZoomRange | null {
+  const capabilities = track.getCapabilities?.() as
+    | { zoom?: ZoomRange }
+    | undefined;
+  if (
+    capabilities?.zoom &&
+    typeof capabilities.zoom.min === "number" &&
+    typeof capabilities.zoom.max === "number"
+  ) {
+    return capabilities.zoom;
+  }
+  return null;
+}
+
+/**
+ * Safari often starts the rear camera on the 0.5× ultra-wide. On iOS the
+ * virtual back camera maps that as zoom 1 and the normal 1× lens as zoom 2.
+ * On Android the ultra-wide is usually a separate device with zoom.min < 1.
+ */
+async function applyNormalRearLens(track: MediaStreamTrack) {
+  const zoom = getTrackZoomRange(track);
+  if (!zoom) return;
+
+  const label = track.label.toLowerCase();
+  const looksLikeMultiCam =
+    label.includes("ultra") ||
+    label.includes("dual") ||
+    label.includes("triple") ||
+    label.includes("0.5");
+
+  let targetZoom: number | null = null;
+  if (zoom.min < 1) {
+    targetZoom = 1;
+  } else if ((isIOSDevice() || looksLikeMultiCam) && zoom.max >= 2) {
+    targetZoom = 2;
+  }
+
+  if (targetZoom == null) return;
+
+  const clamped = Math.min(Math.max(targetZoom, zoom.min), zoom.max);
+  try {
+    await track.applyConstraints({
+      advanced: [{ zoom: clamped } as MediaTrackConstraintSet],
+    });
+  } catch (error) {
+    console.warn("Could not switch to the normal camera lens:", error);
+  }
+}
+
+async function pickNormalRearCameraDeviceId(): Promise<string | undefined> {
+  if (!navigator.mediaDevices?.enumerateDevices) return undefined;
+
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const labeled = devices.filter((d) => d.kind === "videoinput" && d.label);
+  const rear = labeled.filter((d) => {
+    const label = d.label.toLowerCase();
+    return (
+      label.includes("back") ||
+      label.includes("rear") ||
+      label.includes("environment")
+    );
+  });
+
+  const main = rear.find((d) => {
+    const label = d.label.toLowerCase();
+    return (
+      !label.includes("ultra") &&
+      !label.includes("tele") &&
+      !label.includes("0.5")
+    );
+  });
+
+  return main?.deviceId;
+}
+
+const ARTraceTool: React.FC<ARTraceToolProps> = ({
+  onClose,
+  courseLesson = null,
+}) => {
   const growthbook = useGrowthBook();
   const { data: session } = useSession();
   const [image, setImage] = useState<string | null>(null);
@@ -134,6 +227,10 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
 
   // New: keep original upload separate from display image
   const [sourceImage, setSourceImage] = useState<string | null>(null);
+  const [isSketchMode, setIsSketchMode] = useState(false);
+  const [isConvertingToSketch, setIsConvertingToSketch] = useState(false);
+  const [activeCourseLesson, setActiveCourseLesson] =
+    useState<CourseLesson | null>(courseLesson);
 
   // User account popup state
   const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(
@@ -559,43 +656,103 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
     }
   }, [strobeActive]);
 
-  // Handle image upload
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && file.size <= 5 * 1024 * 1024) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const imageData = e.target?.result as string;
-        setSourceImage(imageData);
-        setImage(imageData);
-        setIsFixed(false);
+  const applyTraceImage = useCallback(
+    (imageData: string, options?: { resetLayers?: boolean }) => {
+      setSourceImage(imageData);
+      setImage(imageData);
+      setIsFixed(false);
 
-        // Reset layers state on new upload
+      if (options?.resetLayers !== false) {
         setLayers([]);
         setCurrentLayerIndex(0);
         setIsProcessingLayers(false);
         setSingleLayerMode(false);
         setShowLayers(false);
+      }
 
-        // Create a new image to get dimensions and center box
-        const img = new Image();
-        img.onload = () => {
-          setBoxState(
-            buildCenteredBoxState(
-              containerRef.current,
-              img.naturalWidth,
-              img.naturalHeight,
-              bottomToolbarRef.current?.offsetHeight ?? bottomChromeHeight
-            )
-          );
-        };
-        img.src = imageData;
+      const img = new Image();
+      img.onload = () => {
+        setBoxState(
+          buildCenteredBoxState(
+            containerRef.current,
+            img.naturalWidth,
+            img.naturalHeight,
+            bottomToolbarRef.current?.offsetHeight ?? bottomChromeHeight
+          )
+        );
+        setMoveableReady(true);
+      };
+      img.src = imageData;
+    },
+    [bottomChromeHeight]
+  );
+
+  const convertToSketch = useCallback(
+    async (imageData: string) => {
+      setIsConvertingToSketch(true);
+      try {
+        const sketchDataUrl = await pencilSketchFromDataUrl(imageData);
+        setIsSketchMode(true);
+        applyTraceImage(sketchDataUrl);
+      } catch (error) {
+        console.error("Sketch conversion failed:", error);
+        alert("Could not convert to sketch. Using original photo.");
+        setIsSketchMode(false);
+        applyTraceImage(imageData);
+      } finally {
+        setIsConvertingToSketch(false);
+      }
+    },
+    [applyTraceImage]
+  );
+
+  const loadCourseLesson = useCallback(
+    (lesson: CourseLesson) => {
+      setActiveCourseLesson(lesson);
+      setOpacity(lesson.suggestedOpacity);
+      setStrobeActive(lesson.useStrobe);
+      setIsSketchMode(false);
+      applyTraceImage(lesson.imagePath);
+    },
+    [applyTraceImage]
+  );
+
+  useEffect(() => {
+    if (courseLesson) {
+      loadCourseLesson(courseLesson);
+    }
+  }, [courseLesson, loadCourseLesson]);
+
+  // Handle image upload
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.size <= 5 * 1024 * 1024) {
+      setActiveCourseLesson(null);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const imageData = e.target?.result as string;
+        setSourceImage(imageData);
+        setIsSketchMode(false);
+        convertToSketch(imageData);
       };
 
       reader.readAsDataURL(file);
     } else {
       alert("Please select an image under 5MB");
     }
+    event.target.value = "";
+  };
+
+  const handleSketchToggle = async () => {
+    if (!sourceImage || isConvertingToSketch) return;
+
+    if (isSketchMode) {
+      setIsSketchMode(false);
+      applyTraceImage(sourceImage, { resetLayers: false });
+      return;
+    }
+
+    await convertToSketch(sourceImage);
   };
 
   // Generate image from text prompt using GrowthBook feature flag to decide API
@@ -720,31 +877,9 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
 
       const generatedUrl: string = data.imageUrl;
 
-      setSourceImage(generatedUrl);
-      setImage(generatedUrl);
-      setIsFixed(false);
-
-      // Reset layers state on new image
-      setLayers([]);
-      setCurrentLayerIndex(0);
-      setIsProcessingLayers(false);
-      setSingleLayerMode(false);
-      setShowLayers(false);
-
-      // Center and size box based on generated image dimensions
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        setBoxState(
-          buildCenteredBoxState(
-            containerRef.current,
-            img.naturalWidth,
-            img.naturalHeight,
-            bottomToolbarRef.current?.offsetHeight ?? bottomChromeHeight
-          )
-        );
-      };
-      img.src = generatedUrl;
+      setActiveCourseLesson(null);
+      setIsSketchMode(false);
+      applyTraceImage(generatedUrl);
       setAiStatus("success");
       const finalSource = useGemini ? data?.source || "gemini" : "wavespeed";
       setAiProgressText(`Image generated successfully using ${finalSource}`);
@@ -1196,22 +1331,87 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
   const initializeCamera = async (useFrontCamera: boolean = false) => {
     try {
       console.log("Initializing camera...", useFrontCamera ? "front" : "back");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: useFrontCamera ? "user" : "environment",
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      });
+
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+
+      const videoConstraints: MediaTrackConstraints & {
+        zoom?: ConstrainDouble;
+      } = {
+        facingMode: useFrontCamera ? "user" : { ideal: "environment" },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+      };
+
+      if (!useFrontCamera) {
+        const deviceId = await pickNormalRearCameraDeviceId();
+        if (deviceId) {
+          videoConstraints.deviceId = { exact: deviceId };
+          delete videoConstraints.facingMode;
+        }
+        // Prefer the 1× lens when the browser exposes zoom as a constraint
+        videoConstraints.zoom = { ideal: 2 };
+      }
+
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: videoConstraints,
+        });
+      } catch (firstError) {
+        console.warn(
+          "Camera constraints rejected, retrying without zoom/device:",
+          firstError
+        );
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: useFrontCamera ? "user" : { ideal: "environment" },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+        });
+      }
+
+      if (!useFrontCamera) {
+        const [track] = stream.getVideoTracks();
+        if (track) {
+          await applyNormalRearLens(track);
+
+          const label = track.label.toLowerCase();
+          const stillUltraWide =
+            label.includes("ultra") &&
+            !label.includes("dual") &&
+            !label.includes("triple");
+
+          if (stillUltraWide) {
+            const alternativeId = await pickNormalRearCameraDeviceId();
+            const currentId = track.getSettings().deviceId;
+            if (alternativeId && alternativeId !== currentId) {
+              stream.getTracks().forEach((t) => t.stop());
+              stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                  deviceId: { exact: alternativeId },
+                  width: { ideal: 1920 },
+                  height: { ideal: 1080 },
+                },
+              });
+            }
+          }
+        }
+      }
+
       console.log("Camera stream obtained:", stream);
 
       if (videoRef.current) {
         console.log("Setting video source...");
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
-        // setIsCameraActive(true);
         setIsFrontCamera(useFrontCamera);
         console.log("Camera initialized successfully");
+      } else {
+        stream.getTracks().forEach((track) => track.stop());
       }
     } catch (error) {
       console.error("Error accessing camera:", error);
@@ -1278,6 +1478,77 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
             }}
           />
           REC {formatRecordingTime(recordingTime)}
+        </Box>
+      )}
+
+      {/* Course lesson banner */}
+      {activeCourseLesson && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: 16,
+            left: 16,
+            right: onClose ? 140 : 72,
+            zIndex: 100014,
+            backgroundColor: "rgba(0,0,0,0.75)",
+            backdropFilter: "blur(8px)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 2,
+            px: 2,
+            py: 1.25,
+          }}
+        >
+          <Typography
+            variant="caption"
+            sx={{ color: "rgba(255,255,255,0.5)", fontSize: "0.65rem" }}
+          >
+            Day {activeCourseLesson.day} · {activeCourseLesson.subtitle}
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{ color: "white", fontWeight: 600, lineHeight: 1.3 }}
+          >
+            {activeCourseLesson.title}
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "rgba(255,255,255,0.65)",
+              fontSize: "0.7rem",
+              display: "block",
+              mt: 0.5,
+            }}
+          >
+            {activeCourseLesson.tip}
+          </Typography>
+        </Box>
+      )}
+
+      {/* Sketch conversion overlay */}
+      {isConvertingToSketch && (
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 100015,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "rgba(0,0,0,0.6)",
+            backdropFilter: "blur(4px)",
+          }}
+        >
+          <Box sx={{ textAlign: "center" }}>
+            <Typography sx={{ color: "white", fontWeight: 600, mb: 1 }}>
+              Turning photo into sketch…
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{ color: "rgba(255,255,255,0.6)" }}
+            >
+              This only takes a moment
+            </Typography>
+          </Box>
         </Box>
       )}
 
@@ -1631,6 +1902,49 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({ onClose }) => {
                 Upload
               </Typography>
             </Box>
+
+            {/* Photo → Sketch toggle */}
+            {sourceImage && (
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 0.5,
+                }}
+              >
+                <IconButton
+                  onClick={handleSketchToggle}
+                  disabled={isConvertingToSketch}
+                  sx={{
+                    backgroundColor: isSketchMode
+                      ? "rgba(255,255,255,0.15)"
+                      : "transparent",
+                    border: `1px solid ${
+                      isSketchMode
+                        ? "rgba(255,255,255,0.35)"
+                        : "rgba(255,255,255,0.2)"
+                    }`,
+                    color: "rgba(255,255,255,0.9)",
+                    "&:hover": {
+                      backgroundColor: "rgba(255,255,255,0.08)",
+                      borderColor: "rgba(255,255,255,0.3)",
+                    },
+                    width: 40,
+                    height: 40,
+                  }}
+                  title={isSketchMode ? "Show original photo" : "Convert to sketch"}
+                >
+                  <IconBrush size={18} />
+                </IconButton>
+                <Typography
+                  variant="caption"
+                  sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.7rem" }}
+                >
+                  {isSketchMode ? "Original" : "Sketch"}
+                </Typography>
+              </Box>
+            )}
 
             {/* AI Generate Button - Only show for logged in users */}
             {session?.user?.email && (
