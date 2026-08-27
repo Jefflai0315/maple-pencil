@@ -50,7 +50,10 @@ import {
   IconBrush,
 } from "@tabler/icons-react";
 import Moveable from "react-moveable";
-import { pencilSketchFromDataUrl } from "./pencilSketch";
+import {
+  pencilSketchFromDataUrl,
+  prepareTraceImage,
+} from "./pencilSketch";
 import type { CourseLesson } from "@/data/faceCourse";
 
 interface ARTraceToolProps {
@@ -180,11 +183,26 @@ async function applyNormalRearLens(track: MediaStreamTrack) {
   const clamped = Math.min(Math.max(targetZoom, zoom.min), zoom.max);
   try {
     await track.applyConstraints({
-      advanced: [{ zoom: clamped } as MediaTrackConstraintSet],
-    });
-  } catch (error) {
-    console.warn("Could not switch to the normal camera lens:", error);
+      zoom: clamped,
+    } as MediaTrackConstraints);
+  } catch {
+    try {
+      await track.applyConstraints({
+        advanced: [{ zoom: clamped } as MediaTrackConstraintSet],
+      });
+    } catch (error) {
+      console.warn("Could not switch to the normal camera lens:", error);
+    }
   }
+}
+
+async function restoreNormalRearLens(stream: MediaStream | null) {
+  const track = stream?.getVideoTracks()[0];
+  if (!track || track.readyState !== "live") return false;
+  const facing = track.getSettings().facingMode;
+  if (facing === "user") return false;
+  await applyNormalRearLens(track);
+  return true;
 }
 
 async function pickNormalRearCameraDeviceId(): Promise<string | undefined> {
@@ -605,9 +623,22 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
     // Initialize camera with back camera by default
     initializeCamera(false);
 
+    const reapplyLens = () => {
+      void restoreNormalRearLens(streamRef.current);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") reapplyLens();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pageshow", reapplyLens);
+    window.addEventListener("focus", reapplyLens);
+
     return () => {
       console.log("ARTraceTool unmounted");
       document.removeEventListener("touchmove", preventDefault);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pageshow", reapplyLens);
+      window.removeEventListener("focus", reapplyLens);
 
       // Stop recording if active
       if (isRecording) {
@@ -657,8 +688,17 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   }, [strobeActive]);
 
   const applyTraceImage = useCallback(
-    (imageData: string, options?: { resetLayers?: boolean }) => {
-      setSourceImage(imageData);
+    (
+      imageData: string,
+      options?: {
+        resetLayers?: boolean;
+        updateSource?: boolean;
+        recenter?: boolean;
+      }
+    ) => {
+      if (options?.updateSource !== false) {
+        setSourceImage(imageData);
+      }
       setImage(imageData);
       setIsFixed(false);
 
@@ -668,6 +708,10 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         setIsProcessingLayers(false);
         setSingleLayerMode(false);
         setShowLayers(false);
+      }
+
+      if (options?.recenter === false) {
+        return;
       }
 
       const img = new Image();
@@ -693,14 +737,17 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       try {
         const sketchDataUrl = await pencilSketchFromDataUrl(imageData);
         setIsSketchMode(true);
-        applyTraceImage(sketchDataUrl);
+        applyTraceImage(sketchDataUrl, {
+          updateSource: false,
+          resetLayers: false,
+          recenter: false,
+        });
       } catch (error) {
         console.error("Sketch conversion failed:", error);
-        alert("Could not convert to sketch. Using original photo.");
         setIsSketchMode(false);
-        applyTraceImage(imageData);
       } finally {
         setIsConvertingToSketch(false);
+        await restoreNormalRearLens(streamRef.current);
       }
     },
     [applyTraceImage]
@@ -724,23 +771,34 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   }, [courseLesson, loadCourseLesson]);
 
   // Handle image upload
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
-    if (file && file.size <= 5 * 1024 * 1024) {
-      setActiveCourseLesson(null);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const imageData = e.target?.result as string;
-        setSourceImage(imageData);
-        setIsSketchMode(false);
-        convertToSketch(imageData);
-      };
-
-      reader.readAsDataURL(file);
-    } else {
-      alert("Please select an image under 5MB");
-    }
     event.target.value = "";
+    if (!file || (file.type && !file.type.startsWith("image/"))) {
+      alert("Please select an image");
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      setActiveCourseLesson(null);
+      const imageData = await prepareTraceImage(objectUrl);
+      setIsSketchMode(false);
+      applyTraceImage(imageData);
+      await restoreNormalRearLens(streamRef.current);
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve())
+      );
+      await convertToSketch(imageData);
+    } catch (error) {
+      console.error("Image upload failed:", error);
+      alert("Could not load that image. Please try another photo.");
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+      await restoreNormalRearLens(streamRef.current);
+    }
   };
 
   const handleSketchToggle = async () => {
@@ -1377,8 +1435,6 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       if (!useFrontCamera) {
         const [track] = stream.getVideoTracks();
         if (track) {
-          await applyNormalRearLens(track);
-
           const label = track.label.toLowerCase();
           const stillUltraWide =
             label.includes("ultra") &&
@@ -1406,9 +1462,34 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
 
       if (videoRef.current) {
         console.log("Setting video source...");
-        videoRef.current.srcObject = stream;
+        const video = videoRef.current;
+        video.srcObject = stream;
         streamRef.current = stream;
         setIsFrontCamera(useFrontCamera);
+
+        const applyLens = () => {
+          if (useFrontCamera) return;
+          void restoreNormalRearLens(streamRef.current);
+        };
+
+        const [track] = stream.getVideoTracks();
+        if (track) {
+          track.addEventListener("unmute", applyLens);
+        }
+
+        const onPlaying = () => {
+          applyLens();
+          // iOS sometimes applies the 0.5× default after the first frame
+          window.setTimeout(applyLens, 250);
+        };
+        video.addEventListener("playing", onPlaying, { once: true });
+        void video.play().catch(() => {
+          /* autoplay can fail until a user gesture; the playing handler still runs */
+        });
+        if (!video.paused) {
+          onPlaying();
+        }
+
         console.log("Camera initialized successfully");
       } else {
         stream.getTracks().forEach((track) => track.stop());
@@ -1529,26 +1610,21 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         <Box
           sx={{
             position: "absolute",
-            inset: 0,
+            top: 16,
+            left: "50%",
+            transform: "translateX(-50%)",
             zIndex: 100015,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: "rgba(0,0,0,0.6)",
-            backdropFilter: "blur(4px)",
+            backgroundColor: "rgba(0,0,0,0.75)",
+            backdropFilter: "blur(8px)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 999,
+            px: 2,
+            py: 1,
           }}
         >
-          <Box sx={{ textAlign: "center" }}>
-            <Typography sx={{ color: "white", fontWeight: 600, mb: 1 }}>
-              Turning photo into sketch…
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{ color: "rgba(255,255,255,0.6)" }}
-            >
-              This only takes a moment
-            </Typography>
-          </Box>
+          <Typography sx={{ color: "white", fontWeight: 600, fontSize: 13 }}>
+            Turning photo into sketch…
+          </Typography>
         </Box>
       )}
 
@@ -1610,6 +1686,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           ref={videoRef}
           autoPlay
           playsInline
+          muted
           style={{
             width: "100%",
             height: "100%",

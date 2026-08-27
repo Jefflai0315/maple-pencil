@@ -1,3 +1,36 @@
+const MAX_TRACE_EDGE = 1280;
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Could not load image"));
+    img.src = src;
+  });
+}
+
+/** Shrink huge camera-roll photos so tracing/sketch work stays fast on phones. */
+export async function prepareTraceImage(
+  src: string,
+  maxEdge = MAX_TRACE_EDGE
+): Promise<string> {
+  const img = await loadImage(src);
+  const scale = Math.min(
+    1,
+    maxEdge / Math.max(img.naturalWidth, img.naturalHeight)
+  );
+  const width = Math.max(1, Math.round(img.naturalWidth * scale));
+  const height = Math.max(1, Math.round(img.naturalHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Could not create canvas");
+  ctx.drawImage(img, 0, 0, width, height);
+  return canvas.toDataURL("image/jpeg", 0.9);
+}
+
 export function toGrayscale(imageData: ImageData) {
   const data = imageData.data;
   for (let i = 0; i < data.length; i += 4) {
@@ -10,50 +43,72 @@ export function toGrayscale(imageData: ImageData) {
 export function invert(imageData: ImageData) {
   const data = imageData.data;
   for (let i = 0; i < data.length; i += 4) {
-    data[i] = 255 - data[i]; // Invert red
-    data[i + 1] = 255 - data[i + 1]; // Invert green
-    data[i + 2] = 255 - data[i + 2]; // Invert blue
+    data[i] = 255 - data[i];
+    data[i + 1] = 255 - data[i + 1];
+    data[i + 2] = 255 - data[i + 2];
   }
   return imageData;
 }
 
+/** Separable box blur — O(n × radius) instead of O(n × radius²). */
 export function blur(
   imageData: ImageData,
   width: number,
   height: number,
   radius = 5
 ) {
-  const temp = new Uint8ClampedArray(imageData.data);
-  const data = imageData.data;
+  const src = imageData.data;
+  const tmp = new Uint8ClampedArray(src.length);
+  const r = Math.max(1, Math.floor(radius));
+
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      let r = 0,
-        g = 0,
-        b = 0,
+      let rs = 0,
+        gs = 0,
+        bs = 0,
         count = 0;
-      for (let ky = -radius; ky <= radius; ky++) {
-        for (let kx = -radius; kx <= radius; kx++) {
-          const nx = x + kx,
-            ny = y + ky;
-          if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-            const idx = (ny * width + nx) * 4;
-            r += temp[idx];
-            g += temp[idx + 1];
-            b += temp[idx + 2];
-            count++;
-          }
-        }
+      for (let kx = -r; kx <= r; kx++) {
+        const nx = x + kx;
+        if (nx < 0 || nx >= width) continue;
+        const idx = (y * width + nx) * 4;
+        rs += src[idx];
+        gs += src[idx + 1];
+        bs += src[idx + 2];
+        count++;
       }
       const idx = (y * width + x) * 4;
-      data[idx] = r / count;
-      data[idx + 1] = g / count;
-      data[idx + 2] = b / count;
+      tmp[idx] = rs / count;
+      tmp[idx + 1] = gs / count;
+      tmp[idx + 2] = bs / count;
+      tmp[idx + 3] = src[idx + 3];
     }
   }
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let rs = 0,
+        gs = 0,
+        bs = 0,
+        count = 0;
+      for (let ky = -r; ky <= r; ky++) {
+        const ny = y + ky;
+        if (ny < 0 || ny >= height) continue;
+        const idx = (ny * width + x) * 4;
+        rs += tmp[idx];
+        gs += tmp[idx + 1];
+        bs += tmp[idx + 2];
+        count++;
+      }
+      const idx = (y * width + x) * 4;
+      src[idx] = rs / count;
+      src[idx + 1] = gs / count;
+      src[idx + 2] = bs / count;
+    }
+  }
+
   return imageData;
 }
 
-// Color dodge blending function
 export function dodge(frontData: ImageData, backData: ImageData) {
   const f = frontData.data,
     b = backData.data;
@@ -65,56 +120,40 @@ export function dodge(frontData: ImageData, backData: ImageData) {
           ? 255
           : Math.min(255, (f[i + j] * 255) / (255 - b[i + j]));
     }
-    result[i + 3] = f[i + 3]; // Keep alpha channel
+    result[i + 3] = f[i + 3];
   }
   return new ImageData(result, frontData.width, frontData.height);
 }
 
-// Main function to convert image to sketch
 export async function pencilSketchFromDataUrl(src: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous"; // Ensure CORS compatibility
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d")!;
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
+  const prepared = await prepareTraceImage(src);
+  const img = await loadImage(prepared);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Could not create canvas");
 
-      ctx.drawImage(img, 0, 0); // Draw the raw image onto the canvas
-      let gray = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      gray = toGrayscale(gray); // Step 1: Convert to grayscale
-      ctx.putImageData(gray, 0, 0); // Display grayscale image
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  ctx.drawImage(img, 0, 0);
 
-      // Step 2: Invert the grayscale image
-      let inverted = new ImageData(
-        new Uint8ClampedArray(gray.data),
-        gray.width,
-        gray.height
-      );
-      inverted = invert(inverted);
-      ctx.putImageData(inverted, 0, 0); // Show inverted image (debugging purpose)
+  let gray = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  gray = toGrayscale(gray);
 
-      // Step 3: Apply blur to the inverted image
-      let blurred = new ImageData(
-        new Uint8ClampedArray(inverted.data),
-        inverted.width,
-        inverted.height
-      );
-      blurred = blur(blurred, canvas.width, canvas.height, 10); // Apply Gaussian blur
-      ctx.putImageData(blurred, 0, 0); // Show blurred image (debugging purpose)
+  let inverted = new ImageData(
+    new Uint8ClampedArray(gray.data),
+    gray.width,
+    gray.height
+  );
+  inverted = invert(inverted);
 
-      // Step 4: Combine using color dodge blending
-      const final = dodge(blurred, gray); // Apply the dodge blending
-      ctx.putImageData(final, 0, 0); // Show final image
+  let blurred = new ImageData(
+    new Uint8ClampedArray(inverted.data),
+    inverted.width,
+    inverted.height
+  );
+  blurred = blur(blurred, canvas.width, canvas.height, 6);
 
-      // Return the final sketch as a data URL
-      resolve(canvas.toDataURL());
-    };
-
-    img.onerror = (err) => {
-      reject(err);
-    };
-    img.src = src; // Trigger image load
-  });
+  const final = dodge(blurred, gray);
+  ctx.putImageData(final, 0, 0);
+  return canvas.toDataURL("image/jpeg", 0.88);
 }
