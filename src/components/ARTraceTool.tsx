@@ -203,19 +203,25 @@ function isUltraWideLabel(label: string) {
 
 function isTeleLabel(label: string) {
   const l = label.toLowerCase();
-  return l.includes("tele") || l.includes("telephoto");
+  return (
+    l.includes("tele") ||
+    l.includes("telephoto") ||
+    l.includes("periscope") ||
+    /\b2x\b/.test(l) ||
+    /\b3x\b/.test(l) ||
+    /\b5x\b/.test(l)
+  );
 }
 
 function isUltraWideTrack(track: MediaStreamTrack) {
-  if (isUltraWideLabel(track.label)) return true;
-  const zoom = getTrackZoomRange(track);
-  return Boolean(zoom && zoom.min < 0.99);
+  return isUltraWideLabel(track.label);
 }
 
 function scoreRearCamera(device: MediaDeviceInfo) {
   const label = device.label.toLowerCase();
   if (isUltraWideLabel(label) || isTeleLabel(label)) return 1000;
   const id = parseAndroidCameraId(device.label);
+  if (/\bwide\b/.test(label) && !isUltraWideLabel(label)) return -1;
   if (id === 0) return 0;
   if (id != null) return id;
   if (/^(back|rear) camera$/.test(label)) return 0.5;
@@ -253,16 +259,26 @@ async function openVideoStream(
  */
 async function openMainRearCameraStream(): Promise<MediaStream> {
   const size = {
-    width: { ideal: 1920 },
-    height: { ideal: 1080 },
+    width: { ideal: 1200 },
+    height: { ideal: 1600 },
   };
 
   if (preferredRearDeviceId) {
     try {
-      return await openVideoStream({
+      const cached = await openVideoStream({
         deviceId: { exact: preferredRearDeviceId },
         ...size,
       });
+      const cachedTrack = cached.getVideoTracks()[0];
+      if (
+        cachedTrack &&
+        (isTeleLabel(cachedTrack.label) || isUltraWideLabel(cachedTrack.label))
+      ) {
+        cached.getTracks().forEach((track) => track.stop());
+        preferredRearDeviceId = undefined;
+      } else {
+        return cached;
+      }
     } catch {
       preferredRearDeviceId = undefined;
     }
@@ -328,19 +344,16 @@ async function openMainRearCameraStream(): Promise<MediaStream> {
 
 /**
  * Safari maps 0.5× as zoom 1 and the normal 1× lens as zoom 2.
- * On Android, switch devices instead — zoom 2 here would crop the main lens.
+ * Android uses real zoom factors: 1 is 1×. Never apply 2× there.
  */
 async function applyNormalRearLens(track: MediaStreamTrack) {
   const zoom = getTrackZoomRange(track);
-  const ultra = isUltraWideTrack(track);
 
   let targetZoom: number | null = null;
   if (isIOSDevice()) {
     targetZoom = 2;
-  } else if (zoom && zoom.min < 1) {
-    targetZoom = 1;
-  } else if (ultra && zoom && zoom.max >= 2) {
-    targetZoom = 2;
+  } else if (zoom) {
+    targetZoom = zoom.min < 1 && zoom.max >= 1 ? 1 : zoom.min;
   }
   if (targetZoom == null) return;
 
