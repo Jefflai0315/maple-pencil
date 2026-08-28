@@ -69,7 +69,10 @@ interface ColorLayer {
   name: string;
   pixelCount: number;
   visible: boolean;
+  kind?: "sketch" | "color";
 }
+
+const SKETCH_LAYER_ID = -1;
 
 const isMobile =
   (typeof window !== "undefined" &&
@@ -132,6 +135,9 @@ function buildCenteredBoxState(
 
 type ZoomRange = { min: number; max: number; step?: number };
 
+/** Remember the 1× rear camera so the photo picker cannot fall back to ultra-wide. */
+let preferredRearDeviceId: string | undefined;
+
 /** iPhone / iPad, including iPadOS that reports as MacIntel. */
 function isIOSDevice() {
   if (typeof navigator === "undefined") return false;
@@ -155,32 +161,193 @@ function getTrackZoomRange(track: MediaStreamTrack): ZoomRange | null {
   return null;
 }
 
+function parseAndroidCameraId(label: string): number | null {
+  const match =
+    label.match(/camera2?\s+(\d+)/i) ||
+    label.match(/^(?:camera\s*)?(\d+)\s*,\s*facing/i);
+  return match ? Number(match[1]) : null;
+}
+
+function isFrontCameraLabel(label: string) {
+  const l = label.toLowerCase();
+  return (
+    l.includes("front") ||
+    l.includes("user") ||
+    l.includes("facing front") ||
+    l.includes("selfie")
+  );
+}
+
+function isRearCameraLabel(label: string) {
+  const l = label.toLowerCase();
+  return (
+    l.includes("back") ||
+    l.includes("rear") ||
+    l.includes("environment") ||
+    l.includes("facing back")
+  );
+}
+
+function isUltraWideLabel(label: string) {
+  const l = label.toLowerCase();
+  return (
+    l.includes("ultra") ||
+    l.includes("0.5") ||
+    /\buw\b/.test(l) ||
+    l.includes("wide-angle") ||
+    l.includes("wide angle") ||
+    l.includes("wideangle") ||
+    l.includes("fisheye")
+  );
+}
+
+function isTeleLabel(label: string) {
+  const l = label.toLowerCase();
+  return l.includes("tele") || l.includes("telephoto");
+}
+
+function isUltraWideTrack(track: MediaStreamTrack) {
+  if (isUltraWideLabel(track.label)) return true;
+  const zoom = getTrackZoomRange(track);
+  return Boolean(zoom && zoom.min < 0.99);
+}
+
+function scoreRearCamera(device: MediaDeviceInfo) {
+  const label = device.label.toLowerCase();
+  if (isUltraWideLabel(label) || isTeleLabel(label)) return 1000;
+  const id = parseAndroidCameraId(device.label);
+  if (id === 0) return 0;
+  if (id != null) return id;
+  if (/^(back|rear) camera$/.test(label)) return 0.5;
+  return 10 + label.length;
+}
+
+async function listRearCameraDevices(): Promise<MediaDeviceInfo[]> {
+  if (!navigator.mediaDevices?.enumerateDevices) return [];
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const videoInputs = devices.filter((d) => d.kind === "videoinput" && d.label);
+  const rear = videoInputs.filter((d) => isRearCameraLabel(d.label));
+  if (rear.length > 0) return rear;
+  return videoInputs.filter((d) => !isFrontCameraLabel(d.label));
+}
+
+async function pickNormalRearCameraDeviceId(): Promise<string | undefined> {
+  if (preferredRearDeviceId) return preferredRearDeviceId;
+  const rear = await listRearCameraDevices();
+  if (rear.length === 0) return undefined;
+  const sorted = [...rear].sort(
+    (a, b) => scoreRearCamera(a) - scoreRearCamera(b)
+  );
+  return sorted[0]?.deviceId;
+}
+
+async function openVideoStream(
+  video: MediaTrackConstraints
+): Promise<MediaStream> {
+  return navigator.mediaDevices.getUserMedia({ video, audio: false });
+}
+
 /**
- * Safari often starts the rear camera on the 0.5× ultra-wide. On iOS the
- * virtual back camera maps that as zoom 1 and the normal 1× lens as zoom 2.
- * On Android the ultra-wide is usually a separate device with zoom.min < 1.
+ * Chrome Android treats facingMode:environment as "widest lens", which is the
+ * 0.5× ultra-wide. Prefer the primary back camera (usually camera2 0).
+ */
+async function openMainRearCameraStream(): Promise<MediaStream> {
+  const size = {
+    width: { ideal: 1920 },
+    height: { ideal: 1080 },
+  };
+
+  if (preferredRearDeviceId) {
+    try {
+      return await openVideoStream({
+        deviceId: { exact: preferredRearDeviceId },
+        ...size,
+      });
+    } catch {
+      preferredRearDeviceId = undefined;
+    }
+  }
+
+  let stream = await openVideoStream({
+    facingMode: { ideal: "environment" },
+    ...size,
+  });
+
+  const preferred = await pickNormalRearCameraDeviceId();
+  const currentId = stream.getVideoTracks()[0]?.getSettings().deviceId;
+  if (preferred && preferred !== currentId) {
+    stream.getTracks().forEach((track) => track.stop());
+    try {
+      stream = await openVideoStream({
+        deviceId: { exact: preferred },
+        ...size,
+      });
+    } catch {
+      stream = await openVideoStream({
+        facingMode: { ideal: "environment" },
+        ...size,
+      });
+    }
+  }
+
+  let track = stream.getVideoTracks()[0];
+  if (track && isUltraWideTrack(track)) {
+    const rear = await listRearCameraDevices();
+    const current = track.getSettings().deviceId;
+    const alternatives = [...rear]
+      .sort((a, b) => scoreRearCamera(a) - scoreRearCamera(b))
+      .filter(
+        (device) =>
+          device.deviceId !== current &&
+          !isUltraWideLabel(device.label) &&
+          !isTeleLabel(device.label)
+      );
+
+    for (const alternative of alternatives) {
+      stream.getTracks().forEach((t) => t.stop());
+      try {
+        stream = await openVideoStream({
+          deviceId: { exact: alternative.deviceId },
+          ...size,
+        });
+        track = stream.getVideoTracks()[0];
+        if (track && !isUltraWideTrack(track)) {
+          preferredRearDeviceId = alternative.deviceId;
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+  } else if (track?.getSettings().deviceId) {
+    preferredRearDeviceId = track.getSettings().deviceId;
+  }
+
+  return stream;
+}
+
+/**
+ * Safari maps 0.5× as zoom 1 and the normal 1× lens as zoom 2.
+ * On Android, switch devices instead — zoom 2 here would crop the main lens.
  */
 async function applyNormalRearLens(track: MediaStreamTrack) {
   const zoom = getTrackZoomRange(track);
-  if (!zoom) return;
-
-  const label = track.label.toLowerCase();
-  const looksLikeMultiCam =
-    label.includes("ultra") ||
-    label.includes("dual") ||
-    label.includes("triple") ||
-    label.includes("0.5");
+  const ultra = isUltraWideTrack(track);
 
   let targetZoom: number | null = null;
-  if (zoom.min < 1) {
+  if (isIOSDevice()) {
+    targetZoom = 2;
+  } else if (zoom && zoom.min < 1) {
     targetZoom = 1;
-  } else if ((isIOSDevice() || looksLikeMultiCam) && zoom.max >= 2) {
+  } else if (ultra && zoom && zoom.max >= 2) {
     targetZoom = 2;
   }
-
   if (targetZoom == null) return;
 
-  const clamped = Math.min(Math.max(targetZoom, zoom.min), zoom.max);
+  const clamped = zoom
+    ? Math.min(Math.max(targetZoom, zoom.min), zoom.max)
+    : targetZoom;
+
   try {
     await track.applyConstraints({
       zoom: clamped,
@@ -205,30 +372,37 @@ async function restoreNormalRearLens(stream: MediaStream | null) {
   return true;
 }
 
-async function pickNormalRearCameraDeviceId(): Promise<string | undefined> {
-  if (!navigator.mediaDevices?.enumerateDevices) return undefined;
-
-  const devices = await navigator.mediaDevices.enumerateDevices();
-  const labeled = devices.filter((d) => d.kind === "videoinput" && d.label);
-  const rear = labeled.filter((d) => {
-    const label = d.label.toLowerCase();
-    return (
-      label.includes("back") ||
-      label.includes("rear") ||
-      label.includes("environment")
-    );
+function loadHtmlImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Could not load image"));
+    img.src = src;
   });
+}
 
-  const main = rear.find((d) => {
-    const label = d.label.toLowerCase();
-    return (
-      !label.includes("ultra") &&
-      !label.includes("tele") &&
-      !label.includes("0.5")
-    );
-  });
-
-  return main?.deviceId;
+async function createSketchColorLayer(
+  sketchDataUrl: string,
+  width?: number,
+  height?: number
+): Promise<ColorLayer> {
+  const img = await loadHtmlImage(sketchDataUrl);
+  const canvas = document.createElement("canvas");
+  canvas.width = width ?? img.naturalWidth;
+  canvas.height = height ?? img.naturalHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Could not create canvas");
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return {
+    id: SKETCH_LAYER_ID,
+    name: "Sketch",
+    canvas,
+    dominantColor: { r: 48, g: 48, b: 48 },
+    pixelCount: canvas.width * canvas.height,
+    visible: true,
+    kind: "sketch",
+  };
 }
 
 const ARTraceTool: React.FC<ARTraceToolProps> = ({
@@ -245,6 +419,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
 
   // New: keep original upload separate from display image
   const [sourceImage, setSourceImage] = useState<string | null>(null);
+  const [sketchImage, setSketchImage] = useState<string | null>(null);
   const [isSketchMode, setIsSketchMode] = useState(false);
   const [isConvertingToSketch, setIsConvertingToSketch] = useState(false);
   const [activeCourseLesson, setActiveCourseLesson] =
@@ -292,6 +467,10 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   const [bottomChromeHeight, setBottomChromeHeight] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const initializeCameraRef = useRef<(useFront?: boolean) => Promise<void>>(
+    async () => {}
+  );
+  const filePickerOpenRef = useRef(false);
   const [moveableReady, setMoveableReady] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState<boolean>(false);
   const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(false);
@@ -624,6 +803,13 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
     initializeCamera(false);
 
     const reapplyLens = () => {
+      if (filePickerOpenRef.current) {
+        filePickerOpenRef.current = false;
+        window.setTimeout(() => {
+          void initializeCameraRef.current(false);
+        }, 200);
+        return;
+      }
       void restoreNormalRearLens(streamRef.current);
     };
     const onVisibility = () => {
@@ -776,6 +962,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   ) => {
     const file = event.target.files?.[0];
     event.target.value = "";
+    filePickerOpenRef.current = false;
     if (!file || (file.type && !file.type.startsWith("image/"))) {
       alert("Please select an image");
       return;
@@ -786,18 +973,26 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       setActiveCourseLesson(null);
       const imageData = await prepareTraceImage(objectUrl);
       setIsSketchMode(false);
+      setSketchImage(null);
       applyTraceImage(imageData);
-      await restoreNormalRearLens(streamRef.current);
-      await new Promise<void>((resolve) =>
-        requestAnimationFrame(() => resolve())
-      );
-      await convertToSketch(imageData);
+
+      await new Promise((resolve) => window.setTimeout(resolve, 250));
+      await initializeCameraRef.current(false);
+
+      setIsConvertingToSketch(true);
+      try {
+        const sketch = await pencilSketchFromDataUrl(imageData);
+        setSketchImage(sketch);
+      } catch (error) {
+        console.error("Sketch conversion failed:", error);
+      } finally {
+        setIsConvertingToSketch(false);
+      }
     } catch (error) {
       console.error("Image upload failed:", error);
       alert("Could not load that image. Please try another photo.");
     } finally {
       URL.revokeObjectURL(objectUrl);
-      await restoreNormalRearLens(streamRef.current);
     }
   };
 
@@ -1284,36 +1479,46 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
     if (!sourceImage) return;
     setIsProcessingLayers(true);
     try {
-      const img = new Image();
-      img.onload = async () => {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d")!;
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
+      const img = await loadHtmlImage(sourceImage);
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Could not create canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      ctx.drawImage(img, 0, 0);
 
-        const imageData = ctx.getImageData(0, 0, img.width, img.height);
+      const imageData = ctx.getImageData(0, 0, img.naturalWidth, img.naturalHeight);
 
-        // Adaptive color count: start with fewer colors for simpler images
-        const numColors = Math.min(
-          12,
-          Math.max(4, Math.floor(Math.sqrt(img.width * img.height) / 200))
-        );
+      const numColors = Math.min(
+        12,
+        Math.max(4, Math.floor(Math.sqrt(img.naturalWidth * img.naturalHeight) / 200))
+      );
 
-        const dominantColors = extractDominantColors(imageData, numColors);
-        const mergedColors = groupSimilarColors(dominantColors);
-        const newLayers = createColorLayers(imageData, mergedColors, 50); // Pass minRegionSize
-        setLayers(newLayers);
-        setCurrentLayerIndex(0);
-        setIsProcessingLayers(false);
-      };
-      img.src = sourceImage;
+      const dominantColors = extractDominantColors(imageData, numColors);
+      const mergedColors = groupSimilarColors(dominantColors);
+      const colorLayers = createColorLayers(imageData, mergedColors, 50);
+
+      let sketchUrl = sketchImage;
+      if (!sketchUrl) {
+        sketchUrl = await pencilSketchFromDataUrl(sourceImage);
+        setSketchImage(sketchUrl);
+      }
+
+      const sketchLayer = await createSketchColorLayer(
+        sketchUrl,
+        img.naturalWidth,
+        img.naturalHeight
+      );
+      setLayers([sketchLayer, ...colorLayers]);
+      setCurrentLayerIndex(0);
     } catch (error) {
       console.error("Error processing layers:", error);
+    } finally {
       setIsProcessingLayers(false);
     }
   }, [
     sourceImage,
+    sketchImage,
     extractDominantColors,
     createColorLayers,
     groupSimilarColors,
@@ -1395,70 +1600,21 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         streamRef.current = null;
       }
 
-      const videoConstraints: MediaTrackConstraints & {
-        zoom?: ConstrainDouble;
-      } = {
-        facingMode: useFrontCamera ? "user" : { ideal: "environment" },
-        width: { ideal: 1920 },
-        height: { ideal: 1080 },
-      };
-
-      if (!useFrontCamera) {
-        const deviceId = await pickNormalRearCameraDeviceId();
-        if (deviceId) {
-          videoConstraints.deviceId = { exact: deviceId };
-          delete videoConstraints.facingMode;
-        }
-        // Prefer the 1× lens when the browser exposes zoom as a constraint
-        videoConstraints.zoom = { ideal: 2 };
-      }
-
       let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: videoConstraints,
+      if (useFrontCamera) {
+        stream = await openVideoStream({
+          facingMode: "user",
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
         });
-      } catch (firstError) {
-        console.warn(
-          "Camera constraints rejected, retrying without zoom/device:",
-          firstError
-        );
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: useFrontCamera ? "user" : { ideal: "environment" },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-          },
-        });
+      } else {
+        stream = await openMainRearCameraStream();
       }
 
-      if (!useFrontCamera) {
-        const [track] = stream.getVideoTracks();
-        if (track) {
-          const label = track.label.toLowerCase();
-          const stillUltraWide =
-            label.includes("ultra") &&
-            !label.includes("dual") &&
-            !label.includes("triple");
-
-          if (stillUltraWide) {
-            const alternativeId = await pickNormalRearCameraDeviceId();
-            const currentId = track.getSettings().deviceId;
-            if (alternativeId && alternativeId !== currentId) {
-              stream.getTracks().forEach((t) => t.stop());
-              stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                  deviceId: { exact: alternativeId },
-                  width: { ideal: 1920 },
-                  height: { ideal: 1080 },
-                },
-              });
-            }
-          }
-        }
-      }
-
-      console.log("Camera stream obtained:", stream);
+      console.log(
+        "Camera stream obtained:",
+        stream.getVideoTracks()[0]?.label || stream
+      );
 
       if (videoRef.current) {
         console.log("Setting video source...");
@@ -1501,6 +1657,8 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       );
     }
   };
+
+  initializeCameraRef.current = initializeCamera;
 
   // // Add camera toggle function
   // const toggleCamera = async () => {
@@ -1623,7 +1781,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           }}
         >
           <Typography sx={{ color: "white", fontWeight: 600, fontSize: 13 }}>
-            Turning photo into sketch…
+            Preparing sketch layer…
           </Typography>
         </Box>
       )}
@@ -1952,6 +2110,9 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
                 style={{ display: "none" }}
                 id="image-upload"
                 type="file"
+                onClick={() => {
+                  filePickerOpenRef.current = true;
+                }}
                 onChange={handleImageUpload}
               />
               <label htmlFor="image-upload">
@@ -2543,7 +2704,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
                       fontWeight: 500,
                     }}
                   >
-                    {currentLayerIndex + 1} / {layers.length}
+                    {currentLayerIndex} / {Math.max(layers.length - 1, 0)}
                   </Typography>
                   {layers[currentLayerIndex] && (
                     <Typography
