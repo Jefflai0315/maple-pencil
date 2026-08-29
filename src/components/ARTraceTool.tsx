@@ -55,6 +55,20 @@ import {
   prepareTraceImage,
 } from "./pencilSketch";
 import type { CourseLesson } from "@/data/faceCourse";
+import {
+  canDo1x,
+  getTrackZoomRange,
+  isFrontCameraLabel,
+  isRearCameraLabel,
+  isTeleLabel,
+  isUltraWideLabel,
+  isUltraWideOnly,
+  looksLikeTelephoto,
+  rearCameraConstraints,
+  scoreRearCamera,
+  shouldKeepRearCamera,
+  targetNormalZoom,
+} from "@/lib/arCamera";
 
 interface ARTraceToolProps {
   onClose?: () => void | null;
@@ -133,99 +147,14 @@ function buildCenteredBoxState(
   };
 }
 
-type ZoomRange = { min: number; max: number; step?: number };
-
 /** Remember the 1× rear camera so the photo picker cannot fall back to ultra-wide. */
 let preferredRearDeviceId: string | undefined;
 
-/** iPhone / iPad, including iPadOS that reports as MacIntel. */
-function isIOSDevice() {
-  if (typeof navigator === "undefined") return false;
-  return (
-    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
-  );
-}
-
-function getTrackZoomRange(track: MediaStreamTrack): ZoomRange | null {
-  const capabilities = track.getCapabilities?.() as
-    | { zoom?: ZoomRange }
-    | undefined;
-  if (
-    capabilities?.zoom &&
-    typeof capabilities.zoom.min === "number" &&
-    typeof capabilities.zoom.max === "number"
-  ) {
-    return capabilities.zoom;
-  }
-  return null;
-}
-
-function parseAndroidCameraId(label: string): number | null {
-  const match =
-    label.match(/camera2?\s+(\d+)/i) ||
-    label.match(/^(?:camera\s*)?(\d+)\s*,\s*facing/i);
-  return match ? Number(match[1]) : null;
-}
-
-function isFrontCameraLabel(label: string) {
-  const l = label.toLowerCase();
-  return (
-    l.includes("front") ||
-    l.includes("user") ||
-    l.includes("facing front") ||
-    l.includes("selfie")
-  );
-}
-
-function isRearCameraLabel(label: string) {
-  const l = label.toLowerCase();
-  return (
-    l.includes("back") ||
-    l.includes("rear") ||
-    l.includes("environment") ||
-    l.includes("facing back")
-  );
-}
-
-function isUltraWideLabel(label: string) {
-  const l = label.toLowerCase();
-  return (
-    l.includes("ultra") ||
-    l.includes("0.5") ||
-    /\buw\b/.test(l) ||
-    l.includes("wide-angle") ||
-    l.includes("wide angle") ||
-    l.includes("wideangle") ||
-    l.includes("fisheye")
-  );
-}
-
-function isTeleLabel(label: string) {
-  const l = label.toLowerCase();
-  return (
-    l.includes("tele") ||
-    l.includes("telephoto") ||
-    l.includes("periscope") ||
-    /\b2x\b/.test(l) ||
-    /\b3x\b/.test(l) ||
-    /\b5x\b/.test(l)
-  );
-}
-
-function isUltraWideTrack(track: MediaStreamTrack) {
-  return isUltraWideLabel(track.label);
-}
-
-function scoreRearCamera(device: MediaDeviceInfo) {
-  const label = device.label.toLowerCase();
-  if (isUltraWideLabel(label) || isTeleLabel(label)) return 1000;
-  const id = parseAndroidCameraId(device.label);
-  if (/\bwide\b/.test(label) && !isUltraWideLabel(label)) return -1;
-  if (id === 0) return 0;
-  if (id != null) return id;
-  if (/^(back|rear) camera$/.test(label)) return 0.5;
-  return 10 + label.length;
+function trackLensInfo(track: MediaStreamTrack) {
+  return {
+    label: track.label,
+    zoom: getTrackZoomRange(track),
+  };
 }
 
 async function listRearCameraDevices(): Promise<MediaDeviceInfo[]> {
@@ -238,7 +167,6 @@ async function listRearCameraDevices(): Promise<MediaDeviceInfo[]> {
 }
 
 async function pickNormalRearCameraDeviceId(): Promise<string | undefined> {
-  if (preferredRearDeviceId) return preferredRearDeviceId;
   const rear = await listRearCameraDevices();
   if (rear.length === 0) return undefined;
   const sorted = [...rear].sort(
@@ -253,15 +181,21 @@ async function openVideoStream(
   return navigator.mediaDevices.getUserMedia({ video, audio: false });
 }
 
+async function rememberIfMainLens(track: MediaStreamTrack | undefined) {
+  if (!track) return;
+  const { label, zoom } = trackLensInfo(track);
+  const deviceId = track.getSettings().deviceId;
+  if (deviceId && shouldKeepRearCamera(label, zoom)) {
+    preferredRearDeviceId = deviceId;
+  }
+}
+
 /**
- * Chrome Android treats facingMode:environment as "widest lens", which is the
- * 0.5× ultra-wide. Prefer the primary back camera (usually camera2 0).
+ * Open the default 1× rear camera. Keep a stream that can already do zoom 1
+ * instead of hopping to another device (that hop was landing on 2× telephoto).
  */
 async function openMainRearCameraStream(): Promise<MediaStream> {
-  const size = {
-    width: { ideal: 1200 },
-    height: { ideal: 1600 },
-  };
+  const size = rearCameraConstraints();
 
   if (preferredRearDeviceId) {
     try {
@@ -270,15 +204,14 @@ async function openMainRearCameraStream(): Promise<MediaStream> {
         ...size,
       });
       const cachedTrack = cached.getVideoTracks()[0];
-      if (
-        cachedTrack &&
-        (isTeleLabel(cachedTrack.label) || isUltraWideLabel(cachedTrack.label))
-      ) {
-        cached.getTracks().forEach((track) => track.stop());
-        preferredRearDeviceId = undefined;
-      } else {
-        return cached;
+      if (cachedTrack) {
+        const { label, zoom } = trackLensInfo(cachedTrack);
+        if (shouldKeepRearCamera(label, zoom)) {
+          return cached;
+        }
       }
+      cached.getTracks().forEach((track) => track.stop());
+      preferredRearDeviceId = undefined;
     } catch {
       preferredRearDeviceId = undefined;
     }
@@ -289,10 +222,16 @@ async function openMainRearCameraStream(): Promise<MediaStream> {
     ...size,
   });
 
+  let track = stream.getVideoTracks()[0];
+  if (track && shouldKeepRearCamera(track.label, getTrackZoomRange(track))) {
+    await rememberIfMainLens(track);
+    return stream;
+  }
+
   const preferred = await pickNormalRearCameraDeviceId();
-  const currentId = stream.getVideoTracks()[0]?.getSettings().deviceId;
+  const currentId = track?.getSettings().deviceId;
   if (preferred && preferred !== currentId) {
-    stream.getTracks().forEach((track) => track.stop());
+    stream.getTracks().forEach((t) => t.stop());
     try {
       stream = await openVideoStream({
         deviceId: { exact: preferred },
@@ -304,10 +243,21 @@ async function openMainRearCameraStream(): Promise<MediaStream> {
         ...size,
       });
     }
+    track = stream.getVideoTracks()[0];
   }
 
-  let track = stream.getVideoTracks()[0];
-  if (track && isUltraWideTrack(track)) {
+  if (track && shouldKeepRearCamera(track.label, getTrackZoomRange(track))) {
+    await rememberIfMainLens(track);
+    return stream;
+  }
+
+  const trackZoom = track ? getTrackZoomRange(track) : null;
+  if (
+    track &&
+    (isUltraWideOnly(track.label, trackZoom) ||
+      looksLikeTelephoto(track.label, trackZoom) ||
+      !canDo1x(trackZoom))
+  ) {
     const rear = await listRearCameraDevices();
     const current = track.getSettings().deviceId;
     const alternatives = [...rear]
@@ -327,35 +277,37 @@ async function openMainRearCameraStream(): Promise<MediaStream> {
           ...size,
         });
         track = stream.getVideoTracks()[0];
-        if (track && !isUltraWideTrack(track)) {
-          preferredRearDeviceId = alternative.deviceId;
+        if (
+          track &&
+          shouldKeepRearCamera(track.label, getTrackZoomRange(track))
+        ) {
+          await rememberIfMainLens(track);
           break;
         }
       } catch {
         continue;
       }
     }
-  } else if (track?.getSettings().deviceId) {
-    preferredRearDeviceId = track.getSettings().deviceId;
+  } else {
+    await rememberIfMainLens(track);
   }
 
   return stream;
 }
 
-/**
- * Safari maps 0.5× as zoom 1 and the normal 1× lens as zoom 2.
- * Android uses real zoom factors: 1 is 1×. Never apply 2× there.
- */
+/** Lock the live track to real 1×. Never apply 2 — that is telephoto. */
 async function applyNormalRearLens(track: MediaStreamTrack) {
   const zoom = getTrackZoomRange(track);
-
-  let targetZoom: number | null = null;
-  if (isIOSDevice()) {
-    targetZoom = 2;
-  } else if (zoom) {
-    targetZoom = zoom.min < 1 && zoom.max >= 1 ? 1 : zoom.min;
-  }
+  const targetZoom = targetNormalZoom(zoom);
   if (targetZoom == null) return;
+
+  const currentZoom = track.getSettings().zoom;
+  if (
+    typeof currentZoom === "number" &&
+    Math.abs(currentZoom - targetZoom) < 0.05
+  ) {
+    return;
+  }
 
   const clamped = zoom
     ? Math.min(Math.max(targetZoom, zoom.min), zoom.max)
