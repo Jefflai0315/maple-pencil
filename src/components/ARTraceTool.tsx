@@ -68,6 +68,7 @@ import {
   scoreRearCamera,
   shouldKeepRearCamera,
   targetNormalZoom,
+  cameraPreviewObjectFit,
 } from "@/lib/arCamera";
 
 interface ARTraceToolProps {
@@ -298,8 +299,7 @@ async function openMainRearCameraStream(): Promise<MediaStream> {
 /** Lock the live track to real 1×. Never apply 2 — that is telephoto. */
 async function applyNormalRearLens(track: MediaStreamTrack) {
   const zoom = getTrackZoomRange(track);
-  const targetZoom = targetNormalZoom(zoom);
-  if (targetZoom == null) return;
+  const targetZoom = targetNormalZoom(zoom) ?? 1;
 
   const currentZoom = track.getSettings().zoom;
   if (
@@ -430,6 +430,9 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomToolbarRef = useRef<HTMLDivElement>(null);
   const [bottomChromeHeight, setBottomChromeHeight] = useState(0);
+  const [videoObjectFit, setVideoObjectFit] = useState<"contain" | "cover">(
+    "contain"
+  );
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const initializeCameraRef = useRef<(useFront?: boolean) => Promise<void>>(
@@ -829,6 +832,24 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
     observer.observe(toolbar);
     return () => observer.disconnect();
   }, [image, isFixed, aiPanelOpen]);
+
+  const updateVideoObjectFit = useCallback(() => {
+    const video = videoRef.current;
+    const box = video?.parentElement;
+    if (!video || !box) return;
+    setVideoObjectFit(
+      cameraPreviewObjectFit(
+        video.videoWidth,
+        video.videoHeight,
+        box.clientWidth,
+        box.clientHeight
+      )
+    );
+  }, []);
+
+  useEffect(() => {
+    updateVideoObjectFit();
+  }, [bottomChromeHeight, updateVideoObjectFit]);
 
   useEffect(() => {
     if (strobeActive) {
@@ -1599,11 +1620,13 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         }
 
         const onPlaying = () => {
+          updateVideoObjectFit();
           applyLens();
-          // iOS sometimes applies the 0.5× default after the first frame
-          window.setTimeout(applyLens, 250);
+          // iOS DualWide often snaps to 2× after the first frames / autofocus
+          [250, 800, 2000].forEach((ms) => window.setTimeout(applyLens, ms));
         };
         video.addEventListener("playing", onPlaying, { once: true });
+        video.addEventListener("loadedmetadata", updateVideoObjectFit);
         void video.play().catch(() => {
           /* autoplay can fail until a user gesture; the playing handler still runs */
         });
@@ -1799,7 +1822,10 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       <Box
         sx={{
           position: "absolute",
-          inset: 0,
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: bottomChromeHeight,
           zIndex: 99998,
           overflow: "hidden",
           backgroundColor: "black",
@@ -1813,8 +1839,8 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           style={{
             width: "100%",
             height: "100%",
-            objectFit: "cover",
-            objectPosition: `center calc(50% - ${bottomChromeHeight / 2}px)`,
+            objectFit: videoObjectFit,
+            objectPosition: "center",
             zIndex: 10002,
             transform: isFrontCamera ? "scaleX(-1)" : "none",
           }}

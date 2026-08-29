@@ -123,9 +123,13 @@ export function scoreRearCamera(device: { label: string }): number {
   return 10 + label.length;
 }
 
+/**
+ * Keep the request modest. High 1200×1600 / 1080p frames make iPhone 14+
+ * Pro sensors switch to the 48MP 2× crop even when zoom says 1.
+ */
 export const DEFAULT_REAR_CAMERA_SIZE: MediaTrackConstraints = {
-  width: { ideal: 1200 },
-  height: { ideal: 1600 },
+  width: { ideal: 720, max: 1280 },
+  height: { ideal: 960, max: 1280 },
 };
 
 export function rearCameraConstraints(
@@ -136,4 +140,24 @@ export function rearCameraConstraints(
     zoom: 1,
     ...extra,
   } as MediaTrackConstraints;
+}
+
+/**
+ * object-fit:cover on a tall phone with a 4:3 or 16:9 camera buffer crops
+ * the frame so it looks like 1.6×–4×. Use contain whenever that crop
+ * would exceed a small fill.
+ */
+export function cameraPreviewObjectFit(
+  videoWidth: number,
+  videoHeight: number,
+  boxWidth: number,
+  boxHeight: number
+): "contain" | "cover" {
+  if (videoWidth <= 0 || videoHeight <= 0 || boxWidth <= 0 || boxHeight <= 0) {
+    return "contain";
+  }
+  const coverScale = Math.max(boxWidth / videoWidth, boxHeight / videoHeight);
+  const containScale = Math.min(boxWidth / videoWidth, boxHeight / videoHeight);
+  if (containScale <= 0) return "contain";
+  return coverScale / containScale > 1.12 ? "contain" : "cover";
 }

@@ -1,4 +1,6 @@
 import {
+  cameraPreviewObjectFit,
+  DEFAULT_REAR_CAMERA_SIZE,
   isUltraWideOnly,
   looksLikeTelephoto,
   scoreRearCamera,
@@ -68,5 +70,25 @@ assert(
     scoreRearCamera({ label: "Back Telephoto Camera" }),
   "prefer unlabeled back camera over telephoto"
 );
+
+assertEqual(
+  cameraPreviewObjectFit(1920, 1080, 390, 844),
+  "contain",
+  "landscape 16:9 on a tall phone must not cover-crop (that looks like 2x–4x)"
+);
+assertEqual(
+  cameraPreviewObjectFit(1200, 1600, 390, 844),
+  "contain",
+  "4:3 camera on a tall phone must not cover-crop"
+);
+assertEqual(
+  cameraPreviewObjectFit(720, 1280, 390, 693),
+  "cover",
+  "near-matching 9:16 can still cover"
+);
+
+const maxWidth = (DEFAULT_REAR_CAMERA_SIZE.width as ConstrainULongRange).max;
+const maxHeight = (DEFAULT_REAR_CAMERA_SIZE.height as ConstrainULongRange).max;
+assert(maxWidth === 1280 && maxHeight === 1280, "never request a 48MP 2x crop frame");
 
 console.log("arCamera tests passed");
