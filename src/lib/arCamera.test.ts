@@ -2,6 +2,7 @@ import {
   isLandscapeFrame,
   isUltraWideOnly,
   looksLikeTelephoto,
+  PHOTO_1X_ASPECT,
   rearCameraConstraints,
   scoreRearCamera,
   shouldKeepRearCamera,
@@ -79,18 +80,18 @@ const portraitWidth = (portrait.width as ConstrainULongRange).ideal;
 const portraitHeight = (portrait.height as ConstrainULongRange).ideal;
 const portraitRatio = portrait.aspectRatio as ConstrainDoubleRange;
 assertEqual(portraitWidth, 720, "portrait phone asks for 720 width");
-assertEqual(portraitHeight, 1280, "portrait phone asks for 1280 height");
+assertEqual(portraitHeight, 960, "portrait phone asks for 4:3 1x height, not 9:16");
 assert(
-  Math.abs((portraitRatio.ideal ?? 0) - 9 / 16) < 0.001,
-  "portrait phone asks for 9:16 so cover can fill the screen"
+  Math.abs((portraitRatio.ideal ?? 0) - PHOTO_1X_ASPECT) < 0.001,
+  "portrait phone asks for 4:3 like the Camera app at 1x"
 );
 assertEqual((portrait as { zoom?: number }).zoom, 1, "always request zoom 1");
 
 const landscape = rearCameraConstraints({}, { width: 1280, height: 720 });
 assertEqual(
   (landscape.width as ConstrainULongRange).ideal,
-  1280,
-  "landscape viewport asks for landscape width"
+  960,
+  "landscape viewport asks for 4:3 width"
 );
 
 console.log("arCamera tests passed");

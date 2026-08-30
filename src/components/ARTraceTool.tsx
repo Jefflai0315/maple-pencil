@@ -64,7 +64,6 @@ import {
   isUltraWideLabel,
   isUltraWideOnly,
   looksLikeTelephoto,
-  preferPortraitTrack,
   rearCameraConstraints,
   scoreRearCamera,
   shouldKeepRearCamera,
@@ -298,7 +297,6 @@ async function openMainRearCameraStream(): Promise<MediaStream> {
 
 /** Lock the live track to real 1×. Never apply 2 — that is telephoto. */
 async function applyNormalRearLens(track: MediaStreamTrack) {
-  await preferPortraitTrack(track);
   const zoom = getTrackZoomRange(track);
   const targetZoom = targetNormalZoom(zoom) ?? 1;
 
@@ -1814,7 +1812,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           style={{
             width: "100%",
             height: "100%",
-            objectFit: "cover",
+            objectFit: "contain",
             objectPosition: "center",
             zIndex: 10002,
             transform: isFrontCamera ? "scaleX(-1)" : "none",

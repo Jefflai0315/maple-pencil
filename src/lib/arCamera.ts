@@ -133,18 +133,21 @@ export function getPreviewViewport(): { width: number; height: number } {
 }
 
 /**
- * Portrait 9:16, modest size. High 1080p/4K frames make iPhone 14+ Pro
- * sensors switch to the 48MP 2× crop even when zoom says 1.
+ * Native Camera-app 1× is 4:3. Asking for 9:16 or using cover crops
+ * that frame and looks like 2×. Keep zoom at 1 and cap resolution so
+ * iPhone 14+ Pro does not switch to the 48MP 2× crop.
  */
+export const PHOTO_1X_ASPECT = 3 / 4;
+
 export function rearCameraConstraints(
   extra: MediaTrackConstraints = {},
   viewport: { width: number; height: number } = getPreviewViewport()
 ): MediaTrackConstraints {
   const portrait = viewport.height >= viewport.width;
   return {
-    width: { ideal: portrait ? 720 : 1280, max: 1280 },
-    height: { ideal: portrait ? 1280 : 720, max: 1920 },
-    aspectRatio: { ideal: portrait ? 9 / 16 : 16 / 9 },
+    width: { ideal: portrait ? 720 : 960, max: 1280 },
+    height: { ideal: portrait ? 960 : 720, max: 1280 },
+    aspectRatio: { ideal: portrait ? PHOTO_1X_ASPECT : 4 / 3 },
     zoom: 1,
     ...extra,
   } as MediaTrackConstraints;
@@ -152,29 +155,4 @@ export function rearCameraConstraints(
 
 export function isLandscapeFrame(width?: number, height?: number): boolean {
   return (width ?? 0) > (height ?? 0);
-}
-
-/** Chrome often opens a landscape 16:9 buffer on a portrait phone. */
-export async function preferPortraitTrack(
-  track: MediaStreamTrack
-): Promise<void> {
-  if (typeof window === "undefined") return;
-  if (window.innerHeight <= window.innerWidth) return;
-  const { width, height } = track.getSettings();
-  if (!isLandscapeFrame(width, height)) return;
-  try {
-    await track.applyConstraints({
-      width: { ideal: 720 },
-      height: { ideal: 1280 },
-      aspectRatio: { ideal: 9 / 16 },
-    } as MediaTrackConstraints);
-  } catch {
-    try {
-      await track.applyConstraints({
-        advanced: [{ aspectRatio: 9 / 16 } as MediaTrackConstraintSet],
-      });
-    } catch {
-      /* cover still fills the screen if the buffer stays landscape */
-    }
-  }
 }
