@@ -123,41 +123,58 @@ export function scoreRearCamera(device: { label: string }): number {
   return 10 + label.length;
 }
 
-/**
- * Keep the request modest. High 1200×1600 / 1080p frames make iPhone 14+
- * Pro sensors switch to the 48MP 2× crop even when zoom says 1.
- */
-export const DEFAULT_REAR_CAMERA_SIZE: MediaTrackConstraints = {
-  width: { ideal: 720, max: 1280 },
-  height: { ideal: 960, max: 1280 },
-};
-
-export function rearCameraConstraints(
-  extra: MediaTrackConstraints = {}
-): MediaTrackConstraints {
+export function getPreviewViewport(): { width: number; height: number } {
+  if (typeof window === "undefined") return { width: 720, height: 1280 };
+  const vv = window.visualViewport;
   return {
-    ...DEFAULT_REAR_CAMERA_SIZE,
+    width: Math.round(vv?.width ?? window.innerWidth),
+    height: Math.round(vv?.height ?? window.innerHeight),
+  };
+}
+
+/**
+ * Portrait 9:16, modest size. High 1080p/4K frames make iPhone 14+ Pro
+ * sensors switch to the 48MP 2× crop even when zoom says 1.
+ */
+export function rearCameraConstraints(
+  extra: MediaTrackConstraints = {},
+  viewport: { width: number; height: number } = getPreviewViewport()
+): MediaTrackConstraints {
+  const portrait = viewport.height >= viewport.width;
+  return {
+    width: { ideal: portrait ? 720 : 1280, max: 1280 },
+    height: { ideal: portrait ? 1280 : 720, max: 1920 },
+    aspectRatio: { ideal: portrait ? 9 / 16 : 16 / 9 },
     zoom: 1,
     ...extra,
   } as MediaTrackConstraints;
 }
 
-/**
- * object-fit:cover on a tall phone with a 4:3 or 16:9 camera buffer crops
- * the frame so it looks like 1.6×–4×. Use contain whenever that crop
- * would exceed a small fill.
- */
-export function cameraPreviewObjectFit(
-  videoWidth: number,
-  videoHeight: number,
-  boxWidth: number,
-  boxHeight: number
-): "contain" | "cover" {
-  if (videoWidth <= 0 || videoHeight <= 0 || boxWidth <= 0 || boxHeight <= 0) {
-    return "contain";
+export function isLandscapeFrame(width?: number, height?: number): boolean {
+  return (width ?? 0) > (height ?? 0);
+}
+
+/** Chrome often opens a landscape 16:9 buffer on a portrait phone. */
+export async function preferPortraitTrack(
+  track: MediaStreamTrack
+): Promise<void> {
+  if (typeof window === "undefined") return;
+  if (window.innerHeight <= window.innerWidth) return;
+  const { width, height } = track.getSettings();
+  if (!isLandscapeFrame(width, height)) return;
+  try {
+    await track.applyConstraints({
+      width: { ideal: 720 },
+      height: { ideal: 1280 },
+      aspectRatio: { ideal: 9 / 16 },
+    } as MediaTrackConstraints);
+  } catch {
+    try {
+      await track.applyConstraints({
+        advanced: [{ aspectRatio: 9 / 16 } as MediaTrackConstraintSet],
+      });
+    } catch {
+      /* cover still fills the screen if the buffer stays landscape */
+    }
   }
-  const coverScale = Math.max(boxWidth / videoWidth, boxHeight / videoHeight);
-  const containScale = Math.min(boxWidth / videoWidth, boxHeight / videoHeight);
-  if (containScale <= 0) return "contain";
-  return coverScale / containScale > 1.12 ? "contain" : "cover";
 }

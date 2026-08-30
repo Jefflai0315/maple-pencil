@@ -1,8 +1,8 @@
 import {
-  cameraPreviewObjectFit,
-  DEFAULT_REAR_CAMERA_SIZE,
+  isLandscapeFrame,
   isUltraWideOnly,
   looksLikeTelephoto,
+  rearCameraConstraints,
   scoreRearCamera,
   shouldKeepRearCamera,
   targetNormalZoom,
@@ -71,24 +71,26 @@ assert(
   "prefer unlabeled back camera over telephoto"
 );
 
-assertEqual(
-  cameraPreviewObjectFit(1920, 1080, 390, 844),
-  "contain",
-  "landscape 16:9 on a tall phone must not cover-crop (that looks like 2x–4x)"
-);
-assertEqual(
-  cameraPreviewObjectFit(1200, 1600, 390, 844),
-  "contain",
-  "4:3 camera on a tall phone must not cover-crop"
-);
-assertEqual(
-  cameraPreviewObjectFit(720, 1280, 390, 693),
-  "cover",
-  "near-matching 9:16 can still cover"
-);
+assert(isLandscapeFrame(1920, 1080), "16:9 buffer is landscape");
+assert(!isLandscapeFrame(720, 1280), "9:16 buffer is portrait");
 
-const maxWidth = (DEFAULT_REAR_CAMERA_SIZE.width as ConstrainULongRange).max;
-const maxHeight = (DEFAULT_REAR_CAMERA_SIZE.height as ConstrainULongRange).max;
-assert(maxWidth === 1280 && maxHeight === 1280, "never request a 48MP 2x crop frame");
+const portrait = rearCameraConstraints({}, { width: 390, height: 844 });
+const portraitWidth = (portrait.width as ConstrainULongRange).ideal;
+const portraitHeight = (portrait.height as ConstrainULongRange).ideal;
+const portraitRatio = portrait.aspectRatio as ConstrainDoubleRange;
+assertEqual(portraitWidth, 720, "portrait phone asks for 720 width");
+assertEqual(portraitHeight, 1280, "portrait phone asks for 1280 height");
+assert(
+  Math.abs((portraitRatio.ideal ?? 0) - 9 / 16) < 0.001,
+  "portrait phone asks for 9:16 so cover can fill the screen"
+);
+assertEqual((portrait as { zoom?: number }).zoom, 1, "always request zoom 1");
+
+const landscape = rearCameraConstraints({}, { width: 1280, height: 720 });
+assertEqual(
+  (landscape.width as ConstrainULongRange).ideal,
+  1280,
+  "landscape viewport asks for landscape width"
+);
 
 console.log("arCamera tests passed");
