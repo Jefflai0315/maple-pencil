@@ -69,6 +69,8 @@ import {
   shouldKeepRearCamera,
   targetNormalZoom,
   ensurePortraitFrame,
+  preferUncroppedPhotoBuffer,
+  PHOTO_1X_OBJECT_FIT,
 } from "@/lib/arCamera";
 
 interface ARTraceToolProps {
@@ -296,8 +298,9 @@ async function openMainRearCameraStream(): Promise<MediaStream> {
   return stream;
 }
 
-/** Lock 1× zoom and a portrait 4:3 frame like the phone Camera app. */
+/** Lock 1× zoom and a portrait 4:3 photo frame like Camera photo 1×. */
 async function applyNormalRearLens(track: MediaStreamTrack) {
+  await preferUncroppedPhotoBuffer(track);
   await ensurePortraitFrame(track);
   const zoom = getTrackZoomRange(track);
   const targetZoom = targetNormalZoom(zoom) ?? 1;
@@ -1796,7 +1799,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         </IconButton>
       )}
 
-      {/* Camera/Video Background — fill container (100dvh), not layout 100vh */}
+      {/* Camera: 4:3 photo 1× contained (bars), not cover-cropped */}
       <Box
         sx={{
           position: "absolute",
@@ -1814,7 +1817,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           style={{
             width: "100%",
             height: "100%",
-            objectFit: "cover",
+            objectFit: PHOTO_1X_OBJECT_FIT,
             objectPosition: "center",
             zIndex: 10002,
             transform: isFrontCamera ? "scaleX(-1)" : "none",

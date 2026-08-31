@@ -133,11 +133,17 @@ export function getPreviewViewport(): { width: number; height: number } {
 }
 
 /**
- * Native Camera-app 1× is 4:3. Asking for 9:16 or using cover crops
- * that frame and looks like 2×. Keep zoom at 1 and cap resolution so
- * iPhone 14+ Pro does not switch to the 48MP 2× crop.
+ * Native Camera photo 1× is 4:3 of the wide lens.
+ * Browser getUserMedia is a video pipeline (often 16:9 + EIS crop), so it
+ * already looks a bit tighter than photo 1×. object-fit: cover then crops
+ * that 4:3 frame to fill a tall phone (~1.2× extra). Use contain to match
+ * photo 1× (small bars, like Camera photo 4:3). Cap resolution so iPhone
+ * 14+ Pro does not switch to the 48MP 2× crop.
  */
 export const PHOTO_1X_ASPECT = 3 / 4;
+
+/** Show the full 4:3 photo frame. Cover would crop it to fill the screen. */
+export const PHOTO_1X_OBJECT_FIT = "contain" as const;
 
 export function rearCameraConstraints(
   extra: MediaTrackConstraints = {},
@@ -164,9 +170,9 @@ export const PORTRAIT_1X_FRAME: MediaTrackConstraints = {
 };
 
 /**
- * Phone Camera at 1× is a portrait 4:3 preview that fills the screen.
- * Chrome often opens landscape 16:9; ask the track to switch without
- * CSS-rotating the picture (that only turns the image sideways).
+ * Phone Camera photo 1× is a portrait 4:3 preview (letterboxed on a
+ * tall screen). Chrome often opens landscape 16:9; ask the track to
+ * switch without CSS-rotating the picture.
  */
 export async function ensurePortraitFrame(
   track: MediaStreamTrack
@@ -205,6 +211,28 @@ export async function ensurePortraitFrame(
       } catch {
         continue;
       }
+    }
+  }
+}
+
+/**
+ * Chrome's default video pipeline may crop-and-scale (EIS / 16:9).
+ * Prefer the uncropped photo-sized buffer when the browser allows it.
+ */
+export async function preferUncroppedPhotoBuffer(
+  track: MediaStreamTrack
+): Promise<void> {
+  try {
+    await track.applyConstraints({
+      resizeMode: "none",
+    } as MediaTrackConstraints);
+  } catch {
+    try {
+      await track.applyConstraints({
+        advanced: [{ resizeMode: "none" } as MediaTrackConstraintSet],
+      });
+    } catch {
+      /* Safari and many phones ignore this; zoom 1 + contain still apply. */
     }
   }
 }

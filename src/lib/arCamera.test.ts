@@ -3,6 +3,7 @@ import {
   isUltraWideOnly,
   looksLikeTelephoto,
   PHOTO_1X_ASPECT,
+  PHOTO_1X_OBJECT_FIT,
   rearCameraConstraints,
   scoreRearCamera,
   shouldKeepRearCamera,
@@ -86,5 +87,10 @@ assert(
   "portrait phone asks for 4:3 like the Camera app at 1x"
 );
 assertEqual((portrait as { zoom?: number }).zoom, 1, "always request zoom 1");
+assertEqual(
+  PHOTO_1X_OBJECT_FIT,
+  "contain",
+  "photo 1x must contain the 4:3 frame; cover is the extra ~1.2x crop"
+);
 
 console.log("arCamera tests passed");
