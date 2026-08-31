@@ -48,7 +48,6 @@ import {
   IconLogin,
   IconCoins,
   IconBrush,
-  IconRotate,
 } from "@tabler/icons-react";
 import Moveable from "react-moveable";
 import {
@@ -65,13 +64,11 @@ import {
   isUltraWideLabel,
   isUltraWideOnly,
   looksLikeTelephoto,
-  isSwappedRotation,
-  nextCameraRotation,
   rearCameraConstraints,
   scoreRearCamera,
   shouldKeepRearCamera,
-  suggestedCameraRotation,
   targetNormalZoom,
+  ensurePortraitFrame,
 } from "@/lib/arCamera";
 
 interface ARTraceToolProps {
@@ -299,8 +296,9 @@ async function openMainRearCameraStream(): Promise<MediaStream> {
   return stream;
 }
 
-/** Lock the live track to real 1×. Never apply 2 — that is telephoto. */
+/** Lock 1× zoom and a portrait 4:3 frame like the phone Camera app. */
 async function applyNormalRearLens(track: MediaStreamTrack) {
+  await ensurePortraitFrame(track);
   const zoom = getTrackZoomRange(track);
   const targetZoom = targetNormalZoom(zoom) ?? 1;
 
@@ -433,7 +431,6 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomToolbarRef = useRef<HTMLDivElement>(null);
   const [bottomChromeHeight, setBottomChromeHeight] = useState(0);
-  const [videoRotation, setVideoRotation] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const initializeCameraRef = useRef<(useFront?: boolean) => Promise<void>>(
@@ -1602,28 +1599,11 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           track.addEventListener("unmute", applyLens);
         }
 
-        const fitOrientation = () => {
-          const viewport = {
-            width: window.visualViewport?.width ?? window.innerWidth,
-            height: window.visualViewport?.height ?? window.innerHeight,
-          };
-          setVideoRotation(
-            suggestedCameraRotation(
-              video.videoWidth,
-              video.videoHeight,
-              viewport.width,
-              viewport.height
-            )
-          );
-        };
-
         const onPlaying = () => {
-          fitOrientation();
           applyLens();
           // iOS DualWide often snaps to 2× after the first frames / autofocus
           [250, 800, 2000].forEach((ms) => window.setTimeout(applyLens, ms));
         };
-        video.addEventListener("loadedmetadata", fitOrientation);
         video.addEventListener("playing", onPlaying, { once: true });
         void video.play().catch(() => {
           /* autoplay can fail until a user gesture; the playing handler still runs */
@@ -1832,17 +1812,12 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           playsInline
           muted
           style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            width: isSwappedRotation(videoRotation) ? "100dvh" : "100%",
-            height: isSwappedRotation(videoRotation) ? "100dvw" : "100%",
-            objectFit: isSwappedRotation(videoRotation) ? "cover" : "contain",
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
             objectPosition: "center",
             zIndex: 10002,
-            transform: `translate(-50%, -50%) rotate(${videoRotation}deg)${
-              isFrontCamera ? " scaleX(-1)" : ""
-            }`,
+            transform: isFrontCamera ? "scaleX(-1)" : "none",
           }}
         />
       </Box>
@@ -2129,42 +2104,6 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
                 sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.7rem" }}
               >
                 Upload
-              </Typography>
-            </Box>
-
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 0.5,
-              }}
-            >
-              <IconButton
-                onClick={() => setVideoRotation((deg) => nextCameraRotation(deg))}
-                sx={{
-                  backgroundColor:
-                    videoRotation !== 0
-                      ? "rgba(255,255,255,0.15)"
-                      : "transparent",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  color: "rgba(255,255,255,0.9)",
-                  "&:hover": {
-                    backgroundColor: "rgba(255,255,255,0.05)",
-                    borderColor: "rgba(255,255,255,0.3)",
-                  },
-                  width: 40,
-                  height: 40,
-                }}
-                title="Rotate camera 90 degrees"
-              >
-                <IconRotate size={18} />
-              </IconButton>
-              <Typography
-                variant="caption"
-                sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.7rem" }}
-              >
-                Rotate
               </Typography>
             </Box>
 

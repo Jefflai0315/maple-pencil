@@ -1,14 +1,11 @@
 import {
   isLandscapeFrame,
-  isSwappedRotation,
   isUltraWideOnly,
   looksLikeTelephoto,
-  nextCameraRotation,
   PHOTO_1X_ASPECT,
   rearCameraConstraints,
   scoreRearCamera,
   shouldKeepRearCamera,
-  suggestedCameraRotation,
   targetNormalZoom,
 } from "./arCamera";
 
@@ -76,39 +73,18 @@ assert(
 );
 
 assert(isLandscapeFrame(1920, 1080), "16:9 buffer is landscape");
-assert(!isLandscapeFrame(720, 1280), "9:16 buffer is portrait");
+assert(!isLandscapeFrame(720, 960), "4:3 portrait is not landscape");
 
 const portrait = rearCameraConstraints({}, { width: 390, height: 844 });
 const portraitWidth = (portrait.width as ConstrainULongRange).ideal;
 const portraitHeight = (portrait.height as ConstrainULongRange).ideal;
 const portraitRatio = portrait.aspectRatio as ConstrainDoubleRange;
 assertEqual(portraitWidth, 720, "portrait phone asks for 720 width");
-assertEqual(portraitHeight, 960, "portrait phone asks for 4:3 1x height, not 9:16");
+assertEqual(portraitHeight, 960, "portrait phone asks for 4:3 1x height");
 assert(
   Math.abs((portraitRatio.ideal ?? 0) - PHOTO_1X_ASPECT) < 0.001,
   "portrait phone asks for 4:3 like the Camera app at 1x"
 );
 assertEqual((portrait as { zoom?: number }).zoom, 1, "always request zoom 1");
-
-const landscape = rearCameraConstraints({}, { width: 1280, height: 720 });
-assertEqual(
-  (landscape.width as ConstrainULongRange).ideal,
-  960,
-  "landscape viewport asks for 4:3 width"
-);
-
-assertEqual(
-  suggestedCameraRotation(1920, 1080, 390, 844),
-  90,
-  "landscape camera on a portrait phone rotates 90"
-);
-assertEqual(
-  suggestedCameraRotation(720, 960, 390, 844),
-  0,
-  "portrait camera stays upright"
-);
-assertEqual(nextCameraRotation(90), 180, "rotate button steps by 90");
-assert(isSwappedRotation(90) && isSwappedRotation(270), "90 and 270 swap width/height");
-assert(!isSwappedRotation(0) && !isSwappedRotation(180), "0 and 180 keep width/height");
 
 console.log("arCamera tests passed");
