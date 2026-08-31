@@ -7,6 +7,7 @@ import {
   rearCameraConstraints,
   scoreRearCamera,
   shouldKeepRearCamera,
+  shouldReopenCameraStream,
   targetNormalZoom,
 } from "./arCamera";
 
@@ -89,8 +90,45 @@ assert(
 assertEqual((portrait as { zoom?: number }).zoom, 1, "always request zoom 1");
 assertEqual(
   PHOTO_1X_OBJECT_FIT,
-  "contain",
-  "photo 1x must contain the 4:3 frame; cover is the extra ~1.2x crop"
+  "cover",
+  "fill the phone height; contain leaves empty bars"
+);
+
+function fakeTrack(readyState: MediaStreamTrackState): MediaStreamTrack {
+  return { kind: "video", readyState } as MediaStreamTrack;
+}
+
+function fakeStream(readyState: MediaStreamTrackState): MediaStream {
+  return {
+    getVideoTracks: () => [fakeTrack(readyState)],
+  } as MediaStream;
+}
+
+assert(
+  shouldReopenCameraStream({ stream: null, preview: { srcObject: null } }),
+  "reopen when there is no stream"
+);
+assert(
+  shouldReopenCameraStream({
+    stream: fakeStream("ended"),
+    preview: { srcObject: {} },
+  }),
+  "reopen after the photo picker kills the track"
+);
+const live = fakeStream("live");
+assert(
+  !shouldReopenCameraStream({
+    stream: live,
+    preview: { srcObject: live },
+  }),
+  "keep a live preview so upload does not change the crop"
+);
+assert(
+  shouldReopenCameraStream({
+    stream: live,
+    preview: { srcObject: {} },
+  }),
+  "reopen when the video element lost the stream"
 );
 
 console.log("arCamera tests passed");

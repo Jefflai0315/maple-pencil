@@ -69,7 +69,7 @@ import {
   shouldKeepRearCamera,
   targetNormalZoom,
   ensurePortraitFrame,
-  preferUncroppedPhotoBuffer,
+  shouldReopenCameraStream,
   PHOTO_1X_OBJECT_FIT,
 } from "@/lib/arCamera";
 
@@ -298,9 +298,8 @@ async function openMainRearCameraStream(): Promise<MediaStream> {
   return stream;
 }
 
-/** Lock 1× zoom and a portrait 4:3 photo frame like Camera photo 1×. */
+/** Lock 1× zoom and a portrait 4:3 frame. */
 async function applyNormalRearLens(track: MediaStreamTrack) {
-  await preferUncroppedPhotoBuffer(track);
   await ensurePortraitFrame(track);
   const zoom = getTrackZoomRange(track);
   const targetZoom = targetNormalZoom(zoom) ?? 1;
@@ -436,10 +435,10 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   const [bottomChromeHeight, setBottomChromeHeight] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const initializeCameraRef = useRef<(useFront?: boolean) => Promise<void>>(
-    async () => {}
-  );
+  const ensureRearPreviewRef = useRef<() => Promise<void>>(async () => {});
   const filePickerOpenRef = useRef(false);
+  const cameraInitIdRef = useRef(0);
+  const cameraRestoreTimerRef = useRef<number | null>(null);
   const [moveableReady, setMoveableReady] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState<boolean>(false);
   const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(false);
@@ -771,12 +770,20 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
     // Initialize camera with back camera by default
     initializeCamera(false);
 
+    const scheduleEnsureRearPreview = () => {
+      if (cameraRestoreTimerRef.current != null) {
+        window.clearTimeout(cameraRestoreTimerRef.current);
+      }
+      cameraRestoreTimerRef.current = window.setTimeout(() => {
+        cameraRestoreTimerRef.current = null;
+        void ensureRearPreviewRef.current();
+      }, 250);
+    };
+
     const reapplyLens = () => {
       if (filePickerOpenRef.current) {
         filePickerOpenRef.current = false;
-        window.setTimeout(() => {
-          void initializeCameraRef.current(false);
-        }, 200);
+        scheduleEnsureRearPreview();
         return;
       }
       void restoreNormalRearLens(streamRef.current);
@@ -794,6 +801,10 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pageshow", reapplyLens);
       window.removeEventListener("focus", reapplyLens);
+      if (cameraRestoreTimerRef.current != null) {
+        window.clearTimeout(cameraRestoreTimerRef.current);
+        cameraRestoreTimerRef.current = null;
+      }
 
       // Stop recording if active
       if (isRecording) {
@@ -946,7 +957,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       applyTraceImage(imageData);
 
       await new Promise((resolve) => window.setTimeout(resolve, 250));
-      await initializeCameraRef.current(false);
+      await ensureRearPreviewRef.current();
 
       setIsConvertingToSketch(true);
       try {
@@ -1561,6 +1572,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
 
   // Update camera initialization to use the current camera mode
   const initializeCamera = async (useFrontCamera: boolean = false) => {
+    const initId = ++cameraInitIdRef.current;
     try {
       console.log("Initializing camera...", useFrontCamera ? "front" : "back");
 
@@ -1580,6 +1592,11 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         stream = await openMainRearCameraStream();
       }
 
+      if (initId !== cameraInitIdRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
       console.log(
         "Camera stream obtained:",
         stream.getVideoTracks()[0]?.label || stream
@@ -1594,6 +1611,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
 
         const applyLens = () => {
           if (useFrontCamera) return;
+          if (initId !== cameraInitIdRef.current) return;
           void restoreNormalRearLens(streamRef.current);
         };
 
@@ -1620,6 +1638,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         stream.getTracks().forEach((track) => track.stop());
       }
     } catch (error) {
+      if (initId !== cameraInitIdRef.current) return;
       console.error("Error accessing camera:", error);
       alert(
         "Could not access camera. Please ensure camera permissions are granted."
@@ -1627,7 +1646,21 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
     }
   };
 
-  initializeCameraRef.current = initializeCamera;
+  const ensureRearPreview = async () => {
+    if (
+      !shouldReopenCameraStream({
+        stream: streamRef.current,
+        preview: videoRef.current,
+      })
+    ) {
+      await restoreNormalRearLens(streamRef.current);
+      void videoRef.current?.play().catch(() => {});
+      return;
+    }
+    await initializeCamera(false);
+  };
+
+  ensureRearPreviewRef.current = ensureRearPreview;
 
   // // Add camera toggle function
   // const toggleCamera = async () => {
@@ -1799,7 +1832,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         </IconButton>
       )}
 
-      {/* Camera: 4:3 photo 1× contained (bars), not cover-cropped */}
+      {/* Camera fills the whole phone; toolbar draws on top so FOV stays put */}
       <Box
         sx={{
           position: "absolute",

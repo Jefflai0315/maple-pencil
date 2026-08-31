@@ -133,17 +133,18 @@ export function getPreviewViewport(): { width: number; height: number } {
 }
 
 /**
- * Native Camera photo 1× is 4:3 of the wide lens.
- * Browser getUserMedia is a video pipeline (often 16:9 + EIS crop), so it
- * already looks a bit tighter than photo 1×. object-fit: cover then crops
- * that 4:3 frame to fill a tall phone (~1.2× extra). Use contain to match
- * photo 1× (small bars, like Camera photo 4:3). Cap resolution so iPhone
+ * Native 1× is a 4:3 wide-lens frame at zoom 1. Cap resolution so iPhone
  * 14+ Pro does not switch to the 48MP 2× crop.
+ *
+ * Contain letterboxes that 4:3 on a tall phone (not full height). Cover
+ * fills the screen and only crops left/right of 4:3, so vertical FOV
+ * stays 1×. Keep the video element full-viewport so the live view does
+ * not reflow when the toolbar grows after an upload.
  */
 export const PHOTO_1X_ASPECT = 3 / 4;
 
-/** Show the full 4:3 photo frame. Cover would crop it to fill the screen. */
-export const PHOTO_1X_OBJECT_FIT = "contain" as const;
+/** Fill the phone screen. Contain leaves empty bars above and below. */
+export const PHOTO_1X_OBJECT_FIT = "cover" as const;
 
 export function rearCameraConstraints(
   extra: MediaTrackConstraints = {},
@@ -170,9 +171,8 @@ export const PORTRAIT_1X_FRAME: MediaTrackConstraints = {
 };
 
 /**
- * Phone Camera photo 1× is a portrait 4:3 preview (letterboxed on a
- * tall screen). Chrome often opens landscape 16:9; ask the track to
- * switch without CSS-rotating the picture.
+ * Chrome often opens landscape 16:9. Ask for portrait 4:3 so cover
+ * fills height instead of zooming a landscape buffer.
  */
 export async function ensurePortraitFrame(
   track: MediaStreamTrack
@@ -215,24 +215,24 @@ export async function ensurePortraitFrame(
   }
 }
 
+export function isLiveVideoTrack(
+  track: MediaStreamTrack | null | undefined
+): boolean {
+  return Boolean(track && track.readyState === "live");
+}
+
 /**
- * Chrome's default video pipeline may crop-and-scale (EIS / 16:9).
- * Prefer the uncropped photo-sized buffer when the browser allows it.
+ * Reopen getUserMedia only when the preview stream actually died
+ * (iOS photo picker). A live stream should keep the same crop.
  */
-export async function preferUncroppedPhotoBuffer(
-  track: MediaStreamTrack
-): Promise<void> {
-  try {
-    await track.applyConstraints({
-      resizeMode: "none",
-    } as MediaTrackConstraints);
-  } catch {
-    try {
-      await track.applyConstraints({
-        advanced: [{ resizeMode: "none" } as MediaTrackConstraintSet],
-      });
-    } catch {
-      /* Safari and many phones ignore this; zoom 1 + contain still apply. */
-    }
+export function shouldReopenCameraStream(options: {
+  stream?: MediaStream | null;
+  preview?: { srcObject: unknown } | null;
+}): boolean {
+  const track = options.stream?.getVideoTracks()[0];
+  if (!isLiveVideoTrack(track)) return true;
+  if (!options.preview || options.preview.srcObject !== options.stream) {
+    return true;
   }
+  return false;
 }
