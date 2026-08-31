@@ -1,11 +1,14 @@
 import {
   isLandscapeFrame,
+  isSwappedRotation,
   isUltraWideOnly,
   looksLikeTelephoto,
+  nextCameraRotation,
   PHOTO_1X_ASPECT,
   rearCameraConstraints,
   scoreRearCamera,
   shouldKeepRearCamera,
+  suggestedCameraRotation,
   targetNormalZoom,
 } from "./arCamera";
 
@@ -93,5 +96,19 @@ assertEqual(
   960,
   "landscape viewport asks for 4:3 width"
 );
+
+assertEqual(
+  suggestedCameraRotation(1920, 1080, 390, 844),
+  90,
+  "landscape camera on a portrait phone rotates 90"
+);
+assertEqual(
+  suggestedCameraRotation(720, 960, 390, 844),
+  0,
+  "portrait camera stays upright"
+);
+assertEqual(nextCameraRotation(90), 180, "rotate button steps by 90");
+assert(isSwappedRotation(90) && isSwappedRotation(270), "90 and 270 swap width/height");
+assert(!isSwappedRotation(0) && !isSwappedRotation(180), "0 and 180 keep width/height");
 
 console.log("arCamera tests passed");

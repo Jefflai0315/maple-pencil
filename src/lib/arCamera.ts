@@ -156,3 +156,28 @@ export function rearCameraConstraints(
 export function isLandscapeFrame(width?: number, height?: number): boolean {
   return (width ?? 0) > (height ?? 0);
 }
+
+export function normalizeRotation(degrees: number): number {
+  return ((degrees % 360) + 360) % 360;
+}
+
+export function nextCameraRotation(degrees: number): number {
+  return normalizeRotation(degrees + 90);
+}
+
+/** Landscape camera on a portrait phone → turn 90° so it can fill the screen. */
+export function suggestedCameraRotation(
+  videoWidth: number,
+  videoHeight: number,
+  viewportWidth: number,
+  viewportHeight: number
+): number {
+  const videoLandscape = videoWidth > videoHeight;
+  const viewportPortrait = viewportHeight > viewportWidth;
+  return videoLandscape && viewportPortrait ? 90 : 0;
+}
+
+export function isSwappedRotation(degrees: number): boolean {
+  const deg = normalizeRotation(degrees);
+  return deg === 90 || deg === 270;
+}
