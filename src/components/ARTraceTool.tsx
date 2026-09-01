@@ -61,12 +61,16 @@ import {
   isRearCameraLabel,
   isTeleLabel,
   isUltraWideLabel,
+  looksLikeTelephoto,
   rearCameraConstraints,
   scoreRearCamera,
   scoreUltraWideCamera,
   shouldKeepPreviewCamera,
+  streamSatisfiesLens,
   targetPreviewZoom,
   ensurePortraitFrame,
+  applyTrackZoom,
+  readAppliedZoom,
   shouldReopenCameraStream,
   PHOTO_1X_OBJECT_FIT,
   type PreviewLens,
@@ -162,29 +166,30 @@ function trackLensInfo(track: MediaStreamTrack) {
 async function listRearCameraDevices(): Promise<MediaDeviceInfo[]> {
   if (!navigator.mediaDevices?.enumerateDevices) return [];
   const devices = await navigator.mediaDevices.enumerateDevices();
-  const videoInputs = devices.filter((d) => d.kind === "videoinput" && d.label);
-  const rear = videoInputs.filter((d) => isRearCameraLabel(d.label));
-  if (rear.length > 0) return rear;
-  return videoInputs.filter((d) => !isFrontCameraLabel(d.label));
-}
-
-async function pickRearCameraDeviceId(
-  lens: PreviewLens
-): Promise<string | undefined> {
-  const rear = await listRearCameraDevices();
-  if (rear.length === 0) return undefined;
-  const sorted = [...rear].sort((a, b) =>
-    lens === "0.5"
-      ? scoreUltraWideCamera(a) - scoreUltraWideCamera(b)
-      : scoreRearCamera(a) - scoreRearCamera(b)
+  const videoInputs = devices.filter((d) => d.kind === "videoinput");
+  const rear = videoInputs.filter(
+    (d) => !d.label || isRearCameraLabel(d.label)
   );
-  return sorted[0]?.deviceId;
+  const notFront = rear.filter((d) => !isFrontCameraLabel(d.label));
+  if (notFront.length > 0) return notFront;
+  return videoInputs.filter((d) => !isFrontCameraLabel(d.label));
 }
 
 async function openVideoStream(
   video: MediaTrackConstraints
 ): Promise<MediaStream> {
-  return navigator.mediaDevices.getUserMedia({ video, audio: false });
+  try {
+    return await navigator.mediaDevices.getUserMedia({ video, audio: false });
+  } catch (error) {
+    const { zoom: _zoom, ...withoutZoom } = video as MediaTrackConstraints & {
+      zoom?: unknown;
+    };
+    if (!("zoom" in video)) throw error;
+    return navigator.mediaDevices.getUserMedia({
+      video: withoutZoom,
+      audio: false,
+    });
+  }
 }
 
 async function rememberPreviewLens(track: MediaStreamTrack | undefined) {
@@ -195,9 +200,37 @@ async function rememberPreviewLens(track: MediaStreamTrack | undefined) {
     return;
   }
   preferredDeviceByLens[activePreviewLens] = deviceId;
-  if (zoom && zoom.min < 0.99 && zoom.max >= 1) {
-    preferredDeviceByLens["0.5"] = deviceId;
-    preferredDeviceByLens["1"] = deviceId;
+}
+
+function lensFitsTrack(track: MediaStreamTrack, lens: PreviewLens): boolean {
+  return streamSatisfiesLens({
+    label: track.label,
+    zoom: getTrackZoomRange(track),
+    applied: readAppliedZoom(track),
+    lens,
+  });
+}
+
+async function openRearCandidate(
+  video: MediaTrackConstraints,
+  lens: PreviewLens
+): Promise<MediaStream | null> {
+  try {
+    const stream = await openVideoStream(video);
+    const track = stream.getVideoTracks()[0];
+    if (!track || looksLikeTelephoto(track.label, getTrackZoomRange(track))) {
+      stream.getTracks().forEach((t) => t.stop());
+      return null;
+    }
+    await applyActiveRearLens(track);
+    if (lensFitsTrack(track, lens)) {
+      await rememberPreviewLens(track);
+      return stream;
+    }
+    stream.getTracks().forEach((t) => t.stop());
+    return null;
+  } catch {
+    return null;
   }
 }
 
@@ -205,129 +238,96 @@ async function openRearCameraStream(): Promise<MediaStream> {
   const lens = activePreviewLens;
   const zoomTarget = targetPreviewZoom(null, lens) ?? (lens === "0.5" ? 0.5 : 1);
   const size = rearCameraConstraints({}, undefined, zoomTarget);
-  const keep = (label: string, zoom: ReturnType<typeof getTrackZoomRange>) =>
-    shouldKeepPreviewCamera(label, zoom, lens);
+  const tried = new Set<string>();
+
+  const tryConstraints = async (video: MediaTrackConstraints, key: string) => {
+    if (tried.has(key)) return null;
+    tried.add(key);
+    return openRearCandidate(video, lens);
+  };
 
   const cachedId = preferredDeviceByLens[lens];
   if (cachedId) {
-    try {
-      const cached = await openVideoStream({
-        deviceId: { exact: cachedId },
-        ...size,
-      });
-      const cachedTrack = cached.getVideoTracks()[0];
-      if (cachedTrack) {
-        const { label, zoom } = trackLensInfo(cachedTrack);
-        if (keep(label, zoom)) {
-          return cached;
-        }
-      }
-      cached.getTracks().forEach((track) => track.stop());
-      delete preferredDeviceByLens[lens];
-    } catch {
-      delete preferredDeviceByLens[lens];
-    }
-  }
-
-  let stream = await openVideoStream({
-    facingMode: { ideal: "environment" },
-    ...size,
-  });
-
-  let track = stream.getVideoTracks()[0];
-  if (track && keep(track.label, getTrackZoomRange(track))) {
-    await rememberPreviewLens(track);
-    return stream;
-  }
-
-  const preferred = await pickRearCameraDeviceId(lens);
-  const currentId = track?.getSettings().deviceId;
-  if (preferred && preferred !== currentId) {
-    stream.getTracks().forEach((t) => t.stop());
-    try {
-      stream = await openVideoStream({
-        deviceId: { exact: preferred },
-        ...size,
-      });
-    } catch {
-      stream = await openVideoStream({
-        facingMode: { ideal: "environment" },
-        ...size,
-      });
-    }
-    track = stream.getVideoTracks()[0];
-  }
-
-  if (track && keep(track.label, getTrackZoomRange(track))) {
-    await rememberPreviewLens(track);
-    return stream;
+    const cached = await tryConstraints(
+      { deviceId: { exact: cachedId }, ...size },
+      cachedId
+    );
+    if (cached) return cached;
+    delete preferredDeviceByLens[lens];
   }
 
   const rear = await listRearCameraDevices();
-  const current = track?.getSettings().deviceId;
-  const alternatives = [...rear]
-    .sort((a, b) =>
-      lens === "0.5"
-        ? scoreUltraWideCamera(a) - scoreUltraWideCamera(b)
-        : scoreRearCamera(a) - scoreRearCamera(b)
-    )
-    .filter(
-      (device) =>
-        device.deviceId !== current &&
-        !isTeleLabel(device.label) &&
-        (lens === "0.5" || !isUltraWideLabel(device.label))
-    );
+  const sorted = [...rear].sort((a, b) =>
+    lens === "0.5"
+      ? scoreUltraWideCamera(a) - scoreUltraWideCamera(b)
+      : scoreRearCamera(a) - scoreRearCamera(b)
+  );
+  const preferredFirst =
+    lens === "0.5"
+      ? sorted.filter(
+          (device) =>
+            isUltraWideLabel(device.label) || !isTeleLabel(device.label)
+        )
+      : sorted.filter((device) => !isUltraWideLabel(device.label));
 
-  for (const alternative of alternatives) {
-    stream.getTracks().forEach((t) => t.stop());
+  for (const device of preferredFirst) {
+    const match = await tryConstraints(
+      { deviceId: { exact: device.deviceId }, ...size },
+      device.deviceId
+    );
+    if (match) return match;
+  }
+
+  const zoomOnly = await tryConstraints(
+    {
+      facingMode: { ideal: "environment" },
+      zoom: zoomTarget,
+    } as MediaTrackConstraints,
+    "environment-zoom"
+  );
+  if (zoomOnly) return zoomOnly;
+
+  const fallback = await tryConstraints(
+    { facingMode: { ideal: "environment" }, ...size },
+    "environment"
+  );
+  if (fallback) return fallback;
+
+  // Last resort: any rear camera we have not tried, even if zoom did not report.
+  for (const device of sorted) {
+    if (tried.has(device.deviceId) || isTeleLabel(device.label)) continue;
     try {
-      stream = await openVideoStream({
-        deviceId: { exact: alternative.deviceId },
+      const stream = await openVideoStream({
+        deviceId: { exact: device.deviceId },
         ...size,
       });
-      track = stream.getVideoTracks()[0];
-      if (track && keep(track.label, getTrackZoomRange(track))) {
+      const track = stream.getVideoTracks()[0];
+      if (track) {
+        await applyActiveRearLens(track);
         await rememberPreviewLens(track);
-        break;
       }
+      return stream;
     } catch {
       continue;
     }
   }
 
-  return stream;
+  return openVideoStream({
+    facingMode: { ideal: "environment" },
+    ...size,
+  });
 }
 
 async function applyActiveRearLens(track: MediaStreamTrack) {
   const zoom = getTrackZoomRange(track);
   const targetZoom = targetPreviewZoom(zoom, activePreviewLens) ?? 1;
-  await ensurePortraitFrame(track, targetZoom);
-
-  const currentZoom = track.getSettings().zoom;
-  if (
-    typeof currentZoom === "number" &&
-    Math.abs(currentZoom - targetZoom) < 0.05
-  ) {
-    return;
-  }
-
   const clamped = zoom
     ? Math.min(Math.max(targetZoom, zoom.min), zoom.max)
     : targetZoom;
 
-  try {
-    await track.applyConstraints({
-      zoom: clamped,
-    } as MediaTrackConstraints);
-  } catch {
-    try {
-      await track.applyConstraints({
-        advanced: [{ zoom: clamped } as MediaTrackConstraintSet],
-      });
-    } catch (error) {
-      console.warn("Could not switch camera zoom:", error);
-    }
-  }
+  await applyTrackZoom(track, clamped);
+  await ensurePortraitFrame(track, clamped);
+  await applyTrackZoom(track, clamped);
 }
 
 async function restoreNormalRearLens(stream: MediaStream | null) {
@@ -1665,15 +1665,6 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
     if (lens === previewLens) return;
     activePreviewLens = lens;
     setPreviewLens(lens);
-    const track = streamRef.current?.getVideoTracks()[0];
-    if (
-      track &&
-      track.readyState === "live" &&
-      shouldKeepPreviewCamera(track.label, getTrackZoomRange(track), lens)
-    ) {
-      await applyActiveRearLens(track);
-      return;
-    }
     await initializeCamera(false);
   };
 

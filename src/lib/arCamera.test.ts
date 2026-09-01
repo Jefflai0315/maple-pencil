@@ -10,6 +10,7 @@ import {
   shouldKeepPreviewCamera,
   shouldKeepRearCamera,
   shouldReopenCameraStream,
+  streamSatisfiesLens,
   targetNormalZoom,
   targetPreviewZoom,
 } from "./arCamera";
@@ -137,6 +138,42 @@ assertEqual(
   PHOTO_1X_OBJECT_FIT,
   "cover",
   "fill the phone height; contain leaves empty bars"
+);
+assert(
+  streamSatisfiesLens({
+    label: "Back Camera",
+    zoom: { min: 0.5, max: 16 },
+    applied: 0.5,
+    lens: "0.5",
+  }),
+  "DualWide at applied zoom 0.5 is ultra-wide"
+);
+assert(
+  !streamSatisfiesLens({
+    label: "Back Camera",
+    zoom: { min: 0.5, max: 16 },
+    applied: 1,
+    lens: "0.5",
+  }),
+  "DualWide still at zoom 1 is not 0.5x yet"
+);
+assert(
+  streamSatisfiesLens({
+    label: "Back Ultra Wide Camera",
+    zoom: { min: 1, max: 1 },
+    applied: 1,
+    lens: "0.5",
+  }),
+  "dedicated ultra-wide is 0.5x even if zoom reports 1"
+);
+assert(
+  streamSatisfiesLens({
+    label: "Back Camera",
+    zoom: { min: 0.5, max: 16 },
+    applied: 1,
+    lens: "1",
+  }),
+  "DualWide at zoom 1 is the 1x lens"
 );
 
 function fakeTrack(readyState: MediaStreamTrackState): MediaStreamTrack {

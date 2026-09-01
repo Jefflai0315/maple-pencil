@@ -259,10 +259,42 @@ export function isLiveVideoTrack(
   return Boolean(track && track.readyState === "live");
 }
 
+export function readAppliedZoom(
+  track: MediaStreamTrack | null | undefined
+): number | undefined {
+  const zoom = track?.getSettings?.().zoom;
+  return typeof zoom === "number" ? zoom : undefined;
+}
+
+export function appliedZoomMatchesLens(
+  applied: number | undefined,
+  lens: PreviewLens
+): boolean {
+  if (applied == null) return false;
+  if (lens === "0.5") return applied < 0.8;
+  return applied >= 0.9 && applied <= 1.2;
+}
+
 /**
- * Reopen getUserMedia only when the preview stream actually died
- * (iOS photo picker). A live stream should keep the same crop.
+ * DualWide at zoom 1 still "supports" 0.5, but the picture is 1× until
+ * zoom actually moves. A dedicated ultra-wide camera is 0.5 even when
+ * settings.zoom reports 1.
  */
+export function streamSatisfiesLens(options: {
+  label: string;
+  zoom: ZoomRange | null;
+  applied?: number;
+  lens: PreviewLens;
+}): boolean {
+  if (looksLikeTelephoto(options.label, options.zoom)) return false;
+  if (appliedZoomMatchesLens(options.applied, options.lens)) return true;
+  if (options.lens === "0.5") {
+    return isUltraWideLabel(options.label);
+  }
+  if (isUltraWideOnly(options.label, options.zoom)) return false;
+  return canDo1x(options.zoom) || options.zoom == null;
+}
+
 export function shouldReopenCameraStream(options: {
   stream?: MediaStream | null;
   preview?: { srcObject: unknown } | null;
@@ -273,4 +305,25 @@ export function shouldReopenCameraStream(options: {
     return true;
   }
   return false;
+}
+
+export async function applyTrackZoom(
+  track: MediaStreamTrack,
+  zoom: number
+): Promise<void> {
+  const attempts: MediaTrackConstraints[] = [
+    { zoom } as MediaTrackConstraints,
+    { advanced: [{ zoom } as MediaTrackConstraintSet] },
+    { zoom: { exact: zoom } } as MediaTrackConstraints,
+    { zoom: { ideal: zoom } } as MediaTrackConstraints,
+  ];
+  for (const constraints of attempts) {
+    try {
+      await track.applyConstraints(constraints);
+      const applied = readAppliedZoom(track);
+      if (applied != null && Math.abs(applied - zoom) < 0.08) return;
+    } catch {
+      continue;
+    }
+  }
 }
