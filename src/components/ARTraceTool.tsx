@@ -72,7 +72,7 @@ import {
   applyTrackZoom,
   readAppliedZoom,
   shouldReopenCameraStream,
-  PHOTO_1X_OBJECT_FIT,
+  previewFitForLens,
   type PreviewLens,
 } from "@/lib/arCamera";
 
@@ -321,13 +321,10 @@ async function openRearCameraStream(): Promise<MediaStream> {
 async function applyActiveRearLens(track: MediaStreamTrack) {
   const zoom = getTrackZoomRange(track);
   const targetZoom = targetPreviewZoom(zoom, activePreviewLens) ?? 1;
-  const clamped = zoom
-    ? Math.min(Math.max(targetZoom, zoom.min), zoom.max)
-    : targetZoom;
-
-  await applyTrackZoom(track, clamped);
-  await ensurePortraitFrame(track, clamped);
-  await applyTrackZoom(track, clamped);
+  // Do not clamp 0.5 up to 1 — that made both buttons look the same.
+  await applyTrackZoom(track, targetZoom);
+  await ensurePortraitFrame(track, targetZoom);
+  await applyTrackZoom(track, targetZoom);
 }
 
 async function restoreNormalRearLens(stream: MediaStream | null) {
@@ -383,6 +380,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   const [isFixed, setIsFixed] = useState<boolean>(false);
   const [isFrontCamera, setIsFrontCamera] = useState<boolean>(false);
   const [previewLens, setPreviewLens] = useState<PreviewLens>("0.5");
+  const [hardwareWide, setHardwareWide] = useState(false);
   const [strobeActive, setStrobeActive] = useState(false);
 
   // New: keep original upload separate from display image
@@ -1614,7 +1612,21 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         const applyLens = () => {
           if (useFrontCamera) return;
           if (initId !== cameraInitIdRef.current) return;
-          void restoreNormalRearLens(streamRef.current);
+          void restoreNormalRearLens(streamRef.current).then(() => {
+            const live = streamRef.current?.getVideoTracks()[0];
+            if (!live || activePreviewLens !== "0.5") {
+              setHardwareWide(false);
+              return;
+            }
+            setHardwareWide(
+              streamSatisfiesLens({
+                label: live.label,
+                zoom: getTrackZoomRange(live),
+                applied: readAppliedZoom(live),
+                lens: "0.5",
+              })
+            );
+          });
         };
 
         if (openedTrack) {
@@ -1665,6 +1677,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
     if (lens === previewLens) return;
     activePreviewLens = lens;
     setPreviewLens(lens);
+    setHardwareWide(false);
     await initializeCamera(false);
   };
 
@@ -1858,7 +1871,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           style={{
             width: "100%",
             height: "100%",
-            objectFit: PHOTO_1X_OBJECT_FIT,
+            objectFit: previewFitForLens(previewLens, hardwareWide),
             objectPosition: "center",
             zIndex: 10002,
             transform: isFrontCamera ? "scaleX(-1)" : "none",
