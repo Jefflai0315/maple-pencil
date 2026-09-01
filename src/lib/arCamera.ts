@@ -66,12 +66,23 @@ export function getTrackZoomRange(track: MediaStreamTrack): ZoomRange | null {
   return null;
 }
 
+export type PreviewLens = "0.5" | "1";
+
 /**
  * Real zoom factors: 1 is the default 1× wide lens on iOS and Android.
  * Never pick 2 — that is the telephoto / 2× crop.
  */
 export function targetNormalZoom(zoom: ZoomRange | null): number | null {
-  if (!zoom) return null;
+  return targetPreviewZoom(zoom, "1");
+}
+
+/** 0.5 is ultra-wide; 1 is the main wide lens. Never pick 2. */
+export function targetPreviewZoom(
+  zoom: ZoomRange | null,
+  lens: PreviewLens
+): number | null {
+  if (!zoom) return lens === "0.5" ? 0.5 : 1;
+  if (lens === "0.5") return zoom.min;
   if (zoom.min <= 1 && zoom.max >= 1) return 1;
   return zoom.min;
 }
@@ -107,7 +118,21 @@ export function shouldKeepRearCamera(
   label: string,
   zoom: ZoomRange | null
 ): boolean {
+  return shouldKeepPreviewCamera(label, zoom, "1");
+}
+
+export function shouldKeepPreviewCamera(
+  label: string,
+  zoom: ZoomRange | null,
+  lens: PreviewLens
+): boolean {
   if (looksLikeTelephoto(label, zoom)) return false;
+  if (lens === "0.5") {
+    if (isUltraWideLabel(label)) return true;
+    if (zoom && zoom.min < 0.99) return true;
+    // Safari sometimes omits zoom capabilities on the logical back camera.
+    return zoom == null && /^(back|rear) camera$/i.test(label);
+  }
   if (isUltraWideOnly(label, zoom)) return false;
   return canDo1x(zoom) || zoom == null;
 }
@@ -123,6 +148,18 @@ export function scoreRearCamera(device: { label: string }): number {
   return 10 + label.length;
 }
 
+/** Prefer a labeled ultra-wide, then the iOS logical back camera (zoom 0.5). */
+export function scoreUltraWideCamera(device: { label: string }): number {
+  const label = device.label.toLowerCase();
+  if (isTeleLabel(label)) return 10000;
+  if (isUltraWideLabel(label)) return 0;
+  if (/^(back|rear) camera$/.test(label)) return 1;
+  const id = parseAndroidCameraId(device.label);
+  if (id === 0) return 80;
+  if (id != null) return 10 + id;
+  return 30;
+}
+
 export function getPreviewViewport(): { width: number; height: number } {
   if (typeof window === "undefined") return { width: 720, height: 1280 };
   const vv = window.visualViewport;
@@ -133,13 +170,9 @@ export function getPreviewViewport(): { width: number; height: number } {
 }
 
 /**
- * Native 1× is a 4:3 wide-lens frame at zoom 1. Cap resolution so iPhone
- * 14+ Pro does not switch to the 48MP 2× crop.
- *
- * Contain letterboxes that 4:3 on a tall phone (not full height). Cover
- * fills the screen and only crops left/right of 4:3, so vertical FOV
- * stays 1×. Keep the video element full-viewport so the live view does
- * not reflow when the toolbar grows after an upload.
+ * Ask for a 4:3 frame and cap resolution so iPhone 14+ Pro does not
+ * switch to the 48MP 2× crop. Zoom 0.5 is the ultra-wide lens; zoom 1
+ * is the main wide lens. Cover fills the screen.
  */
 export const PHOTO_1X_ASPECT = 3 / 4;
 
@@ -148,14 +181,15 @@ export const PHOTO_1X_OBJECT_FIT = "cover" as const;
 
 export function rearCameraConstraints(
   extra: MediaTrackConstraints = {},
-  viewport: { width: number; height: number } = getPreviewViewport()
+  viewport: { width: number; height: number } = getPreviewViewport(),
+  zoom = 1
 ): MediaTrackConstraints {
   const portrait = viewport.height >= viewport.width;
   return {
     width: { ideal: portrait ? 720 : 960, max: 1280 },
     height: { ideal: portrait ? 960 : 720, max: 1280 },
     aspectRatio: { ideal: portrait ? PHOTO_1X_ASPECT : 4 / 3 },
-    zoom: 1,
+    zoom,
     ...extra,
   } as MediaTrackConstraints;
 }
@@ -175,7 +209,8 @@ export const PORTRAIT_1X_FRAME: MediaTrackConstraints = {
  * fills height instead of zooming a landscape buffer.
  */
 export async function ensurePortraitFrame(
-  track: MediaStreamTrack
+  track: MediaStreamTrack,
+  zoom = 1
 ): Promise<void> {
   const settings = track.getSettings();
   if (!isLandscapeFrame(settings.width, settings.height)) return;
@@ -183,16 +218,16 @@ export async function ensurePortraitFrame(
   const attempts: MediaTrackConstraints[] = [
     {
       ...PORTRAIT_1X_FRAME,
-      zoom: 1,
+      zoom,
     } as MediaTrackConstraints,
     {
       aspectRatio: { exact: PHOTO_1X_ASPECT },
-      zoom: 1,
+      zoom,
     } as MediaTrackConstraints,
     {
       width: { ideal: 960, max: 1280 },
       height: { ideal: 1280, max: 1920 },
-      zoom: 1,
+      zoom,
     } as MediaTrackConstraints,
   ];
 

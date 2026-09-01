@@ -6,9 +6,12 @@ import {
   PHOTO_1X_OBJECT_FIT,
   rearCameraConstraints,
   scoreRearCamera,
+  scoreUltraWideCamera,
+  shouldKeepPreviewCamera,
   shouldKeepRearCamera,
   shouldReopenCameraStream,
   targetNormalZoom,
+  targetPreviewZoom,
 } from "./arCamera";
 
 function assert(condition: boolean, message: string) {
@@ -27,7 +30,11 @@ assertEqual(targetNormalZoom({ min: 0.5, max: 16 }), 1, "iOS logical camera uses
 assertEqual(targetNormalZoom({ min: 1, max: 8 }), 1, "Android main camera stays at 1");
 assertEqual(targetNormalZoom({ min: 1, max: 2 }), 1, "never pick zoom 2 when 1 is available");
 assertEqual(targetNormalZoom({ min: 2, max: 10 }), 2, "telephoto-only camera keeps its native min");
-assertEqual(targetNormalZoom(null), null, "no zoom capability means leave the default lens");
+assertEqual(targetNormalZoom(null), 1, "no zoom capability still asks for 1x");
+assertEqual(targetPreviewZoom({ min: 0.5, max: 16 }, "0.5"), 0.5, "DualWide 0.5 uses ultra-wide");
+assertEqual(targetPreviewZoom({ min: 0.5, max: 16 }, "1"), 1, "DualWide 1x stays on the main lens");
+assertEqual(targetPreviewZoom({ min: 1, max: 8 }, "0.5"), 1, "Android main cannot go below 1");
+assertEqual(targetPreviewZoom({ min: 0.6, max: 1 }, "0.5"), 0.6, "UW-only camera uses its native min");
 
 assert(
   shouldKeepRearCamera("Back Camera", { min: 0.5, max: 16 }),
@@ -56,6 +63,40 @@ assert(
 assert(
   !shouldKeepRearCamera("Back Telephoto Camera", { min: 1, max: 5 }),
   "drop labeled telephoto even if zoom.min is 1"
+);
+assert(
+  shouldKeepPreviewCamera("Back Camera", { min: 0.5, max: 16 }, "0.5"),
+  "keep DualWide for 0.5x"
+);
+assert(
+  shouldKeepPreviewCamera("Back Camera", null, "0.5"),
+  "keep iOS logical back for 0.5x when zoom capabilities are missing"
+);
+assert(
+  !shouldKeepPreviewCamera("camera2 0, facing back", null, "0.5"),
+  "do not assume Android main is ultra-wide without zoom info"
+);
+assert(
+  shouldKeepPreviewCamera("Back Ultra Wide Camera", { min: 0.5, max: 1 }, "0.5"),
+  "keep labeled ultra-wide for 0.5x"
+);
+assert(
+  !shouldKeepPreviewCamera("camera2 0, facing back", { min: 1, max: 8 }, "0.5"),
+  "Android main is not 0.5x"
+);
+assert(
+  !shouldKeepPreviewCamera("Back Telephoto Camera", { min: 2, max: 10 }, "0.5"),
+  "never use telephoto for 0.5x"
+);
+assert(
+  scoreUltraWideCamera({ label: "Back Ultra Wide Camera" }) <
+    scoreUltraWideCamera({ label: "camera2 0, facing back" }),
+  "prefer labeled ultra-wide over Android main"
+);
+assert(
+  scoreUltraWideCamera({ label: "Back Camera" }) <
+    scoreUltraWideCamera({ label: "camera2 0, facing back" }),
+  "prefer iOS logical back over Android main for 0.5x"
 );
 
 assert(isUltraWideOnly("camera2 1, facing back", { min: 0.5, max: 1 }), "uw-only by zoom range");

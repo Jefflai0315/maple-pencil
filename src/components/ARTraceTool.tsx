@@ -56,21 +56,20 @@ import {
 } from "./pencilSketch";
 import type { CourseLesson } from "@/data/faceCourse";
 import {
-  canDo1x,
   getTrackZoomRange,
   isFrontCameraLabel,
   isRearCameraLabel,
   isTeleLabel,
   isUltraWideLabel,
-  isUltraWideOnly,
-  looksLikeTelephoto,
   rearCameraConstraints,
   scoreRearCamera,
-  shouldKeepRearCamera,
-  targetNormalZoom,
+  scoreUltraWideCamera,
+  shouldKeepPreviewCamera,
+  targetPreviewZoom,
   ensurePortraitFrame,
   shouldReopenCameraStream,
   PHOTO_1X_OBJECT_FIT,
+  type PreviewLens,
 } from "@/lib/arCamera";
 
 interface ARTraceToolProps {
@@ -150,8 +149,8 @@ function buildCenteredBoxState(
   };
 }
 
-/** Remember the 1× rear camera so the photo picker cannot fall back to ultra-wide. */
-let preferredRearDeviceId: string | undefined;
+let activePreviewLens: PreviewLens = "0.5";
+const preferredDeviceByLens: Partial<Record<PreviewLens, string>> = {};
 
 function trackLensInfo(track: MediaStreamTrack) {
   return {
@@ -169,11 +168,15 @@ async function listRearCameraDevices(): Promise<MediaDeviceInfo[]> {
   return videoInputs.filter((d) => !isFrontCameraLabel(d.label));
 }
 
-async function pickNormalRearCameraDeviceId(): Promise<string | undefined> {
+async function pickRearCameraDeviceId(
+  lens: PreviewLens
+): Promise<string | undefined> {
   const rear = await listRearCameraDevices();
   if (rear.length === 0) return undefined;
-  const sorted = [...rear].sort(
-    (a, b) => scoreRearCamera(a) - scoreRearCamera(b)
+  const sorted = [...rear].sort((a, b) =>
+    lens === "0.5"
+      ? scoreUltraWideCamera(a) - scoreUltraWideCamera(b)
+      : scoreRearCamera(a) - scoreRearCamera(b)
   );
   return sorted[0]?.deviceId;
 }
@@ -184,39 +187,45 @@ async function openVideoStream(
   return navigator.mediaDevices.getUserMedia({ video, audio: false });
 }
 
-async function rememberIfMainLens(track: MediaStreamTrack | undefined) {
+async function rememberPreviewLens(track: MediaStreamTrack | undefined) {
   if (!track) return;
   const { label, zoom } = trackLensInfo(track);
   const deviceId = track.getSettings().deviceId;
-  if (deviceId && shouldKeepRearCamera(label, zoom)) {
-    preferredRearDeviceId = deviceId;
+  if (!deviceId || !shouldKeepPreviewCamera(label, zoom, activePreviewLens)) {
+    return;
+  }
+  preferredDeviceByLens[activePreviewLens] = deviceId;
+  if (zoom && zoom.min < 0.99 && zoom.max >= 1) {
+    preferredDeviceByLens["0.5"] = deviceId;
+    preferredDeviceByLens["1"] = deviceId;
   }
 }
 
-/**
- * Open the default 1× rear camera. Keep a stream that can already do zoom 1
- * instead of hopping to another device (that hop was landing on 2× telephoto).
- */
-async function openMainRearCameraStream(): Promise<MediaStream> {
-  const size = rearCameraConstraints();
+async function openRearCameraStream(): Promise<MediaStream> {
+  const lens = activePreviewLens;
+  const zoomTarget = targetPreviewZoom(null, lens) ?? (lens === "0.5" ? 0.5 : 1);
+  const size = rearCameraConstraints({}, undefined, zoomTarget);
+  const keep = (label: string, zoom: ReturnType<typeof getTrackZoomRange>) =>
+    shouldKeepPreviewCamera(label, zoom, lens);
 
-  if (preferredRearDeviceId) {
+  const cachedId = preferredDeviceByLens[lens];
+  if (cachedId) {
     try {
       const cached = await openVideoStream({
-        deviceId: { exact: preferredRearDeviceId },
+        deviceId: { exact: cachedId },
         ...size,
       });
       const cachedTrack = cached.getVideoTracks()[0];
       if (cachedTrack) {
         const { label, zoom } = trackLensInfo(cachedTrack);
-        if (shouldKeepRearCamera(label, zoom)) {
+        if (keep(label, zoom)) {
           return cached;
         }
       }
       cached.getTracks().forEach((track) => track.stop());
-      preferredRearDeviceId = undefined;
+      delete preferredDeviceByLens[lens];
     } catch {
-      preferredRearDeviceId = undefined;
+      delete preferredDeviceByLens[lens];
     }
   }
 
@@ -226,12 +235,12 @@ async function openMainRearCameraStream(): Promise<MediaStream> {
   });
 
   let track = stream.getVideoTracks()[0];
-  if (track && shouldKeepRearCamera(track.label, getTrackZoomRange(track))) {
-    await rememberIfMainLens(track);
+  if (track && keep(track.label, getTrackZoomRange(track))) {
+    await rememberPreviewLens(track);
     return stream;
   }
 
-  const preferred = await pickNormalRearCameraDeviceId();
+  const preferred = await pickRearCameraDeviceId(lens);
   const currentId = track?.getSettings().deviceId;
   if (preferred && preferred !== currentId) {
     stream.getTracks().forEach((t) => t.stop());
@@ -249,60 +258,50 @@ async function openMainRearCameraStream(): Promise<MediaStream> {
     track = stream.getVideoTracks()[0];
   }
 
-  if (track && shouldKeepRearCamera(track.label, getTrackZoomRange(track))) {
-    await rememberIfMainLens(track);
+  if (track && keep(track.label, getTrackZoomRange(track))) {
+    await rememberPreviewLens(track);
     return stream;
   }
 
-  const trackZoom = track ? getTrackZoomRange(track) : null;
-  if (
-    track &&
-    (isUltraWideOnly(track.label, trackZoom) ||
-      looksLikeTelephoto(track.label, trackZoom) ||
-      !canDo1x(trackZoom))
-  ) {
-    const rear = await listRearCameraDevices();
-    const current = track.getSettings().deviceId;
-    const alternatives = [...rear]
-      .sort((a, b) => scoreRearCamera(a) - scoreRearCamera(b))
-      .filter(
-        (device) =>
-          device.deviceId !== current &&
-          !isUltraWideLabel(device.label) &&
-          !isTeleLabel(device.label)
-      );
+  const rear = await listRearCameraDevices();
+  const current = track?.getSettings().deviceId;
+  const alternatives = [...rear]
+    .sort((a, b) =>
+      lens === "0.5"
+        ? scoreUltraWideCamera(a) - scoreUltraWideCamera(b)
+        : scoreRearCamera(a) - scoreRearCamera(b)
+    )
+    .filter(
+      (device) =>
+        device.deviceId !== current &&
+        !isTeleLabel(device.label) &&
+        (lens === "0.5" || !isUltraWideLabel(device.label))
+    );
 
-    for (const alternative of alternatives) {
-      stream.getTracks().forEach((t) => t.stop());
-      try {
-        stream = await openVideoStream({
-          deviceId: { exact: alternative.deviceId },
-          ...size,
-        });
-        track = stream.getVideoTracks()[0];
-        if (
-          track &&
-          shouldKeepRearCamera(track.label, getTrackZoomRange(track))
-        ) {
-          await rememberIfMainLens(track);
-          break;
-        }
-      } catch {
-        continue;
+  for (const alternative of alternatives) {
+    stream.getTracks().forEach((t) => t.stop());
+    try {
+      stream = await openVideoStream({
+        deviceId: { exact: alternative.deviceId },
+        ...size,
+      });
+      track = stream.getVideoTracks()[0];
+      if (track && keep(track.label, getTrackZoomRange(track))) {
+        await rememberPreviewLens(track);
+        break;
       }
+    } catch {
+      continue;
     }
-  } else {
-    await rememberIfMainLens(track);
   }
 
   return stream;
 }
 
-/** Lock 1× zoom and a portrait 4:3 frame. */
-async function applyNormalRearLens(track: MediaStreamTrack) {
-  await ensurePortraitFrame(track);
+async function applyActiveRearLens(track: MediaStreamTrack) {
   const zoom = getTrackZoomRange(track);
-  const targetZoom = targetNormalZoom(zoom) ?? 1;
+  const targetZoom = targetPreviewZoom(zoom, activePreviewLens) ?? 1;
+  await ensurePortraitFrame(track, targetZoom);
 
   const currentZoom = track.getSettings().zoom;
   if (
@@ -326,7 +325,7 @@ async function applyNormalRearLens(track: MediaStreamTrack) {
         advanced: [{ zoom: clamped } as MediaTrackConstraintSet],
       });
     } catch (error) {
-      console.warn("Could not switch to the normal camera lens:", error);
+      console.warn("Could not switch camera zoom:", error);
     }
   }
 }
@@ -336,7 +335,7 @@ async function restoreNormalRearLens(stream: MediaStream | null) {
   if (!track || track.readyState !== "live") return false;
   const facing = track.getSettings().facingMode;
   if (facing === "user") return false;
-  await applyNormalRearLens(track);
+  await applyActiveRearLens(track);
   return true;
 }
 
@@ -383,6 +382,8 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   const [opacity, setOpacity] = useState<number>(0.5);
   const [isFixed, setIsFixed] = useState<boolean>(false);
   const [isFrontCamera, setIsFrontCamera] = useState<boolean>(false);
+  const [previewLens, setPreviewLens] = useState<PreviewLens>("0.5");
+  const [hasUltraWide, setHasUltraWide] = useState(false);
   const [strobeActive, setStrobeActive] = useState(false);
 
   // New: keep original upload separate from display image
@@ -1589,7 +1590,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           height: { ideal: 1080 },
         });
       } else {
-        stream = await openMainRearCameraStream();
+        stream = await openRearCameraStream();
       }
 
       if (initId !== cameraInitIdRef.current) {
@@ -1609,15 +1610,31 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         streamRef.current = stream;
         setIsFrontCamera(useFrontCamera);
 
+        const [openedTrack] = stream.getVideoTracks();
+        if (openedTrack && !useFrontCamera) {
+          const zoom = getTrackZoomRange(openedTrack);
+          const ultraOnTrack = shouldKeepPreviewCamera(
+            openedTrack.label,
+            zoom,
+            "0.5"
+          );
+          if (ultraOnTrack) {
+            setHasUltraWide(true);
+          } else {
+            void listRearCameraDevices().then((rear) => {
+              setHasUltraWide(rear.some((d) => isUltraWideLabel(d.label)));
+            });
+          }
+        }
+
         const applyLens = () => {
           if (useFrontCamera) return;
           if (initId !== cameraInitIdRef.current) return;
           void restoreNormalRearLens(streamRef.current);
         };
 
-        const [track] = stream.getVideoTracks();
-        if (track) {
-          track.addEventListener("unmute", applyLens);
+        if (openedTrack) {
+          openedTrack.addEventListener("unmute", applyLens);
         }
 
         const onPlaying = () => {
@@ -1655,6 +1672,22 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
     ) {
       await restoreNormalRearLens(streamRef.current);
       void videoRef.current?.play().catch(() => {});
+      return;
+    }
+    await initializeCamera(false);
+  };
+
+  const handlePreviewLens = async (lens: PreviewLens) => {
+    if (lens === previewLens) return;
+    activePreviewLens = lens;
+    setPreviewLens(lens);
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (
+      track &&
+      track.readyState === "live" &&
+      shouldKeepPreviewCamera(track.label, getTrackZoomRange(track), lens)
+    ) {
+      await applyActiveRearLens(track);
       return;
     }
     await initializeCamera(false);
@@ -1944,6 +1977,52 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
             }}
           />
         )}
+
+      {!isFrontCamera && hasUltraWide && (
+        <Box
+          sx={{
+            position: "absolute",
+            left: "50%",
+            transform: "translateX(-50%)",
+            bottom: (bottomChromeHeight || 88) + 12,
+            zIndex: 100012,
+            display: "flex",
+            gap: 0.5,
+            backgroundColor: "rgba(0,0,0,0.45)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 999,
+            p: 0.5,
+          }}
+        >
+          {(["0.5", "1"] as PreviewLens[]).map((lens) => {
+            const selected = previewLens === lens;
+            return (
+              <Button
+                key={lens}
+                onClick={() => void handlePreviewLens(lens)}
+                sx={{
+                  minWidth: 44,
+                  height: 32,
+                  px: 1.5,
+                  borderRadius: 999,
+                  textTransform: "none",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  color: selected ? "#111" : "rgba(255,255,255,0.9)",
+                  backgroundColor: selected ? "#fff" : "transparent",
+                  "&:hover": {
+                    backgroundColor: selected
+                      ? "#fff"
+                      : "rgba(255,255,255,0.08)",
+                  },
+                }}
+              >
+                {lens === "1" ? "1×" : "0.5"}
+              </Button>
+            );
+          })}
+        </Box>
+      )}
 
       {/* Bottom Toolbar - Minimalist Design */}
       <Box
