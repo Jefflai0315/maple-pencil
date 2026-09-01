@@ -383,7 +383,6 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   const [isFixed, setIsFixed] = useState<boolean>(false);
   const [isFrontCamera, setIsFrontCamera] = useState<boolean>(false);
   const [previewLens, setPreviewLens] = useState<PreviewLens>("0.5");
-  const [hasUltraWide, setHasUltraWide] = useState(false);
   const [strobeActive, setStrobeActive] = useState(false);
 
   // New: keep original upload separate from display image
@@ -1611,21 +1610,6 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         setIsFrontCamera(useFrontCamera);
 
         const [openedTrack] = stream.getVideoTracks();
-        if (openedTrack && !useFrontCamera) {
-          const zoom = getTrackZoomRange(openedTrack);
-          const ultraOnTrack = shouldKeepPreviewCamera(
-            openedTrack.label,
-            zoom,
-            "0.5"
-          );
-          if (ultraOnTrack) {
-            setHasUltraWide(true);
-          } else {
-            void listRearCameraDevices().then((rear) => {
-              setHasUltraWide(rear.some((d) => isUltraWideLabel(d.label)));
-            });
-          }
-        }
 
         const applyLens = () => {
           if (useFrontCamera) return;
@@ -1978,52 +1962,6 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           />
         )}
 
-      {!isFrontCamera && hasUltraWide && (
-        <Box
-          sx={{
-            position: "absolute",
-            left: "50%",
-            transform: "translateX(-50%)",
-            bottom: (bottomChromeHeight || 88) + 12,
-            zIndex: 100012,
-            display: "flex",
-            gap: 0.5,
-            backgroundColor: "rgba(0,0,0,0.45)",
-            border: "1px solid rgba(255,255,255,0.12)",
-            borderRadius: 999,
-            p: 0.5,
-          }}
-        >
-          {(["0.5", "1"] as PreviewLens[]).map((lens) => {
-            const selected = previewLens === lens;
-            return (
-              <Button
-                key={lens}
-                onClick={() => void handlePreviewLens(lens)}
-                sx={{
-                  minWidth: 44,
-                  height: 32,
-                  px: 1.5,
-                  borderRadius: 999,
-                  textTransform: "none",
-                  fontWeight: 700,
-                  fontSize: 13,
-                  color: selected ? "#111" : "rgba(255,255,255,0.9)",
-                  backgroundColor: selected ? "#fff" : "transparent",
-                  "&:hover": {
-                    backgroundColor: selected
-                      ? "#fff"
-                      : "rgba(255,255,255,0.08)",
-                  },
-                }}
-              >
-                {lens === "1" ? "1×" : "0.5"}
-              </Button>
-            );
-          })}
-        </Box>
-      )}
-
       {/* Bottom Toolbar - Minimalist Design */}
       <Box
         ref={bottomToolbarRef}
@@ -2177,6 +2115,64 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
               gap: { xs: 2, sm: 3 },
             }}
           >
+            {!isFrontCamera && (
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 0.5,
+                }}
+              >
+                <Box
+                  sx={{
+                    display: "flex",
+                    backgroundColor: "rgba(255,255,255,0.08)",
+                    border: "1px solid rgba(255,255,255,0.25)",
+                    borderRadius: 999,
+                    p: 0.25,
+                    height: 40,
+                    alignItems: "center",
+                  }}
+                >
+                  {(["0.5", "1"] as PreviewLens[]).map((lens) => {
+                    const selected = previewLens === lens;
+                    return (
+                      <Button
+                        key={lens}
+                        onClick={() => void handlePreviewLens(lens)}
+                        sx={{
+                          minWidth: 40,
+                          height: 34,
+                          px: 1.25,
+                          borderRadius: 999,
+                          textTransform: "none",
+                          fontWeight: 700,
+                          fontSize: 13,
+                          lineHeight: 1,
+                          color: selected ? "#111" : "rgba(255,255,255,0.95)",
+                          backgroundColor: selected ? "#fff" : "transparent",
+                          "&:hover": {
+                            backgroundColor: selected
+                              ? "#fff"
+                              : "rgba(255,255,255,0.1)",
+                          },
+                        }}
+                      >
+                        {lens === "1" ? "1×" : "0.5"}
+                      </Button>
+                    );
+                  })}
+                </Box>
+                <Typography
+                  variant="caption"
+                  sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.7rem" }}
+                >
+                  Lens
+                </Typography>
+              </Box>
+            )}
+
             {/* Upload Button */}
             <Box
               sx={{

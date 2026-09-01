@@ -73,6 +73,10 @@ assert(
   "keep iOS logical back for 0.5x when zoom capabilities are missing"
 );
 assert(
+  shouldKeepPreviewCamera("Back Dual Wide Camera", null, "0.5"),
+  "keep iOS DualWide for 0.5x when zoom capabilities are missing"
+);
+assert(
   !shouldKeepPreviewCamera("camera2 0, facing back", null, "0.5"),
   "do not assume Android main is ultra-wide without zoom info"
 );

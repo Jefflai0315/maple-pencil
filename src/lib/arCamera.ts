@@ -131,7 +131,10 @@ export function shouldKeepPreviewCamera(
     if (isUltraWideLabel(label)) return true;
     if (zoom && zoom.min < 0.99) return true;
     // Safari sometimes omits zoom capabilities on the logical back camera.
-    return zoom == null && /^(back|rear) camera$/i.test(label);
+    return (
+      zoom == null &&
+      (/^(back|rear) camera$/i.test(label) || /dual\s*wide/i.test(label))
+    );
   }
   if (isUltraWideOnly(label, zoom)) return false;
   return canDo1x(zoom) || zoom == null;
