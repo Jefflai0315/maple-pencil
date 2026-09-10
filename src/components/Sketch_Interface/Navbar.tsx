@@ -264,8 +264,10 @@ export default function Navbar({ pinned = false }: { pinned?: boolean } = {}) {
           background-color: rgb(255, 207, 65);
         }
         .nav-pinned {
-          position: sticky;
+          position: fixed;
           top: 0;
+          left: 0;
+          width: 100%;
           z-index: 80;
         }
         .nav-pinned :global(.organic-nav) {

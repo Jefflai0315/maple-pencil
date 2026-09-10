@@ -15,11 +15,14 @@
   background-size: 28px 28px, 42px 42px, auto;
   color: var(--eyes-ink);
   min-height: 100vh;
+  padding-top: 5.25rem;
 }
 
 .eyes-page > header.nav {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  width: 100%;
   z-index: 80;
 }
 
@@ -176,7 +179,7 @@
   transform: translateY(-1px);
 }
 
-.eyes-text-link {
+.eyes-page a.eyes-text-link {
   color: var(--eyes-ink);
   font-weight: 600;
   text-decoration: underline;
@@ -185,7 +188,7 @@
   text-decoration-color: var(--eyes-gold-deep);
 }
 
-.eyes-text-link:hover {
+.eyes-page a.eyes-text-link:hover {
   color: var(--eyes-sienna);
 }
 
@@ -508,6 +511,9 @@
 }
 
 @media (min-width: 760px) {
+  .eyes-page {
+    padding-top: 5.75rem;
+  }
 
   .eyes-hero-grid,
   .eyes-split,
