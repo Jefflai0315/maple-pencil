@@ -260,59 +260,57 @@ function EyeStageDiagram({
   );
 }
 
-const STRIP_STAGES: { stage: Stage; caption: string }[] = [
-  { stage: 2, caption: "Big shapes" },
-  { stage: 3, caption: "Medium" },
-  { stage: 4, caption: "Small" },
-  { stage: 6, caption: "Details" },
-];
-
-export function ProcessStrip({ className }: { className?: string }) {
-  return (
-    <div className={`eyes-process-strip ${className ?? ""}`}>
-      {STRIP_STAGES.map((item, i) => (
-        <div key={item.caption} className="eyes-process-cell">
-          <EyeStageDiagram stage={item.stage} />
-          <p>
-            {item.caption}
-            {i < STRIP_STAGES.length - 1 ? " →" : ""}
-          </p>
-        </div>
-      ))}
-    </div>
-  );
-}
+export default EyeStageDiagram;
+export type { Stage };
+const PDF_HREF = "/eyes/playing-with-pencil-eyes-practice.pdf";
+const PDF_PAGES = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 
 export function WorksheetMockup() {
   return (
-    <div className="eyes-sheet" aria-hidden="false">
-      <div className="eyes-sheet-tape" />
-      <div className="eyes-sheet-inner">
-        <p className="eyes-sheet-kicker">PlayingWithPencil · free practice sheet</p>
-        <h3>Eyes Practice PDF</h3>
-        <p className="eyes-sheet-note">See the shapes first. Structure, then detail.</p>
-        <div className="eyes-sheet-stages">
-          {([1, 2, 4, 6] as Stage[]).map((stage) => (
-            <div key={stage} className="eyes-sheet-stage">
-              <span>0{stage}</span>
-              <EyeStageDiagram stage={stage} />
-            </div>
-          ))}
-        </div>
-        <div className="eyes-sheet-practice">
-          <figure>
-            <img
-              src="/eyes/crops/eye-buns-right.jpg"
-              alt="Finished eye from one of Jeff's pencil portraits"
-            />
-            <figcaption>Finished eye — from Jeff&apos;s portraits</figcaption>
-          </figure>
-          <div className="eyes-sheet-blank">
-            <span>Your turn</span>
-          </div>
-        </div>
-        <p className="eyes-sheet-foot">Trace the construction · Copy beside it · Then try a new face</p>
+    <a
+      href={PDF_HREF}
+      download="PlayingWithPencil-Eyes-Practice.pdf"
+      className="eyes-pdf-preview"
+    >
+      <div className="eyes-pdf-stack">
+        <img
+          className="eyes-pdf-page eyes-pdf-back"
+          src="/eyes/previews/page-7.jpg"
+          alt=""
+        />
+        <img
+          className="eyes-pdf-page eyes-pdf-mid"
+          src="/eyes/previews/page-2.jpg"
+          alt=""
+        />
+        <img
+          className="eyes-pdf-page eyes-pdf-front"
+          src="/eyes/previews/page-1.jpg"
+          alt="Preview of the free Eyes Practice PDF: Step 1, Block the Structure"
+        />
       </div>
+      <p className="eyes-pdf-caption">8 pages · study the example, then draw from reference</p>
+    </a>
+  );
+}
+
+export function WorksheetThumbs() {
+  return (
+    <div className="eyes-pdf-thumbs" aria-label="All eight pages of the Eyes Practice PDF">
+      {PDF_PAGES.map((page) => (
+        <a
+          key={page}
+          href={PDF_HREF}
+          download="PlayingWithPencil-Eyes-Practice.pdf"
+          className="eyes-pdf-thumb"
+        >
+          <img
+            src={`/eyes/previews/page-${page}.jpg`}
+            alt={`Eyes Practice PDF, page ${page}`}
+          />
+          <span>{page}</span>
+        </a>
+      ))}
     </div>
   );
 }

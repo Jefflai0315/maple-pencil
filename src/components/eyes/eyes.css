@@ -224,129 +224,101 @@
 .eyes-sheet-stack {
   position: relative;
   margin: 0.5rem auto 0;
-  max-width: 560px;
+  max-width: 420px;
 }
 
-.eyes-sheet-stack::before,
-.eyes-sheet-stack::after {
-  content: "";
-  position: absolute;
-  inset: 12px -10px -14px 10px;
-  background: #f3e6c8;
-  border: 1.5px solid rgba(44, 36, 22, 0.2);
-  border-radius: 4px;
-  transform: rotate(2.4deg);
-  z-index: 0;
-}
-
-.eyes-sheet-stack::after {
-  inset: 8px -6px -10px 6px;
-  background: #f8eecf;
-  transform: rotate(-1.6deg);
-}
-
-.eyes-sheet {
-  position: relative;
-  z-index: 1;
-  background: #fffdf8;
-  border: 1.5px solid rgba(44, 36, 22, 0.28);
-  box-shadow: 0 18px 40px rgba(44, 36, 22, 0.12);
-  border-radius: 3px;
-  padding: 1.1rem 1rem 1.2rem;
-}
-
-.eyes-sheet-tape {
-  position: absolute;
-  top: -10px;
-  left: 50%;
-  width: 72px;
-  height: 18px;
-  transform: translateX(-50%) rotate(-2deg);
-  background: rgba(255, 236, 170, 0.7);
-  border: 1px solid rgba(44, 36, 22, 0.12);
-}
-
-.eyes-sheet-kicker,
-.eyes-sheet-note,
-.eyes-sheet-foot,
-.eyes-sheet figcaption {
-  font-family: "Caveat", cursive;
-  color: var(--eyes-muted);
-}
-
-.eyes-sheet-kicker {
-  margin: 0;
-  font-size: 0.95rem;
-}
-
-.eyes-sheet h3 {
-  font-family: "Playfair Display", Georgia, serif;
-  font-size: 1.45rem;
-  margin: 0.15rem 0 0.2rem;
-}
-
-.eyes-sheet-note {
-  margin: 0 0 0.7rem;
-  font-size: 1.05rem;
-}
-
-.eyes-sheet-stages {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.3rem;
-  margin-bottom: 0.7rem;
-}
-
-.eyes-sheet-stage {
-  border: 1px dashed rgba(44, 36, 22, 0.25);
-  border-radius: 8px;
-  padding: 0.15rem;
-  background: #fffcf6;
-}
-
-.eyes-sheet-stage span {
+.eyes-pdf-preview {
   display: block;
-  font-family: "Kalam", cursive;
-  font-size: 0.72rem;
-  color: var(--eyes-sienna);
-  padding-left: 0.25rem;
+  text-decoration: none;
+  color: inherit;
 }
 
-.eyes-sheet-practice {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.55rem;
+.eyes-pdf-stack {
+  position: relative;
+  min-height: 420px;
 }
 
-.eyes-sheet-practice img {
-  width: 100%;
-  height: 118px;
-  object-fit: cover;
-  border-radius: 4px;
-  filter: grayscale(0.05) contrast(1.04);
+.eyes-pdf-page {
+  width: 78%;
+  height: auto;
+  background: #fff;
+  border: 1px solid rgba(44, 36, 22, 0.18);
+  box-shadow: 0 14px 32px rgba(44, 36, 22, 0.14);
+  display: block;
 }
 
-.eyes-sheet-practice figcaption,
-.eyes-sheet-foot {
-  font-size: 0.88rem;
-  margin: 0.25rem 0 0;
+.eyes-pdf-back,
+.eyes-pdf-mid {
+  position: absolute;
+  top: 18px;
 }
 
-.eyes-sheet-blank {
-  border: 1.5px dashed rgba(44, 36, 22, 0.28);
-  min-height: 118px;
-  display: grid;
-  place-items: center;
-  color: var(--eyes-faint);
+.eyes-pdf-back {
+  right: 0;
+  transform: rotate(6deg);
+  opacity: 0.9;
+}
+
+.eyes-pdf-mid {
+  right: 18px;
+  transform: rotate(2.5deg);
+}
+
+.eyes-pdf-front {
+  position: relative;
+  z-index: 2;
+  transform: rotate(-1.5deg);
+}
+
+.eyes-pdf-preview:hover .eyes-pdf-front {
+  transform: rotate(-0.5deg) translateY(-4px);
+}
+
+.eyes-pdf-caption {
   font-family: "Caveat", cursive;
   font-size: 1.15rem;
-  background:
-    repeating-linear-gradient(
-      -12deg,
-      transparent,
-      transparent 10px,
-      rgba(44, 36, 22, 0.03) 11px
-    );
+  color: var(--eyes-muted);
+  text-align: center;
+  margin: 1rem 0 0;
+}
+
+.eyes-pdf-thumbs {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(72px, 1fr));
+  gap: 0.55rem;
+  margin: 2rem 0 0;
+  overflow-x: auto;
+  padding-bottom: 0.4rem;
+}
+
+.eyes-pdf-thumb {
+  display: block;
+  text-decoration: none;
+  color: var(--eyes-faint);
+  font-family: "Caveat", cursive;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.eyes-pdf-thumb img {
+  width: 100%;
+  height: auto;
+  border: 1px solid rgba(44, 36, 22, 0.16);
+  box-shadow: 0 4px 12px rgba(44, 36, 22, 0.08);
+  background: #fff;
+  margin-bottom: 0.25rem;
+}
+
+.eyes-pdf-thumb:hover img {
+  transform: translateY(-2px);
+}
+
+.eyes-visual-sheet img {
+  height: auto !important;
+  max-height: 520px;
+  object-fit: contain;
+  background: #fff;
+  margin-top: 0;
 }
 
 .eyes-steps {
@@ -543,11 +515,6 @@
     padding: 4.25rem 0;
   }
 
-  .eyes-sheet-practice img,
-  .eyes-sheet-blank {
-    height: 140px;
-  }
-
   .eyes-visual img {
     height: 200px;
   }
@@ -564,9 +531,16 @@
 }
 
 @media (max-width: 759px) {
-  .eyes-process-strip,
-  .eyes-sheet-stages {
+  .eyes-process-strip {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .eyes-pdf-thumbs {
+    grid-template-columns: repeat(8, 84px);
+  }
+
+  .eyes-pdf-stack {
+    min-height: 300px;
   }
 
   .eyes-page h1 {

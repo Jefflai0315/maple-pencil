@@ -20,10 +20,10 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     images: [
       {
-        url: "/eyes/crops/eye-smile-pair.jpg",
-        width: 1200,
-        height: 630,
-        alt: "Pencil-drawn eyes from a PlayingWithPencil portrait",
+        url: "/eyes/previews/page-1.jpg",
+        width: 1241,
+        height: 1754,
+        alt: "Free Eyes Practice PDF — Step 1: Block the Structure",
       },
     ],
   },
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
-    images: ["/eyes/crops/eye-smile-pair.jpg"],
+    images: ["/eyes/previews/page-1.jpg"],
   },
 };
 

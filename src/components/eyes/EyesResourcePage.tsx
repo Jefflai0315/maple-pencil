@@ -6,8 +6,8 @@ import Link from "next/link";
 import Navbar from "@/components/Sketch_Interface/Navbar";
 import Footer from "@/components/Sketch_Interface/Footer";
 import EyeStageDiagram, {
-  ProcessStrip,
   WorksheetMockup,
+  WorksheetThumbs,
   type Stage,
 } from "@/components/eyes/EyeDiagrams";
 import "./eyes.css";
@@ -189,12 +189,15 @@ export default function EyesResourcePage() {
                 </DownloadButton>
               </div>
               <p className="eyes-fineprint">
-                Instant download. No email signup. Print it or use it on a tablet.
+                8-page worksheet. Instant download. No email signup.
               </p>
             </div>
             <div className="eyes-sheet-stack">
               <WorksheetMockup />
             </div>
+          </div>
+          <div className="eyes-wrap">
+            <WorksheetThumbs />
           </div>
         </section>
 
@@ -219,11 +222,13 @@ export default function EyesResourcePage() {
               </p>
               <p className="eyes-flow">Big shapes → Medium shapes → Small shapes → Details</p>
             </div>
-            <figure className="eyes-visual">
-              <ProcessStrip />
+            <figure className="eyes-visual eyes-visual-sheet">
+              <img
+                src="/eyes/previews/page-1.jpg"
+                alt="Worksheet page 1: Block the Structure, with a light construction drawing of an eye"
+              />
               <figcaption>
-                This is the same sequence on the worksheet — you can follow it even before
-                you download.
+                Page 1 of the PDF — big shapes, angles and proportions before any shading.
               </figcaption>
             </figure>
           </div>
@@ -275,24 +280,25 @@ export default function EyesResourcePage() {
               <p>Use it as practice.</p>
               <div className="eyes-use">
                 <div className="eyes-use-item">
-                  <strong>1. Trace the construction</strong>
+                  <strong>1. Study the example first</strong>
                   <p>
-                    Trace or follow the simplified construction first. Feel the angle and
-                    the big shapes before you chase eyelashes.
+                    Each step starts with a demonstration drawing. Look at the structure,
+                    the value map, or the finished form before you pick up the pencil.
                   </p>
                 </div>
                 <div className="eyes-use-item">
-                  <strong>2. Recreate it beside the guide</strong>
+                  <strong>2. Draw from the reference beside it</strong>
                   <p>
-                    Then try recreating the eye beside it without tracing. Check the tilt
-                    and proportions before you shade.
+                    The next page has real eye photos and empty boxes. Draw what you see
+                    using that step&apos;s method — light construction, then values, then
+                    layers, then details.
                   </p>
                 </div>
                 <div className="eyes-use-item">
-                  <strong>3. Take it to a new face</strong>
+                  <strong>3. Keep structure first, details last</strong>
                   <p>
-                    After that, find another reference photo and see whether you can
-                    recognize the same shapes yourself.
+                    Don&apos;t jump to lashes. Work through the four steps in order, then
+                    try the same way of looking on another face.
                   </p>
                 </div>
               </div>
@@ -305,9 +311,15 @@ export default function EyesResourcePage() {
                 <DownloadButton>Download the Eyes Practice PDF</DownloadButton>
               </div>
             </div>
-            <div className="eyes-sheet-stack">
-              <WorksheetMockup />
-            </div>
+            <figure className="eyes-visual eyes-visual-sheet">
+              <img
+                src="/eyes/previews/page-2.jpg"
+                alt="Practice page with a reference eye photo beside an empty drawing box"
+              />
+              <figcaption>
+                Each practice page: a real reference on the left, and space to draw on the right.
+              </figcaption>
+            </figure>
           </div>
         </section>
 
