@@ -181,10 +181,11 @@ async function openVideoStream(
   try {
     return await navigator.mediaDevices.getUserMedia({ video, audio: false });
   } catch (error) {
-    const { zoom: _zoom, ...withoutZoom } = video as MediaTrackConstraints & {
+    if (!("zoom" in video)) throw error;
+    const withoutZoom = { ...video } as MediaTrackConstraints & {
       zoom?: unknown;
     };
-    if (!("zoom" in video)) throw error;
+    delete withoutZoom.zoom;
     return navigator.mediaDevices.getUserMedia({
       video: withoutZoom,
       audio: false,
