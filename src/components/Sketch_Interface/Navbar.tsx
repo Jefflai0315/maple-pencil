@@ -186,9 +186,12 @@ export default function Navbar() {
         }`}
       >
         <div className="max-w-6xl mx-auto px-2 flex items-center justify-between">
-          <div className="font-handwritten text-3xl font-bold text-charcoal logo-animated">
+          <Link
+            href="/"
+            className="font-handwritten text-3xl font-bold text-charcoal logo-animated"
+          >
             Playing with Pencil
-          </div>
+          </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
