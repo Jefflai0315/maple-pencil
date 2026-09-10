@@ -46,6 +46,26 @@ function DownloadButton({
   );
 }
 
+function CourseLink({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <a
+      href={COURSE_HREF}
+      className={className ?? "eyes-text-link"}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={() => track("course_cta")}
+    >
+      {children}
+    </a>
+  );
+}
+
 const STEPS: {
   stage: Stage;
   title: string;
@@ -167,7 +187,7 @@ export default function EyesResourcePage() {
 
   return (
     <div className="eyes-page">
-      <Navbar />
+      <Navbar pinned />
       <main>
         <section className="eyes-hero">
           <div className="eyes-wrap eyes-hero-grid">
@@ -323,6 +343,19 @@ export default function EyesResourcePage() {
           </div>
         </section>
 
+        <section className="eyes-section" id="course-aside">
+          <div className="eyes-wrap">
+            <div className="eyes-narrow eyes-course-aside">
+              <p>
+                Once this way of looking starts to click, you can use it on the rest of
+                the face too — nose, mouth, head, light. I walk through that complete
+                process in{" "}
+                <CourseLink>the portrait course</CourseLink>.
+              </p>
+            </div>
+          </div>
+        </section>
+
         <section className="eyes-section" id="why">
           <div className="eyes-wrap">
             <div className="eyes-narrow">
@@ -397,33 +430,14 @@ export default function EyesResourcePage() {
                 like the person you&apos;re drawing.
               </p>
               <p>
-                You&apos;ve learned one small part of my process for free. If this way of
-                learning makes sense to you, here&apos;s where I teach the complete process.
+                If this way of learning made something click, I teach the rest of that
+                process in{" "}
+                <CourseLink>PlayingWithPencil: The Portrait Sketching Masterclass</CourseLink>
+                .
               </p>
-              <p>
-                <strong>PlayingWithPencil: The Portrait Sketching Masterclass</strong>
-              </p>
-              <p>
-                The full course takes students through portrait drawing step by step —
-                from construction and proportions to individual facial features, shading
-                and complete portraits.
-              </p>
-              <p>
-                It includes 35+ video lessons across 7 modules, guided exercises, and the
-                complete facial-feature practice workbook.
-              </p>
-              <a
-                href={COURSE_HREF}
-                className="eyes-btn eyes-btn-quiet"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => track("course_cta")}
-              >
-                Learn the Full Portrait Process
-              </a>
               <p className="eyes-fineprint">
-                If the way I explained eyes on this page helped something click for you,
-                you&apos;ll probably enjoy the rest of the course too. ✏️
+                Construction, features, shading, and complete portraits — 35+ video
+                lessons, guided exercises, and the facial-feature workbook.
               </p>
               <p className="eyes-fineprint">
                 <Link href="/">← Back to Playing with Pencil</Link>

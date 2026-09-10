@@ -15,8 +15,16 @@
   background-size: 28px 28px, 42px 42px, auto;
   color: var(--eyes-ink);
   min-height: 100vh;
-  padding-top: 5.5rem;
-  overflow-x: hidden;
+}
+
+.eyes-page > header.nav {
+  position: sticky;
+  top: 0;
+  z-index: 80;
+}
+
+.eyes-page .organic-nav {
+  transform: none !important;
 }
 
 .eyes-page *,
@@ -166,6 +174,19 @@
 .eyes-btn-quiet:hover {
   background: rgba(255, 255, 255, 0.55);
   transform: translateY(-1px);
+}
+
+.eyes-text-link {
+  color: var(--eyes-ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.18em;
+  text-decoration-color: var(--eyes-gold-deep);
+}
+
+.eyes-text-link:hover {
+  color: var(--eyes-sienna);
 }
 
 .eyes-fineprint {
@@ -448,8 +469,7 @@
 }
 
 .eyes-course {
-  background: linear-gradient(180deg, rgba(255, 207, 65, 0.16), rgba(255, 207, 65, 0.05));
-  border-top: 1px solid var(--eyes-line);
+  background: transparent;
 }
 
 .eyes-course-card {
@@ -457,8 +477,13 @@
   margin: 0 auto;
 }
 
-.eyes-course-card .eyes-btn-quiet {
-  margin-top: 0.4rem;
+.eyes-course-aside {
+  border-left: 3px solid var(--eyes-line);
+  padding: 0.15rem 0 0.15rem 1.1rem;
+}
+
+.eyes-section#course-aside {
+  padding: 1.6rem 0;
 }
 
 .eyes-sticky {
@@ -483,9 +508,6 @@
 }
 
 @media (min-width: 760px) {
-  .eyes-page {
-    padding-top: 6.25rem;
-  }
 
   .eyes-hero-grid,
   .eyes-split,
@@ -531,6 +553,10 @@
 }
 
 @media (max-width: 759px) {
+  .eyes-page {
+    padding-bottom: 5.5rem;
+  }
+
   .eyes-process-strip {
     grid-template-columns: repeat(2, 1fr);
   }

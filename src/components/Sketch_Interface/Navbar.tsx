@@ -16,7 +16,7 @@ declare global {
 
 import { Gamepad2, Palette } from "lucide-react";
 
-export default function Navbar() {
+export default function Navbar({ pinned = false }: { pinned?: boolean } = {}) {
   const [activeSection, setActiveSection] = useState("home");
   const [isNavVisible, setIsNavVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
@@ -146,8 +146,10 @@ export default function Navbar() {
       const sections = ["services", "portfolio", "contact", "casestudy"];
       const scrollPosition = currentScrollY + 100;
 
-      // Handle navigation visibility
-      if (currentScrollY > lastScrollY && currentScrollY > 100) {
+      // Handle navigation visibility — keep pinned bars in place
+      if (pinned) {
+        setIsNavVisible(true);
+      } else if (currentScrollY > lastScrollY && currentScrollY > 100) {
         // Scrolling down and not at the top
         setIsNavVisible(false);
       } else {
@@ -176,10 +178,10 @@ export default function Navbar() {
 
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [lastScrollY]);
+  }, [lastScrollY, pinned]);
 
   return (
-    <header className="nav">
+    <header className={`nav${pinned ? " nav-pinned" : ""}`}>
       <nav
         className={`organic-nav px-4 py-4 transition-transform duration-300 ${
           isNavVisible ? "translate-y-0" : "-translate-y-full"
@@ -260,6 +262,14 @@ export default function Navbar() {
           z-index: 50;
           backdrop-filter: blur(6px);
           background-color: rgb(255, 207, 65);
+        }
+        .nav-pinned {
+          position: sticky;
+          top: 0;
+          z-index: 80;
+        }
+        .nav-pinned :global(.organic-nav) {
+          transform: none !important;
         }
         .rough-border {
           position: absolute;
