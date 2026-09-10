@@ -260,8 +260,6 @@ function EyeStageDiagram({
   );
 }
 
-export default EyeStageDiagram;
-export type { Stage };
 const PDF_HREF = "/eyes/playing-with-pencil-eyes-practice.pdf";
 const PDF_PAGES = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 
