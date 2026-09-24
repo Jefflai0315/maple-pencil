@@ -105,6 +105,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
@@ -192,6 +194,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <noscript>
+          <div style={{ padding: 12, background: '#fffbe6', color: '#5c4a00', textAlign: 'center' }}>
+            JavaScript is disabled. The basic content is available, but interactive features require JavaScript.
+          </div>
+        </noscript>
         <Providers>{children}</Providers>
       </body>
     </html>
