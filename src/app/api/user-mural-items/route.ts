@@ -1,26 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MongoClient } from "mongodb";
+import { sharedClient as client } from "@/app/utils/mongodb";
+import { getSessionEmail } from "@/lib/auth";
 
-const uri = process.env.MONGODB_URI;
-if (!uri) {
-  throw new Error("Please add your Mongo URI to .env");
-}
 
-const client = new MongoClient(uri, {
-  maxPoolSize: 10,
-  serverSelectionTimeoutMS: 10000,
-  socketTimeoutMS: 45000,
-});
 
 export async function GET(request: NextRequest) {
+  // A user may only list their own items.
+  const sessionEmail = await getSessionEmail();
+  if (!sessionEmail) {
+    return NextResponse.json({ error: "Please sign in first" }, { status: 401 });
+  }
   const { searchParams } = new URL(request.url);
-  const email = searchParams.get("email");
+  const email = (searchParams.get("email") || sessionEmail).trim().toLowerCase();
 
-  if (!email) {
-    return NextResponse.json(
-      { error: "Email parameter is required" },
-      { status: 400 }
-    );
+  if (email !== sessionEmail) {
+    return NextResponse.json({ error: "Not allowed" }, { status: 403 });
   }
 
   let clientConnected = false;
@@ -33,7 +27,10 @@ export async function GET(request: NextRequest) {
 
     // Find mural items by user email
     const userItems = await collection
-      .find({ "userDetails.email": email })
+      .find(
+        { "userDetails.email": email },
+        { projection: { "userDetails.ipAddress": 0, "metadata.browserInfo": 0 } }
+      )
       .sort({ timestamp: -1 })
       .toArray();
 

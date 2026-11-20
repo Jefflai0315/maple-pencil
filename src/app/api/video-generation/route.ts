@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MongoClient, ObjectId } from "mongodb";
+import { ObjectId } from "mongodb";
+import { sharedClient as client } from "@/app/utils/mongodb";
+import { getSessionEmail } from "@/lib/auth";
+import { claimSpend, markSpendSucceeded } from "@/lib/credits";
 
-// MongoDB connection
-const uri = process.env.MONGODB_URI;
-if (!uri) {
-  throw new Error("Please add your Mongo URI to .env");
-}
 
-const client = new MongoClient(uri, {
-  maxPoolSize: 10,
-  serverSelectionTimeoutMS: 10000,
-  socketTimeoutMS: 45000,
-});
 
 interface VideoGenerationTask {
   _id?: ObjectId;
@@ -74,6 +67,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "User name is required" },
         { status: 400 }
+      );
+    }
+    const email = await getSessionEmail();
+    if (!email) {
+      return NextResponse.json({ error: "Please sign in first" }, { status: 401 });
+    }
+    // Only accept image data or images already in our own Cloudinary account
+    // (the server fetches this URL, so arbitrary URLs are not allowed).
+    if (
+      typeof imageUrl !== "string" ||
+      !(imageUrl.startsWith("data:image/") || imageUrl.startsWith("https://res.cloudinary.com/"))
+    ) {
+      return NextResponse.json({ error: "Unsupported image source" }, { status: 400 });
+    }
+    if (!(await claimSpend(body?.spendId, email))) {
+      return NextResponse.json(
+        { error: "No credit available for this request. Please try again." },
+        { status: 402 }
       );
     }
 
@@ -226,6 +237,7 @@ export async function POST(request: NextRequest) {
 
     await videoTasksCollection.insertOne(videoTask);
     console.log("Task stored in database with ID:", taskId);
+    await markSpendSucceeded(body?.spendId);
 
     return NextResponse.json({
       success: true,

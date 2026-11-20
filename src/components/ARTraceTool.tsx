@@ -50,11 +50,9 @@ import {
   IconBrush,
 } from "@tabler/icons-react";
 import Moveable from "react-moveable";
-import {
-  pencilSketchFromDataUrl,
-  prepareTraceImage,
-} from "./pencilSketch";
+import { pencilSketchFromDataUrl, prepareTraceImage } from "./pencilSketch";
 import type { CourseLesson } from "@/data/faceCourse";
+import CameraHelp from "./CameraHelp";
 
 interface ARTraceToolProps {
   onClose?: () => void | null;
@@ -73,6 +71,10 @@ interface ColorLayer {
 }
 
 const SKETCH_LAYER_ID = -1;
+
+// AI picture generation costs money per image, so it is off in the free tool.
+// Set NEXT_PUBLIC_ENABLE_AI=true to bring back sign-in, credits and the AI button.
+const AI_ENABLED = process.env.NEXT_PUBLIC_ENABLE_AI === "true";
 
 const isMobile =
   (typeof window !== "undefined" &&
@@ -116,10 +118,20 @@ function buildCenteredBoxState(
   imageHeight: number,
   bottomChromeHeight = 0
 ) {
-  const { width: viewportWidth, height: viewportHeight } =
-    getTraceViewportSize(container, bottomChromeHeight);
-  const ratio = imageWidth / imageHeight;
-  const width = Math.min(viewportWidth * 0.8, 600);
+  const { width: viewportWidth, height: viewportHeight } = getTraceViewportSize(
+    container,
+    bottomChromeHeight
+  );
+  // Some images (e.g. SVGs without width/height) report a size of 0.
+  const safeWidth = imageWidth > 0 ? imageWidth : 4;
+  const safeHeight = imageHeight > 0 ? imageHeight : 5;
+  const ratio = safeWidth / safeHeight;
+  // Fit inside 80% of the visible area in both directions, so tall photos
+  // don't run off small screens.
+  const width = Math.max(
+    40,
+    Math.min(viewportWidth * 0.8, 600, viewportHeight * 0.8 * ratio)
+  );
   const height = width / ratio;
   const centerX = (viewportWidth - width) / 2;
   const centerY = (viewportHeight - height) / 2;
@@ -149,8 +161,7 @@ function isIOSDevice() {
 
 function getTrackZoomRange(track: MediaStreamTrack): ZoomRange | null {
   const capabilities = track.getCapabilities?.() as
-    | { zoom?: ZoomRange }
-    | undefined;
+    { zoom?: ZoomRange } | undefined;
   if (
     capabilities?.zoom &&
     typeof capabilities.zoom.min === "number" &&
@@ -234,7 +245,16 @@ async function listRearCameraDevices(): Promise<MediaDeviceInfo[]> {
   const videoInputs = devices.filter((d) => d.kind === "videoinput" && d.label);
   const rear = videoInputs.filter((d) => isRearCameraLabel(d.label));
   if (rear.length > 0) return rear;
+  // Labels are translated on non-English phones. If no front/back words are
+  // recognised, do not guess (that could pick the selfie camera): return
+  // nothing and keep the browser's own facingMode "environment" choice.
+  const front = videoInputs.filter((d) => isFrontCameraLabel(d.label));
+  if (front.length === 0) return [];
   return videoInputs.filter((d) => !isFrontCameraLabel(d.label));
+}
+
+function isSelfieStream(stream: MediaStream) {
+  return stream.getVideoTracks()[0]?.getSettings().facingMode === "user";
 }
 
 async function pickNormalRearCameraDeviceId(): Promise<string | undefined> {
@@ -272,7 +292,9 @@ async function openMainRearCameraStream(): Promise<MediaStream> {
       const cachedTrack = cached.getVideoTracks()[0];
       if (
         cachedTrack &&
-        (isTeleLabel(cachedTrack.label) || isUltraWideLabel(cachedTrack.label))
+        (isTeleLabel(cachedTrack.label) ||
+          isUltraWideLabel(cachedTrack.label) ||
+          isSelfieStream(cached))
       ) {
         cached.getTracks().forEach((track) => track.stop());
         preferredRearDeviceId = undefined;
@@ -298,7 +320,9 @@ async function openMainRearCameraStream(): Promise<MediaStream> {
         deviceId: { exact: preferred },
         ...size,
       });
+      if (isSelfieStream(stream)) throw new Error("picked the front camera");
     } catch {
+      stream.getTracks().forEach((track) => track.stop());
       stream = await openVideoStream({
         facingMode: { ideal: "environment" },
         ...size,
@@ -335,7 +359,7 @@ async function openMainRearCameraStream(): Promise<MediaStream> {
         continue;
       }
     }
-  } else if (track?.getSettings().deviceId) {
+  } else if (track?.getSettings().deviceId && !isSelfieStream(stream)) {
     preferredRearDeviceId = track.getSettings().deviceId;
   }
 
@@ -343,14 +367,21 @@ async function openMainRearCameraStream(): Promise<MediaStream> {
 }
 
 /**
- * Safari maps 0.5× as zoom 1 and the normal 1× lens as zoom 2.
- * Android uses real zoom factors: 1 is 1×. Never apply 2× there.
+ * On iPhones, Safari's multi-lens "Dual Wide" / "Triple" cameras start at the
+ * 0.5x ultra-wide (zoom 1), so the normal 1x lens is zoom 2. A single-lens
+ * "Back Camera" (iPhone SE, XR, most iPads) is already 1x, where zoom 2 would
+ * be a 2x crop. Android uses real zoom factors: 1 is 1x.
  */
+function isIOSMultiLensCamera(label: string) {
+  return /dual wide|triple/i.test(label);
+}
+
 async function applyNormalRearLens(track: MediaStreamTrack) {
   const zoom = getTrackZoomRange(track);
 
   let targetZoom: number | null = null;
   if (isIOSDevice()) {
+    if (!isIOSMultiLensCamera(track.label)) return;
     targetZoom = 2;
   } else if (zoom) {
     targetZoom = zoom.min < 1 && zoom.max >= 1 ? 1 : zoom.min;
@@ -478,6 +509,18 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomToolbarRef = useRef<HTMLDivElement>(null);
   const [bottomChromeHeight, setBottomChromeHeight] = useState(0);
+  const bottomChromeHeightRef = useRef(0);
+  bottomChromeHeightRef.current = bottomChromeHeight;
+  // Camera lifecycle: each start gets a number, so an older, slower start
+  // can't win the race and leave a stream running (camera light stays on).
+  const cameraGenRef = useRef(0);
+  const unmountedRef = useRef(false);
+  const isRecordingRef = useRef(false);
+  isRecordingRef.current = isRecording;
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const cameraErrorRef = useRef<string | null>(null);
+  cameraErrorRef.current = cameraError;
+  const cameraStartingRef = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const initializeCameraRef = useRef<(useFront?: boolean) => Promise<void>>(
@@ -578,7 +621,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
 
   // Fetch user credits when session changes
   useEffect(() => {
-    if (session?.user?.email) {
+    if (AI_ENABLED && session?.user?.email) {
       fetchUserCredits();
     } else {
       setUserCredits(0);
@@ -623,14 +666,14 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       const mimeType = MediaRecorder.isTypeSupported("video/mp4")
         ? "video/mp4"
         : MediaRecorder.isTypeSupported("video/mp4;codecs=h264")
-        ? "video/mp4;codecs=h264"
-        : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-        ? "video/webm;codecs=vp9"
-        : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
-        ? "video/webm;codecs=vp8"
-        : MediaRecorder.isTypeSupported("video/webm")
-        ? "video/webm"
-        : "video/mp4";
+          ? "video/mp4;codecs=h264"
+          : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+            ? "video/webm;codecs=vp9"
+            : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
+              ? "video/webm;codecs=vp8"
+              : MediaRecorder.isTypeSupported("video/webm")
+                ? "video/webm"
+                : "video/mp4";
 
       const mediaRecorder = new MediaRecorder(streamRef.current, {
         mimeType,
@@ -812,18 +855,21 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
     };
     document.addEventListener("touchmove", preventDefault, { passive: false });
 
+    // (Re)mounted: React may unmount and remount once in development.
+    unmountedRef.current = false;
+
     // Initialize camera with back camera by default
     initializeCamera(false);
 
+    // Coming back from the photo picker, another app or a locked screen: the
+    // camera may have been stopped by the phone, so restart it if needed.
     const reapplyLens = () => {
       if (filePickerOpenRef.current) {
         filePickerOpenRef.current = false;
-        window.setTimeout(() => {
-          void initializeCameraRef.current(false);
-        }, 200);
+        window.setTimeout(() => ensureCameraLiveRef.current(), 200);
         return;
       }
-      void restoreNormalRearLens(streamRef.current);
+      ensureCameraLiveRef.current();
     };
     const onVisibility = () => {
       if (document.visibilityState === "visible") reapplyLens();
@@ -839,9 +885,20 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       window.removeEventListener("pageshow", reapplyLens);
       window.removeEventListener("focus", reapplyLens);
 
-      // Stop recording if active
-      if (isRecording) {
-        stopRecording();
+      unmountedRef.current = true;
+      cameraGenRef.current++; // cancel any camera start still in progress
+
+      // Leaving mid-recording: stop quietly (no download popping up on the
+      // next page) and stop the timer.
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state !== "inactive") {
+        recorder.onstop = null;
+        recorder.ondataavailable = null;
+        recorder.stop();
+      }
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
       }
 
       // Clean up camera stream when component unmounts
@@ -915,19 +972,31 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
 
       const img = new Image();
       img.onload = () => {
+        // Moveable writes size/position straight onto the element while the
+        // user drags; clear that so the new image's box is used as-is.
+        const box = moveableBoxRef.current;
+        if (box) {
+          box.style.width = "";
+          box.style.height = "";
+          box.style.transform = "";
+        }
+        setCurrentScale(1);
         setBoxState(
           buildCenteredBoxState(
             containerRef.current,
-            img.naturalWidth,
-            img.naturalHeight,
-            bottomToolbarRef.current?.offsetHeight ?? bottomChromeHeight
+            img.naturalWidth || img.width,
+            img.naturalHeight || img.height,
+            bottomToolbarRef.current?.offsetHeight ??
+              bottomChromeHeightRef.current
           )
         );
         setMoveableReady(true);
       };
       img.src = imageData;
     },
-    [bottomChromeHeight]
+    // Stable on purpose: depending on the toolbar height made the course
+    // lesson reload (and unlock) whenever the toolbar changed size.
+    []
   );
 
   const convertToSketch = useCallback(
@@ -990,7 +1059,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       applyTraceImage(imageData);
 
       await new Promise((resolve) => window.setTimeout(resolve, 250));
-      await initializeCameraRef.current(false);
+      ensureCameraLiveRef.current();
 
       setIsConvertingToSketch(true);
       try {
@@ -1035,6 +1104,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       return;
     }
 
+    let spendId: string | undefined;
     try {
       const prompt = promptText?.trim();
       if (!prompt) return;
@@ -1055,12 +1125,18 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       });
 
       if (!creditRes.ok) {
-        const creditData = await creditRes.json();
-        throw new Error(creditData.error || "Failed to deduct credit");
+        const creditData = await creditRes.json().catch(() => ({}));
+        const msg = creditData.error || "Failed to deduct credit";
+        setIsGeneratingImage(false);
+        setAiStatus("error");
+        setAiErrorMessage(msg);
+        setAiProgressText(msg);
+        return;
       }
 
       const creditData = await creditRes.json();
       setUserCredits(creditData.credits);
+      spendId = creditData.spendId;
       setAiProgressText("Credit deducted. Generating image...");
 
       // Check GrowthBook feature flag to decide which API to use
@@ -1075,7 +1151,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         res = await fetch("/api/generate-image-gemini", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt }),
+          body: JSON.stringify({ prompt, spendId }),
         });
         data = await res.json();
 
@@ -1091,7 +1167,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           res = await fetch("/api/generate-image-wavespeed", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt: enhancedPrompt }),
+            body: JSON.stringify({ prompt: enhancedPrompt, spendId }),
           });
 
           setAiProgressText("Waiting for Wavespeed result...");
@@ -1103,7 +1179,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         res = await fetch("/api/generate-image-wavespeed", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt }),
+          body: JSON.stringify({ prompt, spendId }),
         });
 
         setAiProgressText("Waiting for Wavespeed result...");
@@ -1118,10 +1194,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         const restoreRes = await fetch("/api/restore-credits", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: session.user.email,
-            amount: 1,
-          }),
+          body: JSON.stringify({ spendId }),
         });
 
         if (restoreRes.ok) {
@@ -1152,17 +1225,14 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
     } catch (err) {
       console.error("AI image generation error:", err);
 
-      // Return the credit since generation failed
-      if (session?.user?.email) {
+      // Return the credit since generation failed (only if one was taken)
+      if (session?.user?.email && spendId) {
         setAiProgressText("Generation failed. Returning credit...");
         try {
           const restoreRes = await fetch("/api/restore-credits", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email: session.user.email,
-              amount: 1,
-            }),
+            body: JSON.stringify({ spendId }),
           });
 
           if (restoreRes.ok) {
@@ -1500,11 +1570,19 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       canvas.height = img.naturalHeight;
       ctx.drawImage(img, 0, 0);
 
-      const imageData = ctx.getImageData(0, 0, img.naturalWidth, img.naturalHeight);
+      const imageData = ctx.getImageData(
+        0,
+        0,
+        img.naturalWidth,
+        img.naturalHeight
+      );
 
       const numColors = Math.min(
         12,
-        Math.max(4, Math.floor(Math.sqrt(img.naturalWidth * img.naturalHeight) / 200))
+        Math.max(
+          4,
+          Math.floor(Math.sqrt(img.naturalWidth * img.naturalHeight) / 200)
+        )
       );
 
       const dominantColors = extractDominantColors(imageData, numColors);
@@ -1605,8 +1683,15 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
 
   // Update camera initialization to use the current camera mode
   const initializeCamera = async (useFrontCamera: boolean = false) => {
+    // Restarting the camera would end a recording in progress.
+    if (isRecordingRef.current && streamRef.current) return;
+    const gen = ++cameraGenRef.current;
+    cameraStartingRef.current = true;
     try {
-      console.log("Initializing camera...", useFrontCamera ? "front" : "back");
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraError(window.isSecureContext ? "unsupported" : "insecure");
+        return;
+      }
 
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
@@ -1624,10 +1709,13 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         stream = await openMainRearCameraStream();
       }
 
-      console.log(
-        "Camera stream obtained:",
-        stream.getVideoTracks()[0]?.label || stream
-      );
+      // A newer start began (or we left the page) while this one was waiting:
+      // drop this stream so it never keeps the camera on.
+      if (gen !== cameraGenRef.current || unmountedRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      setCameraError(null);
 
       if (videoRef.current) {
         console.log("Setting video source...");
@@ -1658,18 +1746,46 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         if (!video.paused) {
           onPlaying();
         }
-
-        console.log("Camera initialized successfully");
       } else {
         stream.getTracks().forEach((track) => track.stop());
       }
     } catch (error) {
-      console.error("Error accessing camera:", error);
-      alert(
-        "Could not access camera. Please ensure camera permissions are granted."
+      if (gen !== cameraGenRef.current || unmountedRef.current) return;
+      console.warn("Could not start the camera:", error);
+      const name = error instanceof DOMException ? error.name : "";
+      setCameraError(
+        name === "NotAllowedError" || name === "SecurityError"
+          ? "denied"
+          : name === "NotFoundError" || name === "OverconstrainedError"
+            ? "notfound"
+            : name === "NotReadableError" || name === "AbortError"
+              ? "busy"
+              : "unknown"
       );
+    } finally {
+      if (gen === cameraGenRef.current) cameraStartingRef.current = false;
     }
   };
+
+  /** Restart the camera only if it isn't running (e.g. after the photo picker or app switch). */
+  const ensureCameraLive = () => {
+    // A start is already waiting (e.g. on the permission prompt), or the user
+    // blocked the camera: don't start another; they can tap "Try again".
+    if (
+      cameraStartingRef.current ||
+      (cameraErrorRef.current && cameraErrorRef.current !== "busy")
+    ) {
+      return;
+    }
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (track && track.readyState === "live") {
+      void restoreNormalRearLens(streamRef.current);
+      return;
+    }
+    void initializeCameraRef.current(false);
+  };
+  const ensureCameraLiveRef = useRef(ensureCameraLive);
+  ensureCameraLiveRef.current = ensureCameraLive;
 
   initializeCameraRef.current = initializeCamera;
 
@@ -1726,7 +1842,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
               height: 8,
               backgroundColor: "red",
               borderRadius: "50%",
-              animation: "pulse 1s infinite",
+              animation: "pwp-trace-pulse 1s infinite",
             }}
           />
           REC {formatRecordingTime(recordingTime)}
@@ -1799,28 +1915,30 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         </Box>
       )}
 
-      {/* User Account Button */}
-      <IconButton
-        onClick={handleUserMenuOpen}
-        sx={{
-          position: "absolute",
-          top: 16,
-          right: onClose ? 80 : 16,
-          zIndex: 100013,
-          width: isMobile ? 48 : 40,
-          height: isMobile ? 48 : 40,
-        }}
-      >
-        {session?.user?.image ? (
-          <Avatar
-            src={session.user.image}
-            alt={session.user.name || "User"}
-            sx={{ width: 24, height: 24 }}
-          />
-        ) : (
-          <IconUser size={isMobile ? 24 : 20} />
-        )}
-      </IconButton>
+      {/* User Account Button (only needed for AI credits) */}
+      {AI_ENABLED && (
+        <IconButton
+          onClick={handleUserMenuOpen}
+          sx={{
+            position: "absolute",
+            top: 16,
+            right: onClose ? 80 : 16,
+            zIndex: 100013,
+            width: isMobile ? 48 : 40,
+            height: isMobile ? 48 : 40,
+          }}
+        >
+          {session?.user?.image ? (
+            <Avatar
+              src={session.user.image}
+              alt={session.user.name || "User"}
+              sx={{ width: 24, height: 24 }}
+            />
+          ) : (
+            <IconUser size={isMobile ? 24 : 20} />
+          )}
+        </IconButton>
+      )}
 
       {/* Close Button */}
       {onClose && (
@@ -1869,6 +1987,14 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         />
       </Box>
 
+      {cameraError && (
+        <CameraHelp
+          kind={cameraError}
+          bottomOffset={bottomChromeHeight}
+          onRetry={() => void initializeCameraRef.current(false)}
+        />
+      )}
+
       {/* Trace Image Target (the element Moveable controls) */}
       {image && (
         <Box
@@ -1902,12 +2028,13 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
               {
                 width: "100%",
                 height: "100%",
-                opacity: strobeActive ? opacity : opacity,
+                objectFit: "contain",
+                opacity,
                 userSelect: "none",
                 touchAction: "none",
                 pointerEvents: "none",
                 animation: strobeActive
-                  ? "pulse-fade 3s ease-in-out infinite"
+                  ? "pwp-trace-pulse-fade 3s ease-in-out infinite"
                   : "none",
                 transition: strobeActive ? "none" : "opacity 0.3s ease",
                 "--max-opacity": opacity,
@@ -1981,7 +2108,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           }}
         >
           {/* AI Compact Input Bar (toggle with AI button) - Only show for logged in users */}
-          {aiPanelOpen && session?.user?.email && (
+          {AI_ENABLED && aiPanelOpen && session?.user?.email && (
             <Box
               sx={{
                 position: "absolute",
@@ -2056,7 +2183,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
                       border: "2px solid rgba(255,255,255,0.25)",
                       borderTop: "2px solid rgba(255,255,255,0.9)",
                       borderRadius: "50%",
-                      animation: "spin 1s linear infinite",
+                      animation: "pwp-trace-spin 1s linear infinite",
                     }}
                     title={aiProgressText || "Generating..."}
                   />
@@ -2184,7 +2311,9 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
                     width: 40,
                     height: 40,
                   }}
-                  title={isSketchMode ? "Show original photo" : "Convert to sketch"}
+                  title={
+                    isSketchMode ? "Show original photo" : "Convert to sketch"
+                  }
                 >
                   <IconBrush size={18} />
                 </IconButton>
@@ -2198,7 +2327,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
             )}
 
             {/* AI Generate Button - Only show for logged in users */}
-            {session?.user?.email && (
+            {AI_ENABLED && session?.user?.email && (
               <Box
                 sx={{
                   display: "flex",
@@ -2216,31 +2345,31 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
                     backgroundColor: isGeneratingImage
                       ? "rgba(156,39,176,0.15)"
                       : userCredits < 1
-                      ? "rgba(128,128,128,0.15)"
-                      : "transparent",
+                        ? "rgba(128,128,128,0.15)"
+                        : "transparent",
                     border: `1px solid ${
                       isGeneratingImage
                         ? "rgba(156,39,176,0.35)"
                         : userCredits < 1
-                        ? "rgba(128,128,128,0.3)"
-                        : "rgba(255,255,255,0.2)"
+                          ? "rgba(128,128,128,0.3)"
+                          : "rgba(255,255,255,0.2)"
                     }`,
                     color: isGeneratingImage
                       ? "#9c27b0"
                       : userCredits < 1
-                      ? "rgba(128,128,128,0.7)"
-                      : "rgba(255,255,255,0.9)",
+                        ? "rgba(128,128,128,0.7)"
+                        : "rgba(255,255,255,0.9)",
                     "&:hover": {
                       backgroundColor: isGeneratingImage
                         ? "rgba(156,39,176,0.2)"
                         : userCredits < 1
-                        ? "rgba(128,128,128,0.2)"
-                        : "rgba(255,255,255,0.05)",
+                          ? "rgba(128,128,128,0.2)"
+                          : "rgba(255,255,255,0.05)",
                       borderColor: isGeneratingImage
                         ? "rgba(156,39,176,0.45)"
                         : userCredits < 1
-                        ? "rgba(128,128,128,0.4)"
-                        : "rgba(255,255,255,0.3)",
+                          ? "rgba(128,128,128,0.4)"
+                          : "rgba(255,255,255,0.3)",
                     },
                     width: 40,
                     height: 40,
@@ -2862,9 +2991,10 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         </Box>
       </Drawer>
 
-      {/* CSS for animations */}
-      <style jsx>{`
-        @keyframes pulse {
+      {/* CSS for animations. Global so the names match the inline
+          animation styles (scoped styled-jsx would rename them). */}
+      <style jsx global>{`
+        @keyframes pwp-trace-pulse {
           0% {
             opacity: 1;
           }
@@ -2876,7 +3006,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           }
         }
 
-        @keyframes pulse-fade {
+        @keyframes pwp-trace-pulse-fade {
           0% {
             opacity: var(--max-opacity);
           }
@@ -2887,7 +3017,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
             opacity: var(--max-opacity);
           }
         }
-        @keyframes spin {
+        @keyframes pwp-trace-spin {
           0% {
             transform: rotate(0deg);
           }

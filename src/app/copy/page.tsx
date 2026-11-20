@@ -1,8 +1,31 @@
 "use client";
 
-import React from "react";
-import ARTraceTool from "@/components/ARTraceTool";
+import React, { Suspense } from "react";
+import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
+import { getCourseLesson } from "@/data/faceCourse";
+
+// The trace tool needs the camera and the screen size, so it only renders in
+// the browser (server-rendering it caused mismatches on phones).
+const ARTraceTool = dynamic(() => import("@/components/ARTraceTool"), {
+  ssr: false,
+  loading: () => <div style={{ position: "fixed", inset: 0, background: "#000" }} />,
+});
+
+function CopyPageContent() {
+  const searchParams = useSearchParams();
+  const course = searchParams.get("course");
+  const day = Number(searchParams.get("day") || "0");
+  const lesson =
+    course === "face" && day > 0 ? getCourseLesson(day) : null;
+
+  return <ARTraceTool courseLesson={lesson} />;
+}
 
 export default function CopyPage() {
-  return <ARTraceTool />;
+  return (
+    <Suspense fallback={null}>
+      <CopyPageContent />
+    </Suspense>
+  );
 }

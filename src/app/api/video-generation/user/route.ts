@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MongoClient } from "mongodb";
+import { sharedClient as client } from "@/app/utils/mongodb";
+import { getSessionEmail } from "@/lib/auth";
 
-// MongoDB connection
-const uri = process.env.MONGODB_URI;
-if (!uri) {
-  throw new Error("Please add your Mongo URI to .env");
-}
 
-const client = new MongoClient(uri, {
-  maxPoolSize: 10,
-  serverSelectionTimeoutMS: 10000,
-  socketTimeoutMS: 45000,
-});
 
 export async function GET(request: NextRequest) {
+  if (!(await getSessionEmail())) {
+    return NextResponse.json({ error: "Please sign in first" }, { status: 401 });
+  }
   try {
     const { searchParams } = new URL(request.url);
     const userName = searchParams.get("userName");

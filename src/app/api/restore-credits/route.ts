@@ -1,49 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { connectToDatabase } from "../../utils/mongodb";
+import { requireSessionEmail } from "@/lib/auth";
+import { refundSpend } from "@/lib/credits";
 
+export const dynamic = "force-dynamic";
+
+// Body: { spendId }. Gives back the credit taken for a generation that failed,
+// once, and only for the signed-in user's own spend.
 export async function POST(request: NextRequest) {
+  const email = await requireSessionEmail();
+  if (email instanceof NextResponse) return email;
+
   try {
-    const { email, amount = 1 } = await request.json();
-
-    if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
-    }
-
-    if (typeof amount !== "number" || amount <= 0) {
+    const body = await request.json().catch(() => ({}));
+    const credits = await refundSpend(body?.spendId, email);
+    if (credits === null) {
       return NextResponse.json(
-        { error: "Amount must be a positive number" },
+        { error: "Nothing to refund for this request" },
         { status: 400 }
       );
     }
-
-    const { db } = await connectToDatabase();
-
-    // Restore specified amount of credits
-    const result = await db
-      .collection("user")
-      .updateOne({ email }, { $inc: { credits: amount } });
-
-    if (result.modifiedCount === 0) {
-      return NextResponse.json(
-        { error: "Failed to restore credits" },
-        { status: 500 }
-      );
-    }
-
-    // Get updated user data
-    const user = await db.collection("user").findOne({ email });
-    const currentCredits = user?.credits || 0;
-
-    return NextResponse.json({
-      success: true,
-      credits: currentCredits,
-      message: `Credits restored successfully`,
-    });
+    return NextResponse.json({ success: true, credits, message: "Credit restored" });
   } catch (error) {
     console.error("Error restoring credits:", error);
-    return NextResponse.json(
-      { error: "Failed to restore credits" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to restore credits" }, { status: 500 });
   }
 }
