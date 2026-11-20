@@ -229,7 +229,7 @@ export default function UploadPage() {
     }
   };
 
-  const generateVideo = async (): Promise<{
+  const generateVideo = async (spendId?: string): Promise<{
     downloadUrl: string;
     muralItemId?: string;
   }> => {
@@ -248,7 +248,8 @@ export default function UploadPage() {
         (status, progress) => {
           console.log(`Video generation: ${status} (${progress}%)`);
           setUploadProgress(progress || 0);
-        }
+        },
+        spendId
       );
       if (task?.downloadUrl) {
         // Check if the task has a mural item ID (from WavespeedAI route)
@@ -278,6 +279,7 @@ export default function UploadPage() {
       return;
     }
 
+    let spendId: string | undefined;
     try {
       const creditCheck = await fetch("/api/check-credits", {
         method: "POST",
@@ -314,6 +316,7 @@ export default function UploadPage() {
       const deductData = await deductResponse.json();
       console.log(`Credit deducted. Remaining credits: ${deductData.credits}`);
       setUserCredits(deductData.credits);
+      spendId = deductData.spendId;
     } catch (error) {
       console.error("Credit check failed:", error);
       setErrorMessage("Failed to check credits");
@@ -336,7 +339,7 @@ export default function UploadPage() {
       }, 1000);
 
       // Generate video
-      const videoUrl = await generateVideo();
+      const videoUrl = await generateVideo(spendId);
 
       clearInterval(timeInterval);
       setUploadProgress(100);
@@ -399,7 +402,7 @@ export default function UploadPage() {
         const restoreResponse = await fetch("/api/restore-credits", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: session.user.email }),
+          body: JSON.stringify({ spendId }),
         });
 
         if (restoreResponse.ok) {

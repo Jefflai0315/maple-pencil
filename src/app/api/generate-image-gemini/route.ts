@@ -1,20 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
+import { getSessionEmail } from "@/lib/auth";
+import { claimSpend, markSpendSucceeded } from "@/lib/credits";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-if (!GEMINI_API_KEY) {
-  throw new Error("Please add your Gemini API key to .env as GEMINI_API_KEY");
-}
 
 export async function POST(request: NextRequest) {
   try {
-    const { prompt } = await request.json();
+    const body = await request.json().catch(() => ({}));
+    const { prompt } = body || {};
 
-    if (!prompt) {
+    if (!prompt || typeof prompt !== "string" || prompt.length > 1000) {
       return NextResponse.json(
         { error: "Prompt is required" },
         { status: 400 }
+      );
+    }
+    if (!GEMINI_API_KEY) {
+      return NextResponse.json({ error: "Image generation is not configured" }, { status: 500 });
+    }
+    const email = await getSessionEmail();
+    if (!email) {
+      return NextResponse.json({ error: "Please sign in first" }, { status: 401 });
+    }
+    if (!(await claimSpend(body?.spendId, email))) {
+      return NextResponse.json(
+        { error: "No credit available for this request. Please try again." },
+        { status: 402 }
       );
     }
 
@@ -80,6 +93,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (generatedImage) {
+      await markSpendSucceeded(body?.spendId);
       return NextResponse.json({
         success: true,
         imageUrl: generatedImage,

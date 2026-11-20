@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import cloudinary from "cloudinary";
+import { getSessionEmail } from "@/lib/auth";
+import { claimSpend, markSpendSucceeded } from "@/lib/credits";
 
 const WAVESPEED_API_KEY = process.env.WAVESPEED_API_KEY;
 
-if (!WAVESPEED_API_KEY) {
-  throw new Error(
-    "Please add your Wavespeed API key to .env as WAVESPEED_API_KEY"
-  );
-}
 
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -24,10 +21,23 @@ async function uploadImageToCloudinary(url: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
     const { prompt } = body || {};
-    if (!prompt || typeof prompt !== "string") {
+    if (!prompt || typeof prompt !== "string" || prompt.length > 1000) {
       return NextResponse.json({ error: "Missing 'prompt'" }, { status: 400 });
+    }
+    if (!WAVESPEED_API_KEY) {
+      return NextResponse.json({ error: "Image generation is not configured" }, { status: 500 });
+    }
+    const email = await getSessionEmail();
+    if (!email) {
+      return NextResponse.json({ error: "Please sign in first" }, { status: 401 });
+    }
+    if (!(await claimSpend(body?.spendId, email))) {
+      return NextResponse.json(
+        { error: "No credit available for this request. Please try again." },
+        { status: 402 }
+      );
     }
 
     // 1) Kick off text-to-image generation via Wavespeed (Luma Photon Flash)
@@ -132,6 +142,7 @@ export async function POST(request: NextRequest) {
       console.warn("Cloudinary upload failed, returning original URL", err);
     }
 
+    await markSpendSucceeded(body?.spendId);
     return NextResponse.json({ success: true, imageUrl: cloudinaryImageUrl });
   } catch (error) {
     return NextResponse.json(

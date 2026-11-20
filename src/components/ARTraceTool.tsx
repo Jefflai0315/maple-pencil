@@ -28,18 +28,10 @@ import {
 } from "@mui/material";
 import {
   IconX,
-  IconLock,
-  IconLockOpen,
-  IconBolt,
-  IconBoltOff,
-  IconVideo,
-  IconPlayerStop,
   IconPalette,
   IconPlayerSkipBack,
   IconPlayerSkipForward,
-  IconUpload,
   IconMinus,
-  IconWand,
   IconSend,
   IconCheck,
   IconAlertCircle,
@@ -47,14 +39,16 @@ import {
   IconLogout,
   IconLogin,
   IconCoins,
-  IconBrush,
 } from "@tabler/icons-react";
 import Moveable from "react-moveable";
-import {
-  pencilSketchFromDataUrl,
-  prepareTraceImage,
-} from "./pencilSketch";
-import type { CourseLesson } from "@/data/faceCourse";
+import { pencilSketchFromDataUrl, prepareTraceImage } from "./pencilSketch";
+import type { CourseLesson } from "@/data/lessons";
+import CameraHelp from "./CameraHelp";
+import TraceToolbar from "./TraceToolbar";
+import TraceWelcome from "./TraceWelcome";
+import RecordingSheet, { type RecordedVideo } from "./RecordingSheet";
+import TraceViewPicker, { type TraceView } from "./TraceViewPicker";
+import { toneShapesFromDataUrl, type ToneCount } from "@/lib/shapes";
 import {
   getTrackZoomRange,
   isFrontCameraLabel,
@@ -93,6 +87,10 @@ interface ColorLayer {
 }
 
 const SKETCH_LAYER_ID = -1;
+
+// AI picture generation costs money per image, so it is off in the free tool.
+// Set NEXT_PUBLIC_ENABLE_AI=true to bring back sign-in, credits and the AI button.
+const AI_ENABLED = process.env.NEXT_PUBLIC_ENABLE_AI === "true";
 
 const isMobile =
   (typeof window !== "undefined" &&
@@ -136,10 +134,20 @@ function buildCenteredBoxState(
   imageHeight: number,
   bottomChromeHeight = 0
 ) {
-  const { width: viewportWidth, height: viewportHeight } =
-    getTraceViewportSize(container, bottomChromeHeight);
-  const ratio = imageWidth / imageHeight;
-  const width = Math.min(viewportWidth * 0.8, 600);
+  const { width: viewportWidth, height: viewportHeight } = getTraceViewportSize(
+    container,
+    bottomChromeHeight
+  );
+  // Some images (e.g. SVGs without width/height) report a size of 0.
+  const safeWidth = imageWidth > 0 ? imageWidth : 4;
+  const safeHeight = imageHeight > 0 ? imageHeight : 5;
+  const ratio = safeWidth / safeHeight;
+  // Fit inside 80% of the visible area in both directions, so tall photos
+  // don't run off small screens.
+  const width = Math.max(
+    40,
+    Math.min(viewportWidth * 0.8, 600, viewportHeight * 0.8 * ratio)
+  );
   const height = width / ratio;
   const centerX = (viewportWidth - width) / 2;
   const centerY = (viewportHeight - height) / 2;
@@ -219,7 +227,11 @@ async function openRearCandidate(
   try {
     const stream = await openVideoStream(video);
     const track = stream.getVideoTracks()[0];
-    if (!track || looksLikeTelephoto(track.label, getTrackZoomRange(track))) {
+    if (
+      !track ||
+      track.getSettings().facingMode === "user" ||
+      looksLikeTelephoto(track.label, getTrackZoomRange(track))
+    ) {
       stream.getTracks().forEach((t) => t.stop());
       return null;
     }
@@ -390,6 +402,12 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   const [sourceImage, setSourceImage] = useState<string | null>(null);
   const [sketchImage, setSketchImage] = useState<string | null>(null);
   const [isSketchMode, setIsSketchMode] = useState(false);
+  const [lessonTipOpen, setLessonTipOpen] = useState(true);
+  // Shapes view: flat 2–4 tone version of the picture (null = not showing).
+  const [shapeTones, setShapeTones] = useState<ToneCount | null>(null);
+  const [lastShapeTones, setLastShapeTones] = useState<ToneCount>(3);
+  const [viewBusy, setViewBusy] = useState<TraceView | null>(null);
+  const shapesCacheRef = useRef<{ src: string; tones: ToneCount; url: string }[]>([]);
   const [isConvertingToSketch, setIsConvertingToSketch] = useState(false);
   const [activeCourseLesson, setActiveCourseLesson] =
     useState<CourseLesson | null>(courseLesson);
@@ -415,6 +433,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
 
   // Video recording state
   const [isRecording, setIsRecording] = useState(false);
+  const [recordedVideo, setRecordedVideo] = useState<RecordedVideo | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -434,13 +453,28 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomToolbarRef = useRef<HTMLDivElement>(null);
   const [bottomChromeHeight, setBottomChromeHeight] = useState(0);
+  const bottomChromeHeightRef = useRef(0);
+  bottomChromeHeightRef.current = bottomChromeHeight;
+  // Camera lifecycle (starts are numbered with cameraInitIdRef, so an older,
+  // slower start can't win the race and leave the camera light on).
+  const unmountedRef = useRef(false);
+  const isRecordingRef = useRef(false);
+  isRecordingRef.current = isRecording;
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const cameraErrorRef = useRef<string | null>(null);
+  cameraErrorRef.current = cameraError;
+  const cameraStartingRef = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const ensureRearPreviewRef = useRef<() => Promise<void>>(async () => {});
+  const initializeCameraRef = useRef<(useFront?: boolean) => Promise<void>>(
+    async () => {}
+  );
   const filePickerOpenRef = useRef(false);
   const cameraInitIdRef = useRef(0);
   const cameraRestoreTimerRef = useRef<number | null>(null);
   const [moveableReady, setMoveableReady] = useState(false);
+  const moveableRef = useRef<Moveable>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState<boolean>(false);
   const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(false);
   const [aiPromptText, setAiPromptText] = useState<string>(
@@ -457,6 +491,13 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   const initialDistanceRef = useRef<number>(0);
   const initialScaleRef = useRef<number>(1);
   const [currentScale, setCurrentScale] = useState<number>(1);
+
+  // Keep Moveable's handles lined up with the picture whenever its box is
+  // re-placed (new picture, toolbar height change).
+  useEffect(() => {
+    const id = requestAnimationFrame(() => moveableRef.current?.updateRect());
+    return () => cancelAnimationFrame(id);
+  }, [boxState, bottomChromeHeight]);
 
   // Helper function to calculate distance between two touches
   const getDistance = (touch1: React.Touch, touch2: React.Touch) => {
@@ -534,7 +575,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
 
   // Fetch user credits when session changes
   useEffect(() => {
-    if (session?.user?.email) {
+    if (AI_ENABLED && session?.user?.email) {
       fetchUserCredits();
     } else {
       setUserCredits(0);
@@ -579,14 +620,14 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       const mimeType = MediaRecorder.isTypeSupported("video/mp4")
         ? "video/mp4"
         : MediaRecorder.isTypeSupported("video/mp4;codecs=h264")
-        ? "video/mp4;codecs=h264"
-        : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-        ? "video/webm;codecs=vp9"
-        : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
-        ? "video/webm;codecs=vp8"
-        : MediaRecorder.isTypeSupported("video/webm")
-        ? "video/webm"
-        : "video/mp4";
+          ? "video/mp4;codecs=h264"
+          : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+            ? "video/webm;codecs=vp9"
+            : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
+              ? "video/webm;codecs=vp8"
+              : MediaRecorder.isTypeSupported("video/webm")
+                ? "video/webm"
+                : "video/mp4";
 
       const mediaRecorder = new MediaRecorder(streamRef.current, {
         mimeType,
@@ -600,122 +641,15 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         }
       };
 
-      mediaRecorder.onstop = async () => {
+      mediaRecorder.onstop = () => {
         const blob = new Blob(chunks, { type: mimeType });
+        if (!blob.size) return;
         const fileExtension = mimeType.includes("mp4") ? "mp4" : "webm";
-
-        // Create download link for mobile devices
-        const url = URL.createObjectURL(blob);
-
-        if (isMobile) {
-          try {
-            // Method 1: Try direct download first
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `ar-trace-${Date.now()}.${fileExtension}`;
-            link.style.display = "none";
-            document.body.appendChild(link);
-
-            // For iOS Safari, try different approaches
-            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-              // iOS Safari - try to trigger download, fallback to new tab
-              try {
-                link.click();
-                setTimeout(() => {
-                  document.body.removeChild(link);
-                  URL.revokeObjectURL(url);
-                }, 1000);
-
-                // Show user instructions for iOS
-                setTimeout(() => {
-                  alert(
-                    "Video recorded! If download didn't start automatically:\n1. Tap the video in the new tab\n2. Tap the share button\n3. Select 'Save to Photos'"
-                  );
-                }, 2000);
-              } catch (iosError) {
-                console.warn(
-                  "iOS direct download failed, opening in new tab:",
-                  iosError
-                );
-                window.open(url, "_blank");
-                document.body.removeChild(link);
-                setTimeout(() => URL.revokeObjectURL(url), 5000);
-
-                alert(
-                  "Video opened in new tab. Tap and hold the video, then select 'Save to Photos' or 'Download'."
-                );
-              }
-            } else {
-              // Android and other mobile browsers
-              try {
-                link.click();
-                setTimeout(() => {
-                  document.body.removeChild(link);
-                  URL.revokeObjectURL(url);
-                }, 1000);
-
-                alert(
-                  "Video saved! Check your Downloads folder or Gallery app."
-                );
-              } catch (androidError) {
-                console.warn("Android direct download failed:", androidError);
-
-                // Fallback: Try opening in new tab
-                window.open(url, "_blank");
-                document.body.removeChild(link);
-                setTimeout(() => URL.revokeObjectURL(url), 5000);
-
-                alert(
-                  "Download blocked by browser. Video opened in new tab - please save manually using browser's download option."
-                );
-              }
-            }
-          } catch (error) {
-            console.error("Mobile download error:", error);
-
-            // Final fallback: Show blob URL to user
-            const fallbackMsg = `Recording saved but download was blocked by your browser or ad blocker.\n\nTo save the video:\n1. Copy this URL: ${url}\n2. Paste it in a new browser tab\n3. Right-click the video and select 'Save video as'`;
-
-            if (
-              confirm(fallbackMsg + "\n\nWould you like to copy the URL now?")
-            ) {
-              try {
-                await navigator.clipboard.writeText(url);
-                alert(
-                  "URL copied to clipboard! Paste it in a new tab to access your video."
-                );
-              } catch (clipboardError) {
-                console.warn("Clipboard access denied:", clipboardError);
-                prompt("Copy this URL to access your video:", url);
-              }
-            }
-
-            // Keep URL alive longer for manual access
-            setTimeout(() => URL.revokeObjectURL(url), 30000);
-          }
-        } else {
-          // Desktop - standard download
-          try {
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `ar-trace-${Date.now()}.${fileExtension}`;
-            link.style.display = "none";
-            document.body.appendChild(link);
-            link.click();
-
-            setTimeout(() => {
-              document.body.removeChild(link);
-              URL.revokeObjectURL(url);
-            }, 1000);
-
-            alert("Video saved to your Downloads folder!");
-          } catch (desktopError) {
-            console.error("Desktop download error:", desktopError);
-            alert(
-              "Download failed. Please check your browser's download settings and try again."
-            );
-          }
-        }
+        const file = new File([blob], `my-drawing-${Date.now()}.${fileExtension}`, {
+          type: mimeType.split(";")[0],
+        });
+        // Show the save sheet; saving needs the user's tap (iPhone rule).
+        setRecordedVideo({ url: URL.createObjectURL(blob), file });
       };
 
       mediaRecorderRef.current = mediaRecorder;
@@ -768,6 +702,9 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
     };
     document.addEventListener("touchmove", preventDefault, { passive: false });
 
+    // (Re)mounted: React may unmount and remount once in development.
+    unmountedRef.current = false;
+
     // Initialize camera with back camera by default
     initializeCamera(false);
 
@@ -787,7 +724,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         scheduleEnsureRearPreview();
         return;
       }
-      void restoreNormalRearLens(streamRef.current);
+      scheduleEnsureRearPreview();
     };
     const onVisibility = () => {
       if (document.visibilityState === "visible") reapplyLens();
@@ -807,9 +744,20 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         cameraRestoreTimerRef.current = null;
       }
 
-      // Stop recording if active
-      if (isRecording) {
-        stopRecording();
+      unmountedRef.current = true;
+      cameraInitIdRef.current++; // cancel any camera start still in progress
+
+      // Leaving mid-recording: stop quietly (no download popping up on the
+      // next page) and stop the timer.
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state !== "inactive") {
+        recorder.onstop = null;
+        recorder.ondataavailable = null;
+        recorder.stop();
+      }
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
       }
 
       // Clean up camera stream when component unmounts
@@ -883,19 +831,31 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
 
       const img = new Image();
       img.onload = () => {
+        // Moveable writes size/position straight onto the element while the
+        // user drags; clear that so the new image's box is used as-is.
+        const box = moveableBoxRef.current;
+        if (box) {
+          box.style.width = "";
+          box.style.height = "";
+          box.style.transform = "";
+        }
+        setCurrentScale(1);
         setBoxState(
           buildCenteredBoxState(
             containerRef.current,
-            img.naturalWidth,
-            img.naturalHeight,
-            bottomToolbarRef.current?.offsetHeight ?? bottomChromeHeight
+            img.naturalWidth || img.width,
+            img.naturalHeight || img.height,
+            bottomToolbarRef.current?.offsetHeight ??
+              bottomChromeHeightRef.current
           )
         );
         setMoveableReady(true);
       };
       img.src = imageData;
     },
-    [bottomChromeHeight]
+    // Stable on purpose: depending on the toolbar height made the course
+    // lesson reload (and unlock) whenever the toolbar changed size.
+    []
   );
 
   const convertToSketch = useCallback(
@@ -912,6 +872,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       } catch (error) {
         console.error("Sketch conversion failed:", error);
         setIsSketchMode(false);
+      setShapeTones(null);
       } finally {
         setIsConvertingToSketch(false);
         await restoreNormalRearLens(streamRef.current);
@@ -923,9 +884,12 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   const loadCourseLesson = useCallback(
     (lesson: CourseLesson) => {
       setActiveCourseLesson(lesson);
+      setLessonTipOpen(true);
+      setSketchImage(null);
       setOpacity(lesson.suggestedOpacity);
       setStrobeActive(lesson.useStrobe);
       setIsSketchMode(false);
+      setShapeTones(null);
       applyTraceImage(lesson.imagePath);
     },
     [applyTraceImage]
@@ -954,6 +918,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       setActiveCourseLesson(null);
       const imageData = await prepareTraceImage(objectUrl);
       setIsSketchMode(false);
+      setShapeTones(null);
       setSketchImage(null);
       applyTraceImage(imageData);
 
@@ -971,22 +936,73 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       }
     } catch (error) {
       console.error("Image upload failed:", error);
-      alert("Could not load that image. Please try another photo.");
+      const isHeic =
+        /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
+      alert(
+        isHeic
+          ? "This phone can't open HEIC photos (the iPhone photo format). Take a screenshot of the photo and pick the screenshot, or send it as a JPG."
+          : "Could not load that image. Please try another photo."
+      );
     } finally {
       URL.revokeObjectURL(objectUrl);
     }
   };
 
-  const handleSketchToggle = async () => {
-    if (!sourceImage || isConvertingToSketch) return;
+  const traceView: TraceView = shapeTones ? "shapes" : isSketchMode ? "lines" : "photo";
 
-    if (isSketchMode) {
+  /** Show the picture as the photo, pencil lines, or flat tone shapes. */
+  const showView = async (view: TraceView, tones?: ToneCount) => {
+    if (!sourceImage || viewBusy) return;
+    const keep = { updateSource: false, resetLayers: false, recenter: false } as const;
+
+    if (view === "photo") {
+      setShapeTones(null);
       setIsSketchMode(false);
-      applyTraceImage(sourceImage, { resetLayers: false });
+      applyTraceImage(sourceImage, keep);
       return;
     }
 
-    await convertToSketch(sourceImage);
+    if (view === "lines") {
+      setShapeTones(null);
+      if (sketchImage) {
+        setIsSketchMode(true);
+        applyTraceImage(sketchImage, keep);
+      } else {
+        setViewBusy("lines");
+        try {
+          await convertToSketch(sourceImage);
+        } finally {
+          setViewBusy(null);
+        }
+      }
+      return;
+    }
+
+    const count = tones ?? lastShapeTones;
+    setLastShapeTones(count);
+    let cached = shapesCacheRef.current.find(
+      (c) => c.src === sourceImage && c.tones === count
+    );
+    if (!cached) {
+      setViewBusy("shapes");
+      try {
+        const url = await toneShapesFromDataUrl(sourceImage, count);
+        cached = { src: sourceImage, tones: count, url };
+        // Keep the cache small: only the current picture's versions.
+        shapesCacheRef.current = [
+          ...shapesCacheRef.current.filter((c) => c.src === sourceImage),
+          cached,
+        ];
+      } catch (error) {
+        console.error("Shapes conversion failed:", error);
+        return;
+      } finally {
+        setViewBusy(null);
+      }
+    }
+    setIsSketchMode(false);
+    setShapeTones(count);
+    applyTraceImage(cached.url, keep);
   };
 
   // Generate image from text prompt using GrowthBook feature flag to decide API
@@ -1003,6 +1019,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       return;
     }
 
+    let spendId: string | undefined;
     try {
       const prompt = promptText?.trim();
       if (!prompt) return;
@@ -1023,12 +1040,18 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       });
 
       if (!creditRes.ok) {
-        const creditData = await creditRes.json();
-        throw new Error(creditData.error || "Failed to deduct credit");
+        const creditData = await creditRes.json().catch(() => ({}));
+        const msg = creditData.error || "Failed to deduct credit";
+        setIsGeneratingImage(false);
+        setAiStatus("error");
+        setAiErrorMessage(msg);
+        setAiProgressText(msg);
+        return;
       }
 
       const creditData = await creditRes.json();
       setUserCredits(creditData.credits);
+      spendId = creditData.spendId;
       setAiProgressText("Credit deducted. Generating image...");
 
       // Check GrowthBook feature flag to decide which API to use
@@ -1043,7 +1066,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         res = await fetch("/api/generate-image-gemini", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt }),
+          body: JSON.stringify({ prompt, spendId }),
         });
         data = await res.json();
 
@@ -1059,7 +1082,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           res = await fetch("/api/generate-image-wavespeed", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt: enhancedPrompt }),
+            body: JSON.stringify({ prompt: enhancedPrompt, spendId }),
           });
 
           setAiProgressText("Waiting for Wavespeed result...");
@@ -1071,7 +1094,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         res = await fetch("/api/generate-image-wavespeed", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt }),
+          body: JSON.stringify({ prompt, spendId }),
         });
 
         setAiProgressText("Waiting for Wavespeed result...");
@@ -1086,10 +1109,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         const restoreRes = await fetch("/api/restore-credits", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: session.user.email,
-            amount: 1,
-          }),
+          body: JSON.stringify({ spendId }),
         });
 
         if (restoreRes.ok) {
@@ -1113,6 +1133,8 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
 
       setActiveCourseLesson(null);
       setIsSketchMode(false);
+      setShapeTones(null);
+      setSketchImage(null);
       applyTraceImage(generatedUrl);
       setAiStatus("success");
       const finalSource = useGemini ? data?.source || "gemini" : "wavespeed";
@@ -1120,17 +1142,14 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
     } catch (err) {
       console.error("AI image generation error:", err);
 
-      // Return the credit since generation failed
-      if (session?.user?.email) {
+      // Return the credit since generation failed (only if one was taken)
+      if (session?.user?.email && spendId) {
         setAiProgressText("Generation failed. Returning credit...");
         try {
           const restoreRes = await fetch("/api/restore-credits", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email: session.user.email,
-              amount: 1,
-            }),
+            body: JSON.stringify({ spendId }),
           });
 
           if (restoreRes.ok) {
@@ -1459,6 +1478,11 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   const processImageLayers = useCallback(async () => {
     if (!sourceImage) return;
     setIsProcessingLayers(true);
+    // Let the drawer and its "processing" spinner paint before the heavy
+    // colour work blocks the main thread for a moment.
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => setTimeout(resolve, 30))
+    );
     try {
       const img = await loadHtmlImage(sourceImage);
       const canvas = document.createElement("canvas");
@@ -1468,11 +1492,19 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       canvas.height = img.naturalHeight;
       ctx.drawImage(img, 0, 0);
 
-      const imageData = ctx.getImageData(0, 0, img.naturalWidth, img.naturalHeight);
+      const imageData = ctx.getImageData(
+        0,
+        0,
+        img.naturalWidth,
+        img.naturalHeight
+      );
 
       const numColors = Math.min(
         12,
-        Math.max(4, Math.floor(Math.sqrt(img.naturalWidth * img.naturalHeight) / 200))
+        Math.max(
+          4,
+          Math.floor(Math.sqrt(img.naturalWidth * img.naturalHeight) / 200)
+        )
       );
 
       const dominantColors = extractDominantColors(imageData, numColors);
@@ -1540,12 +1572,12 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       // If minimized, just restore the drawer
       setIsLayersMinimized(false);
     } else if (!isLayersDrawerOpen) {
-      // If closed, process layers if needed and open
+      // Open first so the spinner shows, then work out the layers.
+      setShowLayers(true);
+      setIsLayersDrawerOpen(true);
       if (layers.length === 0 && sourceImage && !isProcessingLayers) {
         await processImageLayers();
       }
-      setShowLayers(true);
-      setIsLayersDrawerOpen(true);
     }
     // If already open and not minimized, do nothing (or could close if preferred)
   };
@@ -1573,9 +1605,15 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
 
   // Update camera initialization to use the current camera mode
   const initializeCamera = async (useFrontCamera: boolean = false) => {
+    // Restarting the camera would end a recording in progress.
+    if (isRecordingRef.current && streamRef.current) return;
     const initId = ++cameraInitIdRef.current;
+    cameraStartingRef.current = true;
     try {
-      console.log("Initializing camera...", useFrontCamera ? "front" : "back");
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraError(window.isSecureContext ? "unsupported" : "insecure");
+        return;
+      }
 
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
@@ -1593,15 +1631,13 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         stream = await openRearCameraStream();
       }
 
-      if (initId !== cameraInitIdRef.current) {
+      // A newer start began (or we left the page) while this one was waiting:
+      // drop this stream so it never keeps the camera on.
+      if (initId !== cameraInitIdRef.current || unmountedRef.current) {
         stream.getTracks().forEach((track) => track.stop());
         return;
       }
-
-      console.log(
-        "Camera stream obtained:",
-        stream.getVideoTracks()[0]?.label || stream
-      );
+      setCameraError(null);
 
       if (videoRef.current) {
         console.log("Setting video source...");
@@ -1634,21 +1670,37 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         if (!video.paused) {
           onPlaying();
         }
-
-        console.log("Camera initialized successfully");
       } else {
         stream.getTracks().forEach((track) => track.stop());
       }
     } catch (error) {
-      if (initId !== cameraInitIdRef.current) return;
-      console.error("Error accessing camera:", error);
-      alert(
-        "Could not access camera. Please ensure camera permissions are granted."
+      if (initId !== cameraInitIdRef.current || unmountedRef.current) return;
+      console.warn("Could not start the camera:", error);
+      const name = error instanceof DOMException ? error.name : "";
+      setCameraError(
+        name === "NotAllowedError" || name === "SecurityError"
+          ? "denied"
+          : name === "NotFoundError" || name === "OverconstrainedError"
+            ? "notfound"
+            : name === "NotReadableError" || name === "AbortError"
+              ? "busy"
+              : "unknown"
       );
+    } finally {
+      if (initId === cameraInitIdRef.current) cameraStartingRef.current = false;
     }
   };
 
+  /** Reopen the camera only if it isn't showing (after the photo picker, an app switch, a locked screen). */
   const ensureRearPreview = async () => {
+    // A start is already waiting (e.g. on the permission prompt), or the user
+    // blocked the camera: don't start another; they can tap "Try again".
+    if (
+      cameraStartingRef.current ||
+      (cameraErrorRef.current && cameraErrorRef.current !== "busy")
+    ) {
+      return;
+    }
     if (
       !shouldReopenCameraStream({
         stream: streamRef.current,
@@ -1670,6 +1722,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   };
 
   ensureRearPreviewRef.current = ensureRearPreview;
+  initializeCameraRef.current = initializeCamera;
 
   // // Add camera toggle function
   // const toggleCamera = async () => {
@@ -1724,21 +1777,22 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
               height: 8,
               backgroundColor: "red",
               borderRadius: "50%",
-              animation: "pulse 1s infinite",
+              animation: "pwp-trace-pulse 1s infinite",
             }}
           />
           REC {formatRecordingTime(recordingTime)}
         </Box>
       )}
 
-      {/* Course lesson banner */}
-      {activeCourseLesson && (
+      {/* Course lesson banner (can be closed so it doesn't cover the picture) */}
+      {activeCourseLesson && lessonTipOpen && (
         <Box
           sx={{
             position: "absolute",
-            top: 16,
+            top: "calc(16px + env(safe-area-inset-top))",
             left: 16,
-            right: onClose ? 140 : 72,
+            right: onClose ? 140 : 16,
+            pr: 5,
             zIndex: 100014,
             backgroundColor: "rgba(0,0,0,0.75)",
             backdropFilter: "blur(8px)",
@@ -1752,7 +1806,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
             variant="caption"
             sx={{ color: "rgba(255,255,255,0.5)", fontSize: "0.65rem" }}
           >
-            Day {activeCourseLesson.day} · {activeCourseLesson.subtitle}
+            {activeCourseLesson.label} · {activeCourseLesson.subtitle}
           </Typography>
           <Typography
             variant="body2"
@@ -1771,6 +1825,20 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           >
             {activeCourseLesson.tip}
           </Typography>
+          <IconButton
+            aria-label="Hide tip"
+            onClick={() => setLessonTipOpen(false)}
+            sx={{
+              position: "absolute",
+              top: 4,
+              right: 4,
+              width: 40,
+              height: 40,
+              color: "rgba(255,255,255,0.8)",
+            }}
+          >
+            <IconX size={18} />
+          </IconButton>
         </Box>
       )}
 
@@ -1797,28 +1865,30 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         </Box>
       )}
 
-      {/* User Account Button */}
-      <IconButton
-        onClick={handleUserMenuOpen}
-        sx={{
-          position: "absolute",
-          top: 16,
-          right: onClose ? 80 : 16,
-          zIndex: 100013,
-          width: isMobile ? 48 : 40,
-          height: isMobile ? 48 : 40,
-        }}
-      >
-        {session?.user?.image ? (
-          <Avatar
-            src={session.user.image}
-            alt={session.user.name || "User"}
-            sx={{ width: 24, height: 24 }}
-          />
-        ) : (
-          <IconUser size={isMobile ? 24 : 20} />
-        )}
-      </IconButton>
+      {/* User Account Button (only needed for AI credits) */}
+      {AI_ENABLED && (
+        <IconButton
+          onClick={handleUserMenuOpen}
+          sx={{
+            position: "absolute",
+            top: 16,
+            right: onClose ? 80 : 16,
+            zIndex: 100013,
+            width: isMobile ? 48 : 40,
+            height: isMobile ? 48 : 40,
+          }}
+        >
+          {session?.user?.image ? (
+            <Avatar
+              src={session.user.image}
+              alt={session.user.name || "User"}
+              sx={{ width: 24, height: 24 }}
+            />
+          ) : (
+            <IconUser size={isMobile ? 24 : 20} />
+          )}
+        </IconButton>
+      )}
 
       {/* Close Button */}
       {onClose && (
@@ -1867,6 +1937,28 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         />
       </Box>
 
+      {!image && !cameraError && (
+        <TraceWelcome fileInputId="image-upload" bottomOffset={bottomChromeHeight} />
+      )}
+
+      {recordedVideo && (
+        <RecordingSheet
+          video={recordedVideo}
+          onClose={() => {
+            URL.revokeObjectURL(recordedVideo.url);
+            setRecordedVideo(null);
+          }}
+        />
+      )}
+
+      {cameraError && (
+        <CameraHelp
+          kind={cameraError}
+          bottomOffset={bottomChromeHeight}
+          onRetry={() => void initializeCameraRef.current(false)}
+        />
+      )}
+
       {/* Trace Image Target (the element Moveable controls) */}
       {image && (
         <Box
@@ -1900,12 +1992,13 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
               {
                 width: "100%",
                 height: "100%",
-                opacity: strobeActive ? opacity : opacity,
+                objectFit: "contain",
+                opacity,
                 userSelect: "none",
                 touchAction: "none",
                 pointerEvents: "none",
                 animation: strobeActive
-                  ? "pulse-fade 3s ease-in-out infinite"
+                  ? "pwp-trace-pulse-fade 3s ease-in-out infinite"
                   : "none",
                 transition: strobeActive ? "none" : "opacity 0.3s ease",
                 "--max-opacity": opacity,
@@ -1923,6 +2016,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         !isFixed &&
         !isPinching && (
           <Moveable
+            ref={moveableRef}
             target={moveableBoxRef.current}
             container={containerRef.current} // ensures overlay is correct in full-screen overlays
             draggable
@@ -1948,9 +2042,6 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
             }}
             // Disable pinchable - using custom implementation
             pinchable={false}
-            sx={{
-              zIndex: 1000,
-            }}
           />
         )}
 
@@ -1966,8 +2057,20 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           backdropFilter: "blur(8px)",
           borderTop: "1px solid rgba(255,255,255,0.08)",
           zIndex: 100013,
+          // Keep buttons clear of the iPhone home bar / Android gesture bar.
+          paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
+        {sourceImage && (
+          <TraceViewPicker
+            view={traceView}
+            tones={shapeTones ?? lastShapeTones}
+            busy={viewBusy ?? (isConvertingToSketch ? "lines" : null)}
+            onPick={(v) => void showView(v)}
+            onTones={(n) => void showView("shapes", n)}
+          />
+        )}
+
         {/* Main Controls */}
         <Box
           sx={{
@@ -1979,7 +2082,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           }}
         >
           {/* AI Compact Input Bar (toggle with AI button) - Only show for logged in users */}
-          {aiPanelOpen && session?.user?.email && (
+          {AI_ENABLED && aiPanelOpen && session?.user?.email && (
             <Box
               sx={{
                 position: "absolute",
@@ -2054,7 +2157,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
                       border: "2px solid rgba(255,255,255,0.25)",
                       borderTop: "2px solid rgba(255,255,255,0.9)",
                       borderRadius: "50%",
-                      animation: "spin 1s linear infinite",
+                      animation: "pwp-trace-spin 1s linear infinite",
                     }}
                     title={aiProgressText || "Generating..."}
                   />
@@ -2099,464 +2202,41 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
             </Box>
           )}
 
-          {/* Left Group - Upload & Recording */}
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: { xs: 2, sm: 3 },
+          <input
+            accept="image/*"
+            style={{ display: "none" }}
+            id="image-upload"
+            type="file"
+            onClick={() => {
+              filePickerOpenRef.current = true;
             }}
-          >
-            {!isFrontCamera && (
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 0.5,
-                }}
-              >
-                <Box
-                  sx={{
-                    display: "flex",
-                    backgroundColor: "rgba(255,255,255,0.08)",
-                    border: "1px solid rgba(255,255,255,0.25)",
-                    borderRadius: 999,
-                    p: 0.25,
-                    height: 40,
-                    alignItems: "center",
-                  }}
-                >
-                  {(["0.5", "1"] as PreviewLens[]).map((lens) => {
-                    const selected = previewLens === lens;
-                    return (
-                      <Button
-                        key={lens}
-                        onClick={() => void handlePreviewLens(lens)}
-                        sx={{
-                          minWidth: 40,
-                          height: 34,
-                          px: 1.25,
-                          borderRadius: 999,
-                          textTransform: "none",
-                          fontWeight: 700,
-                          fontSize: 13,
-                          lineHeight: 1,
-                          color: selected ? "#111" : "rgba(255,255,255,0.95)",
-                          backgroundColor: selected ? "#fff" : "transparent",
-                          "&:hover": {
-                            backgroundColor: selected
-                              ? "#fff"
-                              : "rgba(255,255,255,0.1)",
-                          },
-                        }}
-                      >
-                        {lens === "1" ? "1×" : "0.5"}
-                      </Button>
-                    );
-                  })}
-                </Box>
-                <Typography
-                  variant="caption"
-                  sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.7rem" }}
-                >
-                  Lens
-                </Typography>
-              </Box>
-            )}
-
-            {/* Upload Button */}
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 0.5,
-              }}
-            >
-              <input
-                accept="image/*"
-                style={{ display: "none" }}
-                id="image-upload"
-                type="file"
-                onClick={() => {
-                  filePickerOpenRef.current = true;
-                }}
-                onChange={handleImageUpload}
-              />
-              <label htmlFor="image-upload">
-                <IconButton
-                  component="span"
-                  sx={{
-                    backgroundColor: "transparent",
-                    border: "1px solid rgba(255,255,255,0.2)",
-                    color: "rgba(255,255,255,0.9)",
-                    "&:hover": {
-                      backgroundColor: "rgba(255,255,255,0.05)",
-                      borderColor: "rgba(255,255,255,0.3)",
-                    },
-                    width: 40,
-                    height: 40,
-                  }}
-                >
-                  <IconUpload size={18} />
-                </IconButton>
-              </label>
-              <Typography
-                variant="caption"
-                sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.7rem" }}
-              >
-                Upload
-              </Typography>
-            </Box>
-
-            {/* Photo → Sketch toggle */}
-            {sourceImage && (
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 0.5,
-                }}
-              >
-                <IconButton
-                  onClick={handleSketchToggle}
-                  disabled={isConvertingToSketch}
-                  sx={{
-                    backgroundColor: isSketchMode
-                      ? "rgba(255,255,255,0.15)"
-                      : "transparent",
-                    border: `1px solid ${
-                      isSketchMode
-                        ? "rgba(255,255,255,0.35)"
-                        : "rgba(255,255,255,0.2)"
-                    }`,
-                    color: "rgba(255,255,255,0.9)",
-                    "&:hover": {
-                      backgroundColor: "rgba(255,255,255,0.08)",
-                      borderColor: "rgba(255,255,255,0.3)",
-                    },
-                    width: 40,
-                    height: 40,
-                  }}
-                  title={isSketchMode ? "Show original photo" : "Convert to sketch"}
-                >
-                  <IconBrush size={18} />
-                </IconButton>
-                <Typography
-                  variant="caption"
-                  sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.7rem" }}
-                >
-                  {isSketchMode ? "Original" : "Sketch"}
-                </Typography>
-              </Box>
-            )}
-
-            {/* AI Generate Button - Only show for logged in users */}
-            {session?.user?.email && (
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 0.5,
-                }}
-              >
-                <IconButton
-                  onClick={() => {
-                    setAiPanelOpen((v) => !v);
-                  }}
-                  disabled={isGeneratingImage}
-                  sx={{
-                    backgroundColor: isGeneratingImage
-                      ? "rgba(156,39,176,0.15)"
-                      : userCredits < 1
-                      ? "rgba(128,128,128,0.15)"
-                      : "transparent",
-                    border: `1px solid ${
-                      isGeneratingImage
-                        ? "rgba(156,39,176,0.35)"
-                        : userCredits < 1
-                        ? "rgba(128,128,128,0.3)"
-                        : "rgba(255,255,255,0.2)"
-                    }`,
-                    color: isGeneratingImage
-                      ? "#9c27b0"
-                      : userCredits < 1
-                      ? "rgba(128,128,128,0.7)"
-                      : "rgba(255,255,255,0.9)",
-                    "&:hover": {
-                      backgroundColor: isGeneratingImage
-                        ? "rgba(156,39,176,0.2)"
-                        : userCredits < 1
-                        ? "rgba(128,128,128,0.2)"
-                        : "rgba(255,255,255,0.05)",
-                      borderColor: isGeneratingImage
-                        ? "rgba(156,39,176,0.45)"
-                        : userCredits < 1
-                        ? "rgba(128,128,128,0.4)"
-                        : "rgba(255,255,255,0.3)",
-                    },
-                    width: 40,
-                    height: 40,
-                  }}
-                  title={
-                    userCredits < 1
-                      ? `Insufficient credits (${userCredits})`
-                      : "AI Image Generation"
-                  }
-                >
-                  <IconWand size={18} />
-                </IconButton>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color:
-                      userCredits < 1
-                        ? "rgba(128,128,128,0.6)"
-                        : "rgba(255,255,255,0.6)",
-                    fontSize: "0.7rem",
-                  }}
-                >
-                  AI
-                </Typography>
-              </Box>
-            )}
-
-            {/* Recording Button */}
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 0.5,
-              }}
-            >
-              <IconButton
-                onClick={isRecording ? stopRecording : startRecording}
-                sx={{
-                  backgroundColor: isRecording
-                    ? "rgba(244,67,54,0.15)"
-                    : "transparent",
-                  border: `1px solid ${
-                    isRecording
-                      ? "rgba(244,67,54,0.3)"
-                      : "rgba(255,255,255,0.2)"
-                  }`,
-                  color: isRecording ? "#f44336" : "rgba(255,255,255,0.9)",
-                  "&:hover": {
-                    backgroundColor: isRecording
-                      ? "rgba(244,67,54,0.2)"
-                      : "rgba(255,255,255,0.05)",
-                    borderColor: isRecording
-                      ? "rgba(244,67,54,0.4)"
-                      : "rgba(255,255,255,0.3)",
-                  },
-                  width: 40,
-                  height: 40,
-                }}
-              >
-                {isRecording ? (
-                  <IconPlayerStop size={18} />
-                ) : (
-                  <IconVideo size={18} />
-                )}
-              </IconButton>
-              <Typography
-                variant="caption"
-                sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.7rem" }}
-              >
-                {isRecording ? "Stop" : "Record"}
-              </Typography>
-            </Box>
+            onChange={handleImageUpload}
+          />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <TraceToolbar
+              fileInputId="image-upload"
+              hasImage={Boolean(image)}
+              isFixed={isFixed}
+              onToggleFixed={() => setIsFixed(!isFixed)}
+              strobeActive={strobeActive}
+              onToggleStrobe={() => setStrobeActive((v) => !v)}
+              onOpenLayers={handleLayersButtonClick}
+              isRecording={isRecording}
+              onToggleRecording={isRecording ? stopRecording : startRecording}
+              showAi={AI_ENABLED && Boolean(session?.user?.email)}
+              aiBusy={isGeneratingImage}
+              onToggleAi={() => setAiPanelOpen((v) => !v)}
+              onClose={onClose ?? undefined}
+              lens={isFrontCamera ? undefined : previewLens}
+              onToggleLens={() =>
+                void handlePreviewLens(previewLens === "1" ? "0.5" : "1")
+              }
+            />
           </Box>
-
-          {/* Center Group - Image Controls */}
-          {image && (
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: { xs: 2, sm: 3 },
-              }}
-            >
-              {/* Lock/Unlock */}
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 0.5,
-                }}
-              >
-                <IconButton
-                  onClick={() => setIsFixed(!isFixed)}
-                  sx={{
-                    backgroundColor: isFixed
-                      ? "rgba(244,67,54,0.15)"
-                      : "rgba(76,175,80,0.15)",
-                    border: `1px solid ${
-                      isFixed ? "rgba(244,67,54,0.3)" : "rgba(76,175,80,0.3)"
-                    }`,
-                    color: isFixed ? "#f44336" : "#4caf50",
-                    "&:hover": {
-                      backgroundColor: isFixed
-                        ? "rgba(244,67,54,0.2)"
-                        : "rgba(76,175,80,0.2)",
-                      borderColor: isFixed
-                        ? "rgba(244,67,54,0.4)"
-                        : "rgba(76,175,80,0.4)",
-                    },
-                    width: 36,
-                    height: 36,
-                  }}
-                >
-                  {isFixed ? (
-                    <IconLock size={16} />
-                  ) : (
-                    <IconLockOpen size={16} />
-                  )}
-                </IconButton>
-                <Typography
-                  variant="caption"
-                  sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.65rem" }}
-                >
-                  {isFixed ? "Locked" : "Move"}
-                </Typography>
-              </Box>
-
-              {/* Strobe */}
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 0.5,
-                }}
-              >
-                <IconButton
-                  onClick={() => setStrobeActive((v) => !v)}
-                  sx={{
-                    backgroundColor: strobeActive
-                      ? "rgba(255,193,7,0.2)"
-                      : "transparent",
-                    border: `1px solid ${
-                      strobeActive
-                        ? "rgba(255,193,7,0.4)"
-                        : "rgba(255,255,255,0.2)"
-                    }`,
-                    color: strobeActive ? "#ffc107" : "rgba(255,255,255,0.9)",
-                    "&:hover": {
-                      backgroundColor: strobeActive
-                        ? "rgba(255,193,7,0.25)"
-                        : "rgba(255,255,255,0.05)",
-                      borderColor: strobeActive
-                        ? "rgba(255,193,7,0.5)"
-                        : "rgba(255,255,255,0.3)",
-                    },
-                    width: 36,
-                    height: 36,
-                  }}
-                >
-                  {strobeActive ? (
-                    <IconBolt size={16} />
-                  ) : (
-                    <IconBoltOff size={16} />
-                  )}
-                </IconButton>
-                <Typography
-                  variant="caption"
-                  sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.65rem" }}
-                >
-                  Strobe
-                </Typography>
-              </Box>
-
-              {/* Layers */}
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 0.5,
-                }}
-              >
-                <IconButton
-                  onClick={handleLayersButtonClick}
-                  sx={{
-                    backgroundColor: showLayers
-                      ? "rgba(156,39,176,0.2)"
-                      : "transparent",
-                    border: `1px solid ${
-                      showLayers
-                        ? "rgba(156,39,176,0.4)"
-                        : "rgba(255,255,255,0.2)"
-                    }`,
-                    color: showLayers ? "#9c27b0" : "rgba(255,255,255,0.9)",
-                    "&:hover": {
-                      backgroundColor: showLayers
-                        ? "rgba(156,39,176,0.25)"
-                        : "rgba(255,255,255,0.05)",
-                      borderColor: showLayers
-                        ? "rgba(156,39,176,0.5)"
-                        : "rgba(255,255,255,0.3)",
-                    },
-                    width: 36,
-                    height: 36,
-                  }}
-                >
-                  <IconPalette size={16} />
-                </IconButton>
-                <Typography
-                  variant="caption"
-                  sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.65rem" }}
-                >
-                  Layers
-                </Typography>
-              </Box>
-            </Box>
-          )}
-
-          {/* Right Group - Close */}
-          {onClose && (
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 0.5,
-              }}
-            >
-              <IconButton
-                onClick={onClose}
-                sx={{
-                  backgroundColor: "transparent",
-                  border: "1px solid rgba(255,255,255,0.15)",
-                  color: "rgba(255,255,255,0.7)",
-                  "&:hover": {
-                    backgroundColor: "rgba(255,255,255,0.05)",
-                    borderColor: "rgba(255,255,255,0.25)",
-                    color: "rgba(255,255,255,0.9)",
-                  },
-                  width: 36,
-                  height: 36,
-                }}
-              >
-                <IconX size={16} />
-              </IconButton>
-              <Typography
-                variant="caption"
-                sx={{ color: "rgba(255,255,255,0.5)", fontSize: "0.65rem" }}
-              >
-                Close
-              </Typography>
-            </Box>
-          )}
         </Box>
 
         {/* Opacity Slider */}
-        {image && !isFixed && (
+        {image && (
           <Box
             sx={{
               borderTop: "1px solid rgba(255,255,255,0.05)",
@@ -2575,9 +2255,13 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
             >
               <Typography
                 variant="caption"
-                sx={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.7)" }}
+                sx={{
+                  fontSize: "0.8rem",
+                  color: "rgba(255,255,255,0.8)",
+                  whiteSpace: "nowrap",
+                }}
               >
-                Opacity
+                See-through
               </Typography>
 
               <Slider
@@ -2591,8 +2275,8 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
                   height: 4,
                   "& .MuiSlider-thumb": {
                     backgroundColor: "#fff",
-                    width: 12,
-                    height: 12,
+                    width: 24,
+                    height: 24,
                     border: "1px solid rgba(0,0,0,0.1)",
                     "&:hover": {
                       boxShadow: "0 0 0 6px rgba(255,255,255,0.1)",
@@ -2611,7 +2295,12 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
               />
               <Typography
                 variant="caption"
-                sx={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.9)" }}
+                sx={{
+                  fontSize: "0.8rem",
+                  color: "rgba(255,255,255,0.9)",
+                  minWidth: 36,
+                  textAlign: "right",
+                }}
               >
                 {Math.round(opacity * 100)}%
               </Typography>
@@ -2918,9 +2607,10 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         </Box>
       </Drawer>
 
-      {/* CSS for animations */}
-      <style jsx>{`
-        @keyframes pulse {
+      {/* CSS for animations. Global so the names match the inline
+          animation styles (scoped styled-jsx would rename them). */}
+      <style jsx global>{`
+        @keyframes pwp-trace-pulse {
           0% {
             opacity: 1;
           }
@@ -2932,7 +2622,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           }
         }
 
-        @keyframes pulse-fade {
+        @keyframes pwp-trace-pulse-fade {
           0% {
             opacity: var(--max-opacity);
           }
@@ -2943,7 +2633,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
             opacity: var(--max-opacity);
           }
         }
-        @keyframes spin {
+        @keyframes pwp-trace-spin {
           0% {
             transform: rotate(0deg);
           }

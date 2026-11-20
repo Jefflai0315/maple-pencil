@@ -1,30 +1,24 @@
-import { NextRequest, NextResponse } from "next/server";
-import { connectToDatabase } from "../../utils/mongodb";
+import { NextResponse } from "next/server";
+import { requireSessionEmail } from "@/lib/auth";
+import { getDb } from "../../utils/mongodb";
 
-export async function POST(request: NextRequest) {
+export const dynamic = "force-dynamic";
+
+// Whether the signed-in user has an account. Only ever answers for the
+// signed-in user, and only returns non-sensitive fields.
+export async function POST() {
+  const email = await requireSessionEmail();
+  if (email instanceof NextResponse) return email;
+
   try {
-    const { email } = await request.json();
+    const db = await getDb();
+    const user = await db
+      .collection("user")
+      .findOne({ email }, { projection: { _id: 0, name: 1, credits: 1, level: 1 } });
 
-    if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
-    }
-
-    const { db } = await connectToDatabase();
-
-    // Check if user exists in the "user" collection
-    const existingUser = await db.collection("user").findOne({
-      email: email,
-    });
-
-    return NextResponse.json({
-      exists: !!existingUser,
-      user: existingUser || null,
-    });
+    return NextResponse.json({ exists: !!user, user: user || null });
   } catch (error) {
     console.error("Error checking user:", error);
-    return NextResponse.json(
-      { error: "Failed to check user" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to check user" }, { status: 500 });
   }
 }

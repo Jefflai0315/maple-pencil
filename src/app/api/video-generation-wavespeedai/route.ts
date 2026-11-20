@@ -1,20 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MongoClient } from "mongodb";
+import { sharedClient as client } from "@/app/utils/mongodb";
 import cloudinary from "cloudinary";
 import { videoPrompts } from "@/app/utils/constants";
+import { getSessionEmail } from "@/lib/auth";
+import { claimSpend, markSpendSucceeded } from "@/lib/credits";
 
-const uri = process.env.MONGODB_URI;
 const WAVESPEED_API_KEY = process.env.WAVESPEED_API_KEY;
 
-if (!uri) throw new Error("Please add your Mongo URI to .env");
-if (!WAVESPEED_API_KEY)
-  throw new Error("Please add your Wavespeed API key to .env");
-
-const client = new MongoClient(uri, {
-  maxPoolSize: 10,
-  serverSelectionTimeoutMS: 10000,
-  socketTimeoutMS: 45000,
-});
+// Wavespeed is polled inside this request, so allow up to 5 minutes on Vercel.
+export const maxDuration = 300;
 
 interface VideoGenerationTask {
   taskId: string;
@@ -60,6 +54,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Missing imageUrl or userDetails.name" },
         { status: 400 }
+      );
+    }
+    if (!WAVESPEED_API_KEY) {
+      return NextResponse.json({ error: "Video generation is not configured" }, { status: 500 });
+    }
+    const email = await getSessionEmail();
+    if (!email) {
+      return NextResponse.json({ error: "Please sign in first" }, { status: 401 });
+    }
+    // Only accept image data or images already in our own Cloudinary account
+    // (the server fetches this URL, so arbitrary URLs are not allowed).
+    if (
+      typeof imageUrl !== "string" ||
+      !(imageUrl.startsWith("data:image/") || imageUrl.startsWith("https://res.cloudinary.com/"))
+    ) {
+      return NextResponse.json({ error: "Unsupported image source" }, { status: 400 });
+    }
+    if (!(await claimSpend(body?.spendId, email))) {
+      return NextResponse.json(
+        { error: "No credit available for this request. Please try again." },
+        { status: 402 }
       );
     }
 
@@ -144,6 +159,12 @@ export async function POST(request: NextRequest) {
     while (["created", "processing", "queued"].includes(pollStatus)) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       pollCount++;
+      // Stop well before the 5-minute function limit so the task is saved as failed.
+      if (pollCount > 240) {
+        errorMessage = "WavespeedAI took too long";
+        status = "failed";
+        break;
+      }
       const pollRes = await fetch(
         `https://api.wavespeed.ai/api/v3/predictions/${requestId}/result`,
         { headers: { Authorization: `Bearer ${WAVESPEED_API_KEY}` } }
@@ -298,6 +319,7 @@ export async function POST(request: NextRequest) {
 
     await client.close();
     if (status === "success") {
+      await markSpendSucceeded(body?.spendId);
       return NextResponse.json({
         success: true,
         taskId,

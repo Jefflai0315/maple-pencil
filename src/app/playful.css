@@ -1,0 +1,155 @@
+/* ============================================================
+   Playing with Pencil — notebook design system (superr.ai style)
+   Warm paper, brown ink, soft serif display, gentle shadows.
+   Scoped under .pwp so it never leaks into the app / game.
+   ============================================================ */
+
+.pwp {
+  /* Paper & ink */
+  --pwp-paper: #fdfbf9;
+  --pwp-card: #fffcf9;
+  --pwp-cream: #f7efe9;
+  --pwp-ink: #2b1a07;
+  --pwp-muted: #8a7b6a;
+
+  /* Lines */
+  --pwp-line: #ded6d2;
+  --pwp-dash: #d2bbad;
+  --pwp-guide: rgba(141, 113, 90, 0.1);
+
+  /* Accents (used on words, not surfaces) */
+  --pwp-orange: #ff6f1e;
+  --pwp-orange-deep: #ce500a;
+  --pwp-green: #22c55e;
+  --pwp-blue: #3b82f6;
+  --pwp-pink: #ff66cf;
+
+  /* Gelica first: if it's ever loaded (e.g. Adobe Fonts), it wins automatically */
+  --pwp-font-display: "Gelica", "gelica", "Fraunces", Georgia, serif;
+  --pwp-font-body: var(--font-geist-sans), "Geist", system-ui, sans-serif;
+  --pwp-font-hand: "Shantell Sans", cursive;
+  --pwp-font-script: "Sue Ellen Francisco", cursive;
+
+  color: var(--pwp-ink);
+  background-color: var(--pwp-paper);
+  font-family: var(--pwp-font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Typography ---------- */
+.pwp-display {
+  font-family: var(--pwp-font-display);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.005em;
+  /* Fraunces SOFT axis maxed = rounded serifs, closest free match to Gelica */
+  font-variation-settings: "SOFT" 100;
+  font-optical-sizing: auto;
+}
+.pwp-hand {
+  font-family: var(--pwp-font-hand);
+  font-weight: 500;
+}
+.pwp-script {
+  font-family: var(--pwp-font-script);
+}
+.pwp-muted {
+  color: var(--pwp-muted);
+}
+
+/* ---------- Backgrounds ---------- */
+.pwp-paper-bg { background-color: var(--pwp-paper); }
+.pwp-cream-bg { background-color: var(--pwp-cream); }
+
+/* Faint vertical notebook guide lines */
+.pwp-guides {
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--pwp-guide) 0px,
+    var(--pwp-guide) 2px,
+    transparent 2px,
+    transparent 150px
+  );
+}
+
+/* ---------- Buttons (white pill, thin brown outline, lift on hover) ---------- */
+.pwp-btn {
+  display: inline-block;
+  background: var(--pwp-paper);
+  padding: 4px;
+  border-radius: 20px;
+  border: none;
+  box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.25);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  text-decoration: none;
+}
+.pwp-btn:hover {
+  box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.15);
+  transform: translateY(-4px);
+}
+.pwp-btn-inner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  background: var(--pwp-paper);
+  border: 2.3px solid var(--pwp-ink);
+  border-radius: 16px;
+  padding: 10px 20px;
+  font-family: var(--pwp-font-display);
+  font-variation-settings: "SOFT" 100;
+  font-size: 19px;
+  font-weight: 500;
+  color: var(--pwp-ink);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.pwp-btn--orange .pwp-btn-inner {
+  background: var(--pwp-orange);
+  color: #fff;
+}
+.pwp-btn--sm .pwp-btn-inner {
+  font-size: 16px;
+  padding: 7px 16px;
+  border-radius: 13px;
+}
+
+/* ---------- Panels (feature cards) ---------- */
+.pwp-panel {
+  background: var(--pwp-card);
+  border: 2px solid var(--pwp-ink);
+  border-radius: 12px;
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.06);
+}
+
+/* Thin list divider */
+.pwp-line-div {
+  height: 1px;
+  width: 100%;
+  background: var(--pwp-line);
+  border: none;
+}
+
+/* Dashed divider (FAQ style) */
+.pwp-dash-div {
+  border: none;
+  border-top: 2px dashed var(--pwp-dash);
+}
+
+/* ---------- Motion ---------- */
+.pwp-float { animation: pwp-float 5s ease-in-out infinite; }
+@keyframes pwp-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.pwp-wiggle { animation: pwp-wiggle 6s ease-in-out infinite; }
+@keyframes pwp-wiggle {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pwp-float, .pwp-wiggle { animation: none; }
+  .pwp-btn:hover { transform: none; }
+}

@@ -1,55 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
-import { connectToDatabase } from "../../utils/mongodb";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { getDb } from "../../utils/mongodb";
 
+export const dynamic = "force-dynamic";
+
+// Creates the account for the signed-in Google user (never for an email sent
+// in the body).
 export async function POST(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  const email = session?.user?.email?.trim().toLowerCase();
+  if (!email) {
+    return NextResponse.json({ success: false, error: "Please sign in first" }, { status: 401 });
+  }
+
   try {
-    const { email, name } = await request.json();
+    const body = await request.json().catch(() => ({}));
+    const name =
+      (typeof body?.name === "string" && body.name.trim().slice(0, 100)) ||
+      session?.user?.name ||
+      email.split("@")[0];
 
-    if (!email || !name) {
-      return NextResponse.json(
-        { success: false, error: "Email and name are required" },
-        { status: 400 }
-      );
-    }
-
-    const { db } = await connectToDatabase();
-
-    // Check if user already exists
+    const db = await getDb();
     const existingUser = await db.collection("user").findOne({ email });
     if (existingUser) {
-      return NextResponse.json(
-        { success: false, error: "User already exists" },
-        { status: 409 }
-      );
+      return NextResponse.json({ success: false, error: "User already exists" }, { status: 409 });
     }
 
-    console.log("Creating new user:", email, name, db);
-
-    // Create new user with default values
     const newUser = {
       email,
       name,
-      level: "user", // Default level
-      credits: 0, // Starting credits is 0
+      level: "user",
+      credits: 0,
       boards: ["Sembawang-west"],
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-
     const result = await db.collection("user").insertOne(newUser);
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: result.insertedId,
-        ...newUser,
-      },
-    });
+    return NextResponse.json({ success: true, data: { id: result.insertedId, ...newUser } });
   } catch (error) {
     console.error("Error creating user:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to create user" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: "Failed to create user" }, { status: 500 });
   }
 }

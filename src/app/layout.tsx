@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "./App.css";
+import "./playful.css";
 import Providers from "./Providers";
 
 const geistSans = Geist({
@@ -58,43 +59,30 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { rel: "shortcut icon", url: "/favicon.svg" },
-      { rel: "icon", url: "favicon-32x32.png", sizes: "32x32" },
-      { rel: "icon", url: "favicon-16x16.png", sizes: "16x16" },
-      { rel: "apple-touch-icon", url: "touch-icon-iphone.png" },
-      {
-        rel: "apple-touch-icon",
-        url: "apple-touch-icon-152x152.png",
-        sizes: "152x152",
-      },
-      {
-        rel: "apple-touch-icon",
-        url: "apple-touch-icon-180x180.png",
-        sizes: "180x180",
-      },
-      {
-        rel: "apple-touch-icon",
-        url: "apple-touch-icon-167x167.png",
-        sizes: "167x167",
-      },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/favicon-16.png", sizes: "16x16", type: "image/png" },
     ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
   },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
-    title: "Jeff Lai",
+    statusBarStyle: "black",
+    title: "Pencil",
   },
   formatDetection: {
     telephone: false,
   },
+};
+
+// Pinch-zoom stays allowed on normal pages (accessibility); the trace tool
+// turns it off in its own layout because pinching resizes the picture there.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
   themeColor: "#000000",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    viewportFit: "cover",
-  },
 };
 
 export default function RootLayout({
@@ -105,17 +93,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
-        />
-        <meta name="theme-color" content="#000000" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Jeff Lai" />
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="msapplication-config" content="/browserconfig.xml" />
         <meta name="msapplication-TileColor" content="#000000" />
         <meta name="msapplication-tap-highlight" content="no" />
 
@@ -159,19 +139,10 @@ export default function RootLayout({
         <meta name="twitter:creator" content="@jefflai" />
 
         {/* <link rel="apple-touch-icon" href="/jeff-182x182.png" /> */}
-        <link rel="manifest" href="/manifest.json" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Fraunces:opsz,wght,SOFT@9..144,300..700,0..100&family=Shantell+Sans:wght@400;500;700&family=Sue+Ellen+Francisco&display=swap"
           rel="stylesheet"
         />
-        <script
-          src="https://aframe.io/releases/1.2.0/aframe.min.js"
-          async
-        ></script>
-        <script
-          src="https://cdn.rawgit.com/jeromeetienne/AR.js/2.1.7/aframe/build/aframe-ar.js"
-          async
-        ></script>
 
         {/* Google Analytics */}
         <script

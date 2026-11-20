@@ -44,11 +44,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Error in submit-form API route:", error);
     return NextResponse.json(
-      {
-        message:
-          error instanceof Error ? error.message : "Failed to submit form",
-        details: error instanceof Error ? error.stack : undefined,
-      },
+      { message: "Failed to submit form. Please try again." },
       { status: 500 }
     );
   }

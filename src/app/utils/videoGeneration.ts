@@ -28,6 +28,7 @@ export interface VideoGenerationRequest {
   model?: string;
   duration?: number;
   resolution?: string;
+  spendId?: string; // credit spend id from /api/check-credits (deduct)
 }
 
 export interface VideoGenerationResponse {
@@ -175,7 +176,8 @@ export async function generateVideoFromImage(
   imageUrl: string,
   userDetails: { name: string; description: string },
   prompt?: string,
-  onProgress?: (status: string, progress?: number) => void
+  onProgress?: (status: string, progress?: number) => void,
+  spendId?: string
 ): Promise<VideoGenerationTask | null> {
   try {
     // Step 1: Create video generation task
@@ -185,6 +187,7 @@ export async function generateVideoFromImage(
       imageUrl,
       prompt,
       userDetails,
+      spendId,
     });
 
     // Check if it's a failure (like insufficient balance)
@@ -274,7 +277,8 @@ export async function generateVideoFromImageWithProvider(
   imageUrl: string,
   userDetails: { name: string; description: string },
   prompt?: string,
-  onProgress?: (status: string, progress?: number) => void
+  onProgress?: (status: string, progress?: number) => void,
+  spendId?: string
 ): Promise<VideoGenerationTask | null> {
   if (provider === "wavespeedai") {
     // Call your new server API route
@@ -283,7 +287,7 @@ export async function generateVideoFromImageWithProvider(
       const response = await fetch("/api/video-generation-wavespeedai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl, prompt, userDetails }),
+        body: JSON.stringify({ imageUrl, prompt, userDetails, spendId }),
       });
       const data = await response.json();
       if (!response.ok || !data.success) {
@@ -325,6 +329,7 @@ export async function generateVideoFromImageWithProvider(
     imageUrl,
     userDetails,
     prompt,
-    onProgress
+    onProgress,
+    spendId
   );
 }

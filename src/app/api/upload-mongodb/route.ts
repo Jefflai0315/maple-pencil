@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
-import { MongoClient, ObjectId } from "mongodb";
+import { ObjectId } from "mongodb";
+import { sharedClient as client } from "@/app/utils/mongodb";
+import { getSessionEmail } from "@/lib/auth";
 
 // Configure Cloudinary
 cloudinary.config({
@@ -9,17 +11,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// MongoDB connection with simplified options
-const uri = process.env.MONGODB_URI;
-if (!uri) {
-  throw new Error("Please add your Mongo URI to .env");
-}
 
-const client = new MongoClient(uri, {
-  maxPoolSize: 10,
-  serverSelectionTimeoutMS: 10000,
-  socketTimeoutMS: 45000,
-});
 
 interface MuralItem {
   _id?: ObjectId;
@@ -49,13 +41,19 @@ interface MuralItem {
 export async function POST(request: NextRequest) {
   let clientConnected = false;
   try {
+    // Only signed-in users can add to the wall, and the email always comes
+    // from their session (never from the form).
+    const sessionEmail = await getSessionEmail();
+    if (!sessionEmail) {
+      return NextResponse.json({ error: "Please sign in first" }, { status: 401 });
+    }
     const formData = await request.formData();
     const file = formData.get("file") as File;
     const name = formData.get("name") as string;
     const description = formData.get("description") as string;
     const videoUrlFromForm = formData.get("videoUrl") as string;
     const uploadSource = (formData.get("uploadSource") as string) || "file";
-    const userEmail = formData.get("userEmail") as string;
+    const userEmail = sessionEmail;
     const muralItemId = formData.get("muralItemId") as string; // Get the mural item ID from client
     const finalMuralGridPosition = formData.get(
       "finalMuralGridPosition"
@@ -63,6 +61,10 @@ export async function POST(request: NextRequest) {
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    }
+
+    if (videoUrlFromForm && !/^https:\/\//.test(videoUrlFromForm)) {
+      return NextResponse.json({ error: "Invalid video URL" }, { status: 400 });
     }
 
     // Validate file type
@@ -219,6 +221,13 @@ export async function POST(request: NextRequest) {
       try {
         existingItem = await collection.findOne({
           _id: new ObjectId(muralItemId),
+          // Only the user's own item, or one created moments ago by their own
+          // video generation (which has no email yet), may be updated.
+          $or: [
+            { "userDetails.email": userEmail },
+            { "userDetails.email": { $in: [null, ""] } },
+            { "userDetails.email": { $exists: false } },
+          ],
         });
 
         if (existingItem) {
@@ -417,7 +426,22 @@ export async function GET() {
     const collection = db.collection("mural-items");
 
     // Get all items
-    const items = await collection.find({}).sort({ timestamp: -1 }).toArray();
+    // Public wall: never send emails, IP addresses or browser details.
+    const items = await collection
+      .find(
+        {},
+        {
+          projection: {
+            "userDetails.email": 0,
+            "userDetails.ipAddress": 0,
+            "userDetails.sessionId": 0,
+            "userDetails.userId": 0,
+            "metadata.browserInfo": 0,
+          },
+        }
+      )
+      .sort({ timestamp: -1 })
+      .toArray();
 
     console.log("📊 Fetched", items.length, "items from MongoDB");
 
