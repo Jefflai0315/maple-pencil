@@ -47,42 +47,30 @@ const withPWAConfig = withPWA({
         },
       },
     },
-    // Cache API calls with network-first strategy
+    // NOTE: Workbox tests a RegExp against the FULL url ("https://host/..."),
+    // so same-origin rules must be functions that look at url.pathname.
+    // Functions are copied into sw.js as-is, so they can't use outer variables.
+
+    // API responses (accounts, credits, uploads) are never cached.
     {
-      urlPattern: /^\/api\/.*/i,
+      urlPattern: ({ url, sameOrigin }: { url: URL; sameOrigin: boolean }) =>
+        sameOrigin && url.pathname.startsWith("/api/"),
+      handler: "NetworkOnly",
+      options: {}, // next-pwa's offline fallback expects an options object
+    },
+    // Pages: try the network, fall back to the last copy so the trace tool
+    // still opens with no signal.
+    {
+      urlPattern: ({ request, sameOrigin }: { request: Request; sameOrigin: boolean }) =>
+        sameOrigin && request.mode === "navigate",
       handler: "NetworkFirst",
       options: {
-        cacheName: "api-cache",
+        cacheName: "pages",
+        networkTimeoutSeconds: 5,
         expiration: {
-          maxEntries: 50,
-          maxAgeSeconds: 24 * 60 * 60, // 24 hours
+          maxEntries: 30,
+          maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
         },
-        networkTimeoutSeconds: 10, // Fall back to cache after 10 seconds
-      },
-    },
-    // Cache the main page with cache-first strategy for better offline experience
-    {
-      urlPattern: /^\/$/,
-      handler: "CacheFirst",
-      options: {
-        cacheName: "main-page",
-        expiration: {
-          maxEntries: 1,
-          maxAgeSeconds: 24 * 60 * 60, // 24 hours
-        },
-      },
-    },
-    // Cache other pages with network-first strategy
-    {
-      urlPattern: /^\/.*/i,
-      handler: "NetworkFirst",
-      options: {
-        cacheName: "pages-cache",
-        expiration: {
-          maxEntries: 50,
-          maxAgeSeconds: 24 * 60 * 60, // 24 hours
-        },
-        networkTimeoutSeconds: 10,
       },
     },
   ],

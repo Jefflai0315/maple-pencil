@@ -1,34 +1,20 @@
 {
-    "name": "Jeff Lai - Playing with pencil and art",
-    "short_name": "Jeff Lai",
-    "description": "Playing with pencil and art",
-    "start_url": "/",
-    "display": "standalone",
-    "background_color": "#ffffff",
-    "theme_color": "#000000",
-    "orientation": "portrait-primary",
-    "scope": "/",
-    "categories": ["art", "portfolio", "creative"],
-    "lang": "en",
-    "prefer_related_applications": false,
-    "icons": [
-        {
-            "src": "/jeff-face.png",
-            "sizes": "110x110",
-            "type": "image/png",
-            "purpose": "maskable any"
-        },
-        {
-            "src": "/jeff-182x182.png",
-            "sizes": "182x182",
-            "type": "image/png",
-            "purpose": "maskable any"
-        },
-        {
-            "src": "/jeff.png",
-            "sizes": "512x512",
-            "type": "image/png",
-            "purpose": "maskable any"
-        }
-    ]
+  "name": "Playing with Pencil — Trace Tool",
+  "short_name": "Pencil",
+  "description": "Trace any picture onto paper with your phone. Drawing is just shapes.",
+  "id": "/copy",
+  "start_url": "/copy",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "categories": ["art", "education", "creative"],
+  "lang": "en",
+  "prefer_related_applications": false,
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
 }

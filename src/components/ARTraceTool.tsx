@@ -46,6 +46,7 @@ import type { CourseLesson } from "@/data/lessons";
 import CameraHelp from "./CameraHelp";
 import TraceToolbar from "./TraceToolbar";
 import TraceWelcome from "./TraceWelcome";
+import RecordingSheet, { type RecordedVideo } from "./RecordingSheet";
 import TraceViewPicker, { type TraceView } from "./TraceViewPicker";
 import { toneShapesFromDataUrl, type ToneCount } from "@/lib/shapes";
 import {
@@ -432,6 +433,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
 
   // Video recording state
   const [isRecording, setIsRecording] = useState(false);
+  const [recordedVideo, setRecordedVideo] = useState<RecordedVideo | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -639,122 +641,15 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         }
       };
 
-      mediaRecorder.onstop = async () => {
+      mediaRecorder.onstop = () => {
         const blob = new Blob(chunks, { type: mimeType });
+        if (!blob.size) return;
         const fileExtension = mimeType.includes("mp4") ? "mp4" : "webm";
-
-        // Create download link for mobile devices
-        const url = URL.createObjectURL(blob);
-
-        if (isMobile) {
-          try {
-            // Method 1: Try direct download first
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `ar-trace-${Date.now()}.${fileExtension}`;
-            link.style.display = "none";
-            document.body.appendChild(link);
-
-            // For iOS Safari, try different approaches
-            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-              // iOS Safari - try to trigger download, fallback to new tab
-              try {
-                link.click();
-                setTimeout(() => {
-                  document.body.removeChild(link);
-                  URL.revokeObjectURL(url);
-                }, 1000);
-
-                // Show user instructions for iOS
-                setTimeout(() => {
-                  alert(
-                    "Video recorded! If download didn't start automatically:\n1. Tap the video in the new tab\n2. Tap the share button\n3. Select 'Save to Photos'"
-                  );
-                }, 2000);
-              } catch (iosError) {
-                console.warn(
-                  "iOS direct download failed, opening in new tab:",
-                  iosError
-                );
-                window.open(url, "_blank");
-                document.body.removeChild(link);
-                setTimeout(() => URL.revokeObjectURL(url), 5000);
-
-                alert(
-                  "Video opened in new tab. Tap and hold the video, then select 'Save to Photos' or 'Download'."
-                );
-              }
-            } else {
-              // Android and other mobile browsers
-              try {
-                link.click();
-                setTimeout(() => {
-                  document.body.removeChild(link);
-                  URL.revokeObjectURL(url);
-                }, 1000);
-
-                alert(
-                  "Video saved! Check your Downloads folder or Gallery app."
-                );
-              } catch (androidError) {
-                console.warn("Android direct download failed:", androidError);
-
-                // Fallback: Try opening in new tab
-                window.open(url, "_blank");
-                document.body.removeChild(link);
-                setTimeout(() => URL.revokeObjectURL(url), 5000);
-
-                alert(
-                  "Download blocked by browser. Video opened in new tab - please save manually using browser's download option."
-                );
-              }
-            }
-          } catch (error) {
-            console.error("Mobile download error:", error);
-
-            // Final fallback: Show blob URL to user
-            const fallbackMsg = `Recording saved but download was blocked by your browser or ad blocker.\n\nTo save the video:\n1. Copy this URL: ${url}\n2. Paste it in a new browser tab\n3. Right-click the video and select 'Save video as'`;
-
-            if (
-              confirm(fallbackMsg + "\n\nWould you like to copy the URL now?")
-            ) {
-              try {
-                await navigator.clipboard.writeText(url);
-                alert(
-                  "URL copied to clipboard! Paste it in a new tab to access your video."
-                );
-              } catch (clipboardError) {
-                console.warn("Clipboard access denied:", clipboardError);
-                prompt("Copy this URL to access your video:", url);
-              }
-            }
-
-            // Keep URL alive longer for manual access
-            setTimeout(() => URL.revokeObjectURL(url), 30000);
-          }
-        } else {
-          // Desktop - standard download
-          try {
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `ar-trace-${Date.now()}.${fileExtension}`;
-            link.style.display = "none";
-            document.body.appendChild(link);
-            link.click();
-
-            setTimeout(() => {
-              document.body.removeChild(link);
-              URL.revokeObjectURL(url);
-            }, 1000);
-
-            alert("Video saved to your Downloads folder!");
-          } catch (desktopError) {
-            console.error("Desktop download error:", desktopError);
-            alert(
-              "Download failed. Please check your browser's download settings and try again."
-            );
-          }
-        }
+        const file = new File([blob], `my-drawing-${Date.now()}.${fileExtension}`, {
+          type: mimeType.split(";")[0],
+        });
+        // Show the save sheet; saving needs the user's tap (iPhone rule).
+        setRecordedVideo({ url: URL.createObjectURL(blob), file });
       };
 
       mediaRecorderRef.current = mediaRecorder;
@@ -990,6 +885,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
     (lesson: CourseLesson) => {
       setActiveCourseLesson(lesson);
       setLessonTipOpen(true);
+      setSketchImage(null);
       setOpacity(lesson.suggestedOpacity);
       setStrobeActive(lesson.useStrobe);
       setIsSketchMode(false);
@@ -1040,7 +936,13 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       }
     } catch (error) {
       console.error("Image upload failed:", error);
-      alert("Could not load that image. Please try another photo.");
+      const isHeic =
+        /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
+      alert(
+        isHeic
+          ? "This phone can't open HEIC photos (the iPhone photo format). Take a screenshot of the photo and pick the screenshot, or send it as a JPG."
+          : "Could not load that image. Please try another photo."
+      );
     } finally {
       URL.revokeObjectURL(objectUrl);
     }
@@ -1232,6 +1134,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       setActiveCourseLesson(null);
       setIsSketchMode(false);
       setShapeTones(null);
+      setSketchImage(null);
       applyTraceImage(generatedUrl);
       setAiStatus("success");
       const finalSource = useGemini ? data?.source || "gemini" : "wavespeed";
@@ -1575,6 +1478,11 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   const processImageLayers = useCallback(async () => {
     if (!sourceImage) return;
     setIsProcessingLayers(true);
+    // Let the drawer and its "processing" spinner paint before the heavy
+    // colour work blocks the main thread for a moment.
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => setTimeout(resolve, 30))
+    );
     try {
       const img = await loadHtmlImage(sourceImage);
       const canvas = document.createElement("canvas");
@@ -1664,12 +1572,12 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       // If minimized, just restore the drawer
       setIsLayersMinimized(false);
     } else if (!isLayersDrawerOpen) {
-      // If closed, process layers if needed and open
+      // Open first so the spinner shows, then work out the layers.
+      setShowLayers(true);
+      setIsLayersDrawerOpen(true);
       if (layers.length === 0 && sourceImage && !isProcessingLayers) {
         await processImageLayers();
       }
-      setShowLayers(true);
-      setIsLayersDrawerOpen(true);
     }
     // If already open and not minimized, do nothing (or could close if preferred)
   };
@@ -2031,6 +1939,16 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
 
       {!image && !cameraError && (
         <TraceWelcome fileInputId="image-upload" bottomOffset={bottomChromeHeight} />
+      )}
+
+      {recordedVideo && (
+        <RecordingSheet
+          video={recordedVideo}
+          onClose={() => {
+            URL.revokeObjectURL(recordedVideo.url);
+            setRecordedVideo(null);
+          }}
+        />
       )}
 
       {cameraError && (
