@@ -33,7 +33,7 @@ export default function SiteNav() {
         zIndex: 1000,
         paddingTop: scrolled ? 4 : 16,
         paddingBottom: scrolled ? 4 : 0,
-        background: scrolled ? "rgba(253,251,249,0.94)" : "transparent",
+        background: scrolled ? "rgba(246,240,228,0.95)" : "transparent",
         backdropFilter: scrolled ? "blur(8px)" : "none",
         WebkitBackdropFilter: scrolled ? "blur(8px)" : "none",
         boxShadow: scrolled ? "0 1px 0 var(--pwp-line)" : "none",
@@ -91,7 +91,7 @@ export default function SiteNav() {
           </div>
 
           {/* CTA — superr-style pill */}
-          <Link href="/copy" className="pwp-btn pwp-btn--sm pwp-btn--orange pwp-nav-cta">
+          <Link href="/copy" className="pwp-btn pwp-btn--sm pwp-btn--gold pwp-nav-cta">
             <span className="pwp-btn-inner">Start drawing</span>
           </Link>
 
@@ -140,7 +140,7 @@ export default function SiteNav() {
           <Link
             href="/copy"
             onClick={() => setOpen(false)}
-            className="pwp-btn pwp-btn--orange"
+            className="pwp-btn pwp-btn--gold"
             style={{ alignSelf: "flex-start" }}
           >
             <span className="pwp-btn-inner">Start drawing</span>

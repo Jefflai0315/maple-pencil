@@ -105,6 +105,10 @@
   line-height: 1.2;
   white-space: nowrap;
 }
+.pwp-btn--gold .pwp-btn-inner {
+  background: #ffcf41;
+  color: var(--pwp-ink);
+}
 .pwp-btn--orange .pwp-btn-inner {
   background: var(--pwp-orange);
   color: #fff;

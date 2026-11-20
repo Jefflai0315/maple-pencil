@@ -5,7 +5,7 @@ export default function SiteFooter() {
     <footer
       className="pwp"
       style={{
-        backgroundColor: "#ff6f1e",
+        backgroundColor: "#2c2416",
         borderTopLeftRadius: 48,
         borderTopRightRadius: 48,
         overflow: "clip",
@@ -88,7 +88,7 @@ export default function SiteFooter() {
             className="pwp-script"
             aria-hidden
             style={{
-              color: "#fdfbf9",
+              color: "#ffcf41",
               fontSize: "clamp(56px, 11.5vw, 190px)",
               lineHeight: 0.95,
               textAlign: "center",
@@ -109,7 +109,7 @@ export default function SiteFooter() {
               paddingBottom: 8,
               fontSize: 17,
               fontWeight: 500,
-              color: "#ce500a",
+              color: "rgba(253, 251, 249, 0.6)",
             }}
           >
             <span>© {new Date().getFullYear()} Jeff Lai · Playing with Pencil</span>
