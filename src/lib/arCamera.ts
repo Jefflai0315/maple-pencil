@@ -81,10 +81,23 @@ export function targetPreviewZoom(
   zoom: ZoomRange | null,
   lens: PreviewLens
 ): number | null {
-  if (!zoom) return lens === "0.5" ? 0.5 : 1;
-  if (lens === "0.5") return zoom.min;
+  if (lens === "0.5") {
+    // Safari often reports zoom.min as 1 even on DualWide. Still ask for 0.5.
+    if (zoom && zoom.min < 0.99) return zoom.min;
+    return 0.5;
+  }
+  if (!zoom) return 1;
   if (zoom.min <= 1 && zoom.max >= 1) return 1;
   return zoom.min;
+}
+
+/** Cover fills the phone. Contain shows more of the 4:3 frame when 0.5 cannot switch lenses. */
+export function previewFitForLens(
+  lens: PreviewLens,
+  hardwareWide: boolean
+): "contain" | "cover" {
+  if (lens === "1") return "cover";
+  return hardwareWide ? "cover" : "contain";
 }
 
 export function looksLikeTelephoto(

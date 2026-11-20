@@ -12,6 +12,7 @@ import {
   shouldReopenCameraStream,
   streamSatisfiesLens,
   targetNormalZoom,
+  previewFitForLens,
   targetPreviewZoom,
 } from "./arCamera";
 
@@ -34,7 +35,7 @@ assertEqual(targetNormalZoom({ min: 2, max: 10 }), 2, "telephoto-only camera kee
 assertEqual(targetNormalZoom(null), 1, "no zoom capability still asks for 1x");
 assertEqual(targetPreviewZoom({ min: 0.5, max: 16 }, "0.5"), 0.5, "DualWide 0.5 uses ultra-wide");
 assertEqual(targetPreviewZoom({ min: 0.5, max: 16 }, "1"), 1, "DualWide 1x stays on the main lens");
-assertEqual(targetPreviewZoom({ min: 1, max: 8 }, "0.5"), 1, "Android main cannot go below 1");
+assertEqual(targetPreviewZoom({ min: 1, max: 8 }, "0.5"), 0.5, "still ask for 0.5 even if UA says min is 1");
 assertEqual(targetPreviewZoom({ min: 0.6, max: 1 }, "0.5"), 0.6, "UW-only camera uses its native min");
 
 assert(
@@ -174,6 +175,13 @@ assert(
     lens: "1",
   }),
   "DualWide at zoom 1 is the 1x lens"
+);
+assertEqual(previewFitForLens("1", false), "cover", "1x always fills the screen");
+assertEqual(previewFitForLens("0.5", true), "cover", "real 0.5x still fills the screen");
+assertEqual(
+  previewFitForLens("0.5", false),
+  "contain",
+  "if the phone cannot switch lenses, 0.5 shows the full 4:3 frame"
 );
 
 function fakeTrack(readyState: MediaStreamTrackState): MediaStreamTrack {
