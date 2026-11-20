@@ -61,6 +61,7 @@ export default function SiteFooter() {
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <FooterLink href="/copy">Trace tool</FooterLink>
               <FooterLink href="/copy?course=eye">Draw the eye with me</FooterLink>
+              <FooterLink href="/eyes">Eye practice sheets</FooterLink>
               <FooterLink href="/#steps">The 4 steps</FooterLink>
               <FooterLink href="/app/support">Support the tool</FooterLink>
             </div>

@@ -101,7 +101,7 @@ export function ToolButton({
     flexDirection: "column",
     alignItems: "center",
     gap: 4,
-    minWidth: 56,
+    minWidth: 52,
     padding: 0,
     background: "none",
     border: "none",
@@ -241,6 +241,9 @@ export interface TraceToolbarProps {
   aiBusy?: boolean;
   onToggleAi?: () => void;
   onClose?: () => void;
+  /** Rear camera lens shown in the preview; omit to hide the switch (e.g. front camera). */
+  lens?: "0.5" | "1";
+  onToggleLens?: () => void;
 }
 
 export default function TraceToolbar(p: TraceToolbarProps) {
@@ -342,6 +345,17 @@ export default function TraceToolbar(p: TraceToolbarProps) {
             onClick={p.onToggleFixed}
             tone={p.isFixed ? "locked" : "default"}
             ariaPressed={p.isFixed}
+          />
+        )}
+        {p.lens && (
+          <ToolButton
+            icon={
+              <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.3 }}>
+                {p.lens === "1" ? "1×" : "0.5"}
+              </span>
+            }
+            label="Lens"
+            onClick={p.onToggleLens}
           />
         )}
         {p.showAi && (

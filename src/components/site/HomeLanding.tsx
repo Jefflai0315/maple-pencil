@@ -154,6 +154,9 @@ export default function HomeLanding() {
           <Link href="/copy?course=eye" className="hl-btn hl-btn-red">
             Draw this eye with me
           </Link>
+          <Link href="/eyes" className="hl-btn hl-btn-ghost">
+            Free eye practice sheets
+          </Link>
         </div>
       </section>
 
