@@ -173,10 +173,10 @@ function StoryHero() {
               marginTop: 24,
             }}
           >
-            <Link href="/#contact" className="pwp-btn">
+            <Link href="/about#contact" className="pwp-btn">
               <span className="pwp-btn-inner">Work with me</span>
             </Link>
-            <Link href="/#work" className="pwp-btn">
+            <Link href="/about#work" className="pwp-btn">
               <span className="pwp-btn-inner">See my work</span>
             </Link>
           </div>

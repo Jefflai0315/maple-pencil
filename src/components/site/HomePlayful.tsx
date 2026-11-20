@@ -8,7 +8,7 @@ const PLAY = [
     emoji: "📱",
     title: "Pencil Trace",
     note: "trace anything with your phone!",
-    href: "/app",
+    href: "/",
     rotate: -3,
   },
   {

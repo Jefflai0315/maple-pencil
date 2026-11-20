@@ -51,23 +51,24 @@ export default function SiteFooter() {
             aria-label="Footer"
             style={{
               display: "flex",
-              gap: "clamp(48px, 8vw, 116px)",
+              gap: "clamp(32px, 8vw, 116px)",
+              flexWrap: "wrap",
               fontSize: 18,
               fontWeight: 500,
               color: "#fff",
             }}
           >
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <FooterLink href="/#work">Work</FooterLink>
-              <FooterLink href="/#services">Services</FooterLink>
-              <FooterLink href="/#about">About</FooterLink>
-              <FooterLink href="/#contact">Contact</FooterLink>
+              <FooterLink href="/copy">Trace tool</FooterLink>
+              <FooterLink href="/copy?course=eye">Draw the eye with me</FooterLink>
+              <FooterLink href="/#steps">The 4 steps</FooterLink>
+              <FooterLink href="/app/support">Support the tool</FooterLink>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <FooterLink href="/app">Pencil Trace app</FooterLink>
-              <FooterLink href="/world">Game world</FooterLink>
-              <FooterLink href="/sembawang-mural">Mural</FooterLink>
-              <FooterLink href="/app/support">Support me</FooterLink>
+              <FooterLink href="/about">About Jeff</FooterLink>
+              <FooterLink href="/services/commissions">Portraits</FooterLink>
+              <FooterLink href="/services/live-events">Live events</FooterLink>
+              <FooterLink href="/services/art-tech">Art + tech</FooterLink>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <FooterLink href="https://instagram.com/playingwithpencil" external>

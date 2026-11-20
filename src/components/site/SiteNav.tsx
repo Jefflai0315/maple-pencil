@@ -1,28 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 const LINKS = [
-  { href: "/#work", label: "Work" },
-  { href: "/#services", label: "Services" },
-  { href: "/#play", label: "Play" },
-  { href: "/#about", label: "About" },
+  { href: "/#steps", label: "4 steps" },
+  { href: "/#faq", label: "FAQ" },
+  { href: "/about", label: "About Jeff" },
 ];
 
 export default function SiteNav() {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  // Give the bar a paper background once the page scrolls, so the logo never
+  // sits on top of headings.
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <header
       className="pwp"
       style={{
         position: "fixed",
-        top: 16,
+        top: 0,
         left: 0,
         right: 0,
         zIndex: 1000,
-        background: "transparent",
+        paddingTop: scrolled ? 4 : 16,
+        paddingBottom: scrolled ? 4 : 0,
+        background: scrolled ? "rgba(253,251,249,0.94)" : "transparent",
+        backdropFilter: scrolled ? "blur(8px)" : "none",
+        WebkitBackdropFilter: scrolled ? "blur(8px)" : "none",
+        boxShadow: scrolled ? "0 1px 0 var(--pwp-line)" : "none",
+        transition: "background 0.2s ease, padding 0.2s ease, box-shadow 0.2s ease",
         pointerEvents: "none",
       }}
     >
@@ -76,8 +91,8 @@ export default function SiteNav() {
           </div>
 
           {/* CTA — superr-style pill */}
-          <Link href="/#contact" className="pwp-btn pwp-btn--sm pwp-nav-cta">
-            <span className="pwp-btn-inner">Work with me</span>
+          <Link href="/copy" className="pwp-btn pwp-btn--sm pwp-btn--orange pwp-nav-cta">
+            <span className="pwp-btn-inner">Start drawing</span>
           </Link>
 
           {/* Mobile toggle */}
@@ -123,12 +138,12 @@ export default function SiteNav() {
             </Link>
           ))}
           <Link
-            href="/#contact"
+            href="/copy"
             onClick={() => setOpen(false)}
-            className="pwp-btn"
+            className="pwp-btn pwp-btn--orange"
             style={{ alignSelf: "flex-start" }}
           >
-            <span className="pwp-btn-inner">Work with me</span>
+            <span className="pwp-btn-inner">Start drawing</span>
           </Link>
         </div>
       )}

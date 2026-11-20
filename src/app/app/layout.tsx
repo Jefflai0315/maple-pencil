@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Pencil Trace — Learn to Draw with Your Phone",
   description:
-    "Turn any photo into a traceable sketch. Free AR tracing app with a 5-day portrait course by Playing with Pencil.",
+    "Turn any photo into a traceable sketch. Free tracing app by Playing with Pencil: draw a real eye in 4 steps.",
   openGraph: {
     title: "Pencil Trace — Learn to Draw with Your Phone",
     description:
