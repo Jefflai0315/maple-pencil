@@ -28,18 +28,10 @@ import {
 } from "@mui/material";
 import {
   IconX,
-  IconLock,
-  IconLockOpen,
-  IconBolt,
-  IconBoltOff,
-  IconVideo,
-  IconPlayerStop,
   IconPalette,
   IconPlayerSkipBack,
   IconPlayerSkipForward,
-  IconUpload,
   IconMinus,
-  IconWand,
   IconSend,
   IconCheck,
   IconAlertCircle,
@@ -47,12 +39,13 @@ import {
   IconLogout,
   IconLogin,
   IconCoins,
-  IconBrush,
 } from "@tabler/icons-react";
 import Moveable from "react-moveable";
 import { pencilSketchFromDataUrl, prepareTraceImage } from "./pencilSketch";
-import type { CourseLesson } from "@/data/faceCourse";
+import type { CourseLesson } from "@/data/lessons";
 import CameraHelp from "./CameraHelp";
+import TraceToolbar from "./TraceToolbar";
+import TraceWelcome from "./TraceWelcome";
 
 interface ARTraceToolProps {
   onClose?: () => void | null;
@@ -528,6 +521,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   );
   const filePickerOpenRef = useRef(false);
   const [moveableReady, setMoveableReady] = useState(false);
+  const moveableRef = useRef<Moveable>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState<boolean>(false);
   const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(false);
   const [aiPromptText, setAiPromptText] = useState<string>(
@@ -544,6 +538,13 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   const initialDistanceRef = useRef<number>(0);
   const initialScaleRef = useRef<number>(1);
   const [currentScale, setCurrentScale] = useState<number>(1);
+
+  // Keep Moveable's handles lined up with the picture whenever its box is
+  // re-placed (new picture, toolbar height change).
+  useEffect(() => {
+    const id = requestAnimationFrame(() => moveableRef.current?.updateRect());
+    return () => cancelAnimationFrame(id);
+  }, [boxState, bottomChromeHeight]);
 
   // Helper function to calculate distance between two touches
   const getDistance = (touch1: React.Touch, touch2: React.Touch) => {
@@ -1870,7 +1871,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
             variant="caption"
             sx={{ color: "rgba(255,255,255,0.5)", fontSize: "0.65rem" }}
           >
-            Day {activeCourseLesson.day} · {activeCourseLesson.subtitle}
+            {activeCourseLesson.label} · {activeCourseLesson.subtitle}
           </Typography>
           <Typography
             variant="body2"
@@ -1987,6 +1988,10 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         />
       </Box>
 
+      {!image && !cameraError && (
+        <TraceWelcome fileInputId="image-upload" bottomOffset={bottomChromeHeight} />
+      )}
+
       {cameraError && (
         <CameraHelp
           kind={cameraError}
@@ -2052,6 +2057,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         !isFixed &&
         !isPinching && (
           <Moveable
+            ref={moveableRef}
             target={moveableBoxRef.current}
             container={containerRef.current} // ensures overlay is correct in full-screen overlays
             draggable
@@ -2077,9 +2083,6 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
             }}
             // Disable pinchable - using custom implementation
             pinchable={false}
-            sx={{
-              zIndex: 1000,
-            }}
           />
         )}
 
@@ -2095,6 +2098,8 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           backdropFilter: "blur(8px)",
           borderTop: "1px solid rgba(255,255,255,0.08)",
           zIndex: 100013,
+          // Keep buttons clear of the iPhone home bar / Android gesture bar.
+          paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
         {/* Main Controls */}
@@ -2228,408 +2233,41 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
             </Box>
           )}
 
-          {/* Left Group - Upload & Recording */}
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: { xs: 2, sm: 3 },
+          <input
+            accept="image/*"
+            style={{ display: "none" }}
+            id="image-upload"
+            type="file"
+            onClick={() => {
+              filePickerOpenRef.current = true;
             }}
-          >
-            {/* Upload Button */}
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 0.5,
-              }}
-            >
-              <input
-                accept="image/*"
-                style={{ display: "none" }}
-                id="image-upload"
-                type="file"
-                onClick={() => {
-                  filePickerOpenRef.current = true;
-                }}
-                onChange={handleImageUpload}
-              />
-              <label htmlFor="image-upload">
-                <IconButton
-                  component="span"
-                  sx={{
-                    backgroundColor: "transparent",
-                    border: "1px solid rgba(255,255,255,0.2)",
-                    color: "rgba(255,255,255,0.9)",
-                    "&:hover": {
-                      backgroundColor: "rgba(255,255,255,0.05)",
-                      borderColor: "rgba(255,255,255,0.3)",
-                    },
-                    width: 40,
-                    height: 40,
-                  }}
-                >
-                  <IconUpload size={18} />
-                </IconButton>
-              </label>
-              <Typography
-                variant="caption"
-                sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.7rem" }}
-              >
-                Upload
-              </Typography>
-            </Box>
-
-            {/* Photo → Sketch toggle */}
-            {sourceImage && (
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 0.5,
-                }}
-              >
-                <IconButton
-                  onClick={handleSketchToggle}
-                  disabled={isConvertingToSketch}
-                  sx={{
-                    backgroundColor: isSketchMode
-                      ? "rgba(255,255,255,0.15)"
-                      : "transparent",
-                    border: `1px solid ${
-                      isSketchMode
-                        ? "rgba(255,255,255,0.35)"
-                        : "rgba(255,255,255,0.2)"
-                    }`,
-                    color: "rgba(255,255,255,0.9)",
-                    "&:hover": {
-                      backgroundColor: "rgba(255,255,255,0.08)",
-                      borderColor: "rgba(255,255,255,0.3)",
-                    },
-                    width: 40,
-                    height: 40,
-                  }}
-                  title={
-                    isSketchMode ? "Show original photo" : "Convert to sketch"
-                  }
-                >
-                  <IconBrush size={18} />
-                </IconButton>
-                <Typography
-                  variant="caption"
-                  sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.7rem" }}
-                >
-                  {isSketchMode ? "Original" : "Sketch"}
-                </Typography>
-              </Box>
-            )}
-
-            {/* AI Generate Button - Only show for logged in users */}
-            {AI_ENABLED && session?.user?.email && (
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 0.5,
-                }}
-              >
-                <IconButton
-                  onClick={() => {
-                    setAiPanelOpen((v) => !v);
-                  }}
-                  disabled={isGeneratingImage}
-                  sx={{
-                    backgroundColor: isGeneratingImage
-                      ? "rgba(156,39,176,0.15)"
-                      : userCredits < 1
-                        ? "rgba(128,128,128,0.15)"
-                        : "transparent",
-                    border: `1px solid ${
-                      isGeneratingImage
-                        ? "rgba(156,39,176,0.35)"
-                        : userCredits < 1
-                          ? "rgba(128,128,128,0.3)"
-                          : "rgba(255,255,255,0.2)"
-                    }`,
-                    color: isGeneratingImage
-                      ? "#9c27b0"
-                      : userCredits < 1
-                        ? "rgba(128,128,128,0.7)"
-                        : "rgba(255,255,255,0.9)",
-                    "&:hover": {
-                      backgroundColor: isGeneratingImage
-                        ? "rgba(156,39,176,0.2)"
-                        : userCredits < 1
-                          ? "rgba(128,128,128,0.2)"
-                          : "rgba(255,255,255,0.05)",
-                      borderColor: isGeneratingImage
-                        ? "rgba(156,39,176,0.45)"
-                        : userCredits < 1
-                          ? "rgba(128,128,128,0.4)"
-                          : "rgba(255,255,255,0.3)",
-                    },
-                    width: 40,
-                    height: 40,
-                  }}
-                  title={
-                    userCredits < 1
-                      ? `Insufficient credits (${userCredits})`
-                      : "AI Image Generation"
-                  }
-                >
-                  <IconWand size={18} />
-                </IconButton>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color:
-                      userCredits < 1
-                        ? "rgba(128,128,128,0.6)"
-                        : "rgba(255,255,255,0.6)",
-                    fontSize: "0.7rem",
-                  }}
-                >
-                  AI
-                </Typography>
-              </Box>
-            )}
-
-            {/* Recording Button */}
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 0.5,
-              }}
-            >
-              <IconButton
-                onClick={isRecording ? stopRecording : startRecording}
-                sx={{
-                  backgroundColor: isRecording
-                    ? "rgba(244,67,54,0.15)"
-                    : "transparent",
-                  border: `1px solid ${
-                    isRecording
-                      ? "rgba(244,67,54,0.3)"
-                      : "rgba(255,255,255,0.2)"
-                  }`,
-                  color: isRecording ? "#f44336" : "rgba(255,255,255,0.9)",
-                  "&:hover": {
-                    backgroundColor: isRecording
-                      ? "rgba(244,67,54,0.2)"
-                      : "rgba(255,255,255,0.05)",
-                    borderColor: isRecording
-                      ? "rgba(244,67,54,0.4)"
-                      : "rgba(255,255,255,0.3)",
-                  },
-                  width: 40,
-                  height: 40,
-                }}
-              >
-                {isRecording ? (
-                  <IconPlayerStop size={18} />
-                ) : (
-                  <IconVideo size={18} />
-                )}
-              </IconButton>
-              <Typography
-                variant="caption"
-                sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.7rem" }}
-              >
-                {isRecording ? "Stop" : "Record"}
-              </Typography>
-            </Box>
+            onChange={handleImageUpload}
+          />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <TraceToolbar
+              fileInputId="image-upload"
+              hasImage={Boolean(image)}
+              hasSourcePhoto={Boolean(sourceImage) && !activeCourseLesson}
+              isSketchMode={isSketchMode}
+              isConvertingToSketch={isConvertingToSketch}
+              onToggleSketch={handleSketchToggle}
+              isFixed={isFixed}
+              onToggleFixed={() => setIsFixed(!isFixed)}
+              strobeActive={strobeActive}
+              onToggleStrobe={() => setStrobeActive((v) => !v)}
+              onOpenLayers={handleLayersButtonClick}
+              isRecording={isRecording}
+              onToggleRecording={isRecording ? stopRecording : startRecording}
+              showAi={AI_ENABLED && Boolean(session?.user?.email)}
+              aiBusy={isGeneratingImage}
+              onToggleAi={() => setAiPanelOpen((v) => !v)}
+              onClose={onClose ?? undefined}
+            />
           </Box>
-
-          {/* Center Group - Image Controls */}
-          {image && (
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: { xs: 2, sm: 3 },
-              }}
-            >
-              {/* Lock/Unlock */}
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 0.5,
-                }}
-              >
-                <IconButton
-                  onClick={() => setIsFixed(!isFixed)}
-                  sx={{
-                    backgroundColor: isFixed
-                      ? "rgba(244,67,54,0.15)"
-                      : "rgba(76,175,80,0.15)",
-                    border: `1px solid ${
-                      isFixed ? "rgba(244,67,54,0.3)" : "rgba(76,175,80,0.3)"
-                    }`,
-                    color: isFixed ? "#f44336" : "#4caf50",
-                    "&:hover": {
-                      backgroundColor: isFixed
-                        ? "rgba(244,67,54,0.2)"
-                        : "rgba(76,175,80,0.2)",
-                      borderColor: isFixed
-                        ? "rgba(244,67,54,0.4)"
-                        : "rgba(76,175,80,0.4)",
-                    },
-                    width: 36,
-                    height: 36,
-                  }}
-                >
-                  {isFixed ? (
-                    <IconLock size={16} />
-                  ) : (
-                    <IconLockOpen size={16} />
-                  )}
-                </IconButton>
-                <Typography
-                  variant="caption"
-                  sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.65rem" }}
-                >
-                  {isFixed ? "Locked" : "Move"}
-                </Typography>
-              </Box>
-
-              {/* Strobe */}
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 0.5,
-                }}
-              >
-                <IconButton
-                  onClick={() => setStrobeActive((v) => !v)}
-                  sx={{
-                    backgroundColor: strobeActive
-                      ? "rgba(255,193,7,0.2)"
-                      : "transparent",
-                    border: `1px solid ${
-                      strobeActive
-                        ? "rgba(255,193,7,0.4)"
-                        : "rgba(255,255,255,0.2)"
-                    }`,
-                    color: strobeActive ? "#ffc107" : "rgba(255,255,255,0.9)",
-                    "&:hover": {
-                      backgroundColor: strobeActive
-                        ? "rgba(255,193,7,0.25)"
-                        : "rgba(255,255,255,0.05)",
-                      borderColor: strobeActive
-                        ? "rgba(255,193,7,0.5)"
-                        : "rgba(255,255,255,0.3)",
-                    },
-                    width: 36,
-                    height: 36,
-                  }}
-                >
-                  {strobeActive ? (
-                    <IconBolt size={16} />
-                  ) : (
-                    <IconBoltOff size={16} />
-                  )}
-                </IconButton>
-                <Typography
-                  variant="caption"
-                  sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.65rem" }}
-                >
-                  Strobe
-                </Typography>
-              </Box>
-
-              {/* Layers */}
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 0.5,
-                }}
-              >
-                <IconButton
-                  onClick={handleLayersButtonClick}
-                  sx={{
-                    backgroundColor: showLayers
-                      ? "rgba(156,39,176,0.2)"
-                      : "transparent",
-                    border: `1px solid ${
-                      showLayers
-                        ? "rgba(156,39,176,0.4)"
-                        : "rgba(255,255,255,0.2)"
-                    }`,
-                    color: showLayers ? "#9c27b0" : "rgba(255,255,255,0.9)",
-                    "&:hover": {
-                      backgroundColor: showLayers
-                        ? "rgba(156,39,176,0.25)"
-                        : "rgba(255,255,255,0.05)",
-                      borderColor: showLayers
-                        ? "rgba(156,39,176,0.5)"
-                        : "rgba(255,255,255,0.3)",
-                    },
-                    width: 36,
-                    height: 36,
-                  }}
-                >
-                  <IconPalette size={16} />
-                </IconButton>
-                <Typography
-                  variant="caption"
-                  sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.65rem" }}
-                >
-                  Layers
-                </Typography>
-              </Box>
-            </Box>
-          )}
-
-          {/* Right Group - Close */}
-          {onClose && (
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 0.5,
-              }}
-            >
-              <IconButton
-                onClick={onClose}
-                sx={{
-                  backgroundColor: "transparent",
-                  border: "1px solid rgba(255,255,255,0.15)",
-                  color: "rgba(255,255,255,0.7)",
-                  "&:hover": {
-                    backgroundColor: "rgba(255,255,255,0.05)",
-                    borderColor: "rgba(255,255,255,0.25)",
-                    color: "rgba(255,255,255,0.9)",
-                  },
-                  width: 36,
-                  height: 36,
-                }}
-              >
-                <IconX size={16} />
-              </IconButton>
-              <Typography
-                variant="caption"
-                sx={{ color: "rgba(255,255,255,0.5)", fontSize: "0.65rem" }}
-              >
-                Close
-              </Typography>
-            </Box>
-          )}
         </Box>
 
         {/* Opacity Slider */}
-        {image && !isFixed && (
+        {image && (
           <Box
             sx={{
               borderTop: "1px solid rgba(255,255,255,0.05)",
@@ -2648,9 +2286,13 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
             >
               <Typography
                 variant="caption"
-                sx={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.7)" }}
+                sx={{
+                  fontSize: "0.8rem",
+                  color: "rgba(255,255,255,0.8)",
+                  whiteSpace: "nowrap",
+                }}
               >
-                Opacity
+                See-through
               </Typography>
 
               <Slider
@@ -2664,8 +2306,8 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
                   height: 4,
                   "& .MuiSlider-thumb": {
                     backgroundColor: "#fff",
-                    width: 12,
-                    height: 12,
+                    width: 24,
+                    height: 24,
                     border: "1px solid rgba(0,0,0,0.1)",
                     "&:hover": {
                       boxShadow: "0 0 0 6px rgba(255,255,255,0.1)",
@@ -2684,7 +2326,12 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
               />
               <Typography
                 variant="caption"
-                sx={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.9)" }}
+                sx={{
+                  fontSize: "0.8rem",
+                  color: "rgba(255,255,255,0.9)",
+                  minWidth: 36,
+                  textAlign: "right",
+                }}
               >
                 {Math.round(opacity * 100)}%
               </Typography>

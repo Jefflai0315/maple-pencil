@@ -3,7 +3,7 @@
 import React, { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
-import { getCourseLesson } from "@/data/faceCourse";
+import { LESSONS } from "@/data/lessons";
 
 // The trace tool needs the camera and the screen size, so it only renders in
 // the browser (server-rendering it caused mismatches on phones).
@@ -15,9 +15,7 @@ const ARTraceTool = dynamic(() => import("@/components/ARTraceTool"), {
 function CopyPageContent() {
   const searchParams = useSearchParams();
   const course = searchParams.get("course");
-  const day = Number(searchParams.get("day") || "0");
-  const lesson =
-    course === "face" && day > 0 ? getCourseLesson(day) : null;
+  const lesson = (course && LESSONS[course]) || null;
 
   return <ARTraceTool courseLesson={lesson} />;
 }

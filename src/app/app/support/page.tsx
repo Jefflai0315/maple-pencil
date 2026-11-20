@@ -168,10 +168,10 @@ export default function SupportPage() {
             Open the trace tool
           </Link>
           <Link
-            href="/app/course"
+            href="/copy?course=eye"
             className="flex-1 text-center px-6 py-3 rounded-full border border-white/20 text-white font-semibold text-sm hover:bg-white/5 transition-colors"
           >
-            Try the 5-day course
+            Draw the eye with me
           </Link>
         </div>
 

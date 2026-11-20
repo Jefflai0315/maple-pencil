@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="400" height="500" viewBox="0 0 400 500" fill="none">
-  <rect width="400" height="500" fill="#faf8f5"/>
-  <path d="M 165 320 Q 200 345 235 320" stroke="#222" stroke-width="2.5" fill="none"/>
-  <path d="M 175 318 Q 200 328 225 318" stroke="#222" stroke-width="1.5" fill="none"/>
-  <path d="M 185 335 Q 200 340 215 335" stroke="#444" stroke-width="1.5" fill="none"/>
-  <line x1="200" y1="318" x2="200" y2="338" stroke="#888" stroke-width="1"/>
-  <text x="200" y="460" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#666">Day 4 — Lips &amp; mouth</text>
-</svg>
