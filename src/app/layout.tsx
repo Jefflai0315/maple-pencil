@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "./App.css";
+import "./playful.css";
 import Providers from "./Providers";
 
 const geistSans = Geist({
@@ -161,7 +162,7 @@ export default function RootLayout({
         {/* <link rel="apple-touch-icon" href="/jeff-182x182.png" /> */}
         <link rel="manifest" href="/manifest.json" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Fraunces:opsz,wght,SOFT@9..144,300..700,0..100&family=Shantell+Sans:wght@400;500;700&family=Sue+Ellen+Francisco&display=swap"
           rel="stylesheet"
         />
         <script
