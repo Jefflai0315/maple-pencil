@@ -93,7 +93,7 @@ export default function RecordingSheet({
         />
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
           {canShare && (
-            <button type="button" onClick={share} style={{ ...btn, background: "#e0473c", color: "#fff" }}>
+            <button type="button" onClick={share} style={{ ...btn, background: "#ffcf41", color: "#2c2416" }}>
               Save to Photos / Share
             </button>
           )}
@@ -102,8 +102,8 @@ export default function RecordingSheet({
             download={video.file.name}
             style={{
               ...btn,
-              background: canShare ? "transparent" : "#e0473c",
-              color: "#fff",
+              background: canShare ? "transparent" : "#ffcf41",
+              color: canShare ? "#fff" : "#2c2416",
               border: canShare ? "1.5px solid rgba(255,255,255,0.3)" : "none",
             }}
           >

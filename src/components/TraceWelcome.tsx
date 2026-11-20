@@ -51,7 +51,15 @@ export default function TraceWelcome({
           boxShadow: "0 16px 48px rgba(0,0,0,0.45)",
         }}
       >
-        <h1 style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, margin: "0 0 6px" }}>
+        <h1
+          style={{
+            fontFamily: '"Playfair Display", Georgia, serif',
+            fontSize: 26,
+            fontWeight: 600,
+            lineHeight: 1.2,
+            margin: "0 0 6px",
+          }}
+        >
           What would you like to draw?
         </h1>
         <p style={{ fontSize: 15, lineHeight: 1.5, color: "rgba(255,255,255,0.7)", margin: "0 0 18px" }}>
@@ -67,8 +75,8 @@ export default function TraceWelcome({
             gap: 10,
             minHeight: 56,
             borderRadius: 999,
-            background: "#e0473c",
-            color: "#fff",
+            background: "#ffcf41",
+            color: "#2c2416",
             fontSize: 17,
             fontWeight: 700,
             cursor: "pointer",
