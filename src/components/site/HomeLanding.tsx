@@ -24,7 +24,7 @@ const STEPS = [
   {
     n: 3,
     title: "Map 4 tones",
-    body: "Light, mid, dark-mid, shadow. Label the shapes like a map.",
+    body: "Light, mid, dark-mid, shadow. Label the shapes like a map. (The trace tool's Shapes button does this for any photo.)",
     img: `${EYE}/step-3.jpg`,
     tones: true,
   },
@@ -212,7 +212,8 @@ export default function HomeLanding() {
                 <b>Prop your phone</b> about 30 cm above your paper, on a glass or a stack of books.
               </li>
               <li>
-                <b>Pick any photo.</b> It shows up over your paper, see-through.
+                <b>Pick any photo.</b> It shows up over your paper, see-through. Tap <b>Shapes</b> to see it
+                as 2, 3 or 4 flat tones, like step 3.
               </li>
               <li>
                 <b>Trace the big shapes</b>, then put the phone down and shade the tones yourself.

@@ -3,7 +3,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   IconBolt,
-  IconBrush,
   IconDots,
   IconLock,
   IconLockOpen,
@@ -226,10 +225,6 @@ function MoreRow({
 export interface TraceToolbarProps {
   fileInputId: string;
   hasImage: boolean;
-  hasSourcePhoto: boolean;
-  isSketchMode: boolean;
-  isConvertingToSketch: boolean;
-  onToggleSketch: () => void;
   isFixed: boolean;
   onToggleFixed: () => void;
   strobeActive: boolean;
@@ -328,16 +323,6 @@ export default function TraceToolbar(p: TraceToolbarProps) {
           label={p.hasImage ? "New photo" : "Photo"}
           htmlFor={p.fileInputId}
         />
-        {p.hasSourcePhoto && (
-          <ToolButton
-            icon={<IconBrush size={22} />}
-            label={p.isConvertingToSketch ? "Working…" : p.isSketchMode ? "Original" : "Sketch"}
-            onClick={p.onToggleSketch}
-            disabled={p.isConvertingToSketch}
-            tone={p.isSketchMode ? "active" : "default"}
-            ariaPressed={p.isSketchMode}
-          />
-        )}
         {p.hasImage && (
           <ToolButton
             icon={p.isFixed ? <IconLock size={22} /> : <IconLockOpen size={22} />}

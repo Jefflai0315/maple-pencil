@@ -46,6 +46,8 @@ import type { CourseLesson } from "@/data/lessons";
 import CameraHelp from "./CameraHelp";
 import TraceToolbar from "./TraceToolbar";
 import TraceWelcome from "./TraceWelcome";
+import TraceViewPicker, { type TraceView } from "./TraceViewPicker";
+import { toneShapesFromDataUrl, type ToneCount } from "@/lib/shapes";
 import {
   getTrackZoomRange,
   isFrontCameraLabel,
@@ -399,6 +401,12 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   const [sourceImage, setSourceImage] = useState<string | null>(null);
   const [sketchImage, setSketchImage] = useState<string | null>(null);
   const [isSketchMode, setIsSketchMode] = useState(false);
+  const [lessonTipOpen, setLessonTipOpen] = useState(true);
+  // Shapes view: flat 2–4 tone version of the picture (null = not showing).
+  const [shapeTones, setShapeTones] = useState<ToneCount | null>(null);
+  const [lastShapeTones, setLastShapeTones] = useState<ToneCount>(3);
+  const [viewBusy, setViewBusy] = useState<TraceView | null>(null);
+  const shapesCacheRef = useRef<{ src: string; tones: ToneCount; url: string }[]>([]);
   const [isConvertingToSketch, setIsConvertingToSketch] = useState(false);
   const [activeCourseLesson, setActiveCourseLesson] =
     useState<CourseLesson | null>(courseLesson);
@@ -969,6 +977,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       } catch (error) {
         console.error("Sketch conversion failed:", error);
         setIsSketchMode(false);
+      setShapeTones(null);
       } finally {
         setIsConvertingToSketch(false);
         await restoreNormalRearLens(streamRef.current);
@@ -980,9 +989,11 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
   const loadCourseLesson = useCallback(
     (lesson: CourseLesson) => {
       setActiveCourseLesson(lesson);
+      setLessonTipOpen(true);
       setOpacity(lesson.suggestedOpacity);
       setStrobeActive(lesson.useStrobe);
       setIsSketchMode(false);
+      setShapeTones(null);
       applyTraceImage(lesson.imagePath);
     },
     [applyTraceImage]
@@ -1011,6 +1022,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
       setActiveCourseLesson(null);
       const imageData = await prepareTraceImage(objectUrl);
       setIsSketchMode(false);
+      setShapeTones(null);
       setSketchImage(null);
       applyTraceImage(imageData);
 
@@ -1034,16 +1046,61 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
     }
   };
 
-  const handleSketchToggle = async () => {
-    if (!sourceImage || isConvertingToSketch) return;
+  const traceView: TraceView = shapeTones ? "shapes" : isSketchMode ? "lines" : "photo";
 
-    if (isSketchMode) {
+  /** Show the picture as the photo, pencil lines, or flat tone shapes. */
+  const showView = async (view: TraceView, tones?: ToneCount) => {
+    if (!sourceImage || viewBusy) return;
+    const keep = { updateSource: false, resetLayers: false, recenter: false } as const;
+
+    if (view === "photo") {
+      setShapeTones(null);
       setIsSketchMode(false);
-      applyTraceImage(sourceImage, { resetLayers: false });
+      applyTraceImage(sourceImage, keep);
       return;
     }
 
-    await convertToSketch(sourceImage);
+    if (view === "lines") {
+      setShapeTones(null);
+      if (sketchImage) {
+        setIsSketchMode(true);
+        applyTraceImage(sketchImage, keep);
+      } else {
+        setViewBusy("lines");
+        try {
+          await convertToSketch(sourceImage);
+        } finally {
+          setViewBusy(null);
+        }
+      }
+      return;
+    }
+
+    const count = tones ?? lastShapeTones;
+    setLastShapeTones(count);
+    let cached = shapesCacheRef.current.find(
+      (c) => c.src === sourceImage && c.tones === count
+    );
+    if (!cached) {
+      setViewBusy("shapes");
+      try {
+        const url = await toneShapesFromDataUrl(sourceImage, count);
+        cached = { src: sourceImage, tones: count, url };
+        // Keep the cache small: only the current picture's versions.
+        shapesCacheRef.current = [
+          ...shapesCacheRef.current.filter((c) => c.src === sourceImage),
+          cached,
+        ];
+      } catch (error) {
+        console.error("Shapes conversion failed:", error);
+        return;
+      } finally {
+        setViewBusy(null);
+      }
+    }
+    setIsSketchMode(false);
+    setShapeTones(count);
+    applyTraceImage(cached.url, keep);
   };
 
   // Generate image from text prompt using GrowthBook feature flag to decide API
@@ -1174,6 +1231,7 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
 
       setActiveCourseLesson(null);
       setIsSketchMode(false);
+      setShapeTones(null);
       applyTraceImage(generatedUrl);
       setAiStatus("success");
       const finalSource = useGemini ? data?.source || "gemini" : "wavespeed";
@@ -1818,14 +1876,15 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
         </Box>
       )}
 
-      {/* Course lesson banner */}
-      {activeCourseLesson && (
+      {/* Course lesson banner (can be closed so it doesn't cover the picture) */}
+      {activeCourseLesson && lessonTipOpen && (
         <Box
           sx={{
             position: "absolute",
-            top: 16,
+            top: "calc(16px + env(safe-area-inset-top))",
             left: 16,
-            right: onClose ? 140 : 72,
+            right: onClose ? 140 : 16,
+            pr: 5,
             zIndex: 100014,
             backgroundColor: "rgba(0,0,0,0.75)",
             backdropFilter: "blur(8px)",
@@ -1858,6 +1917,20 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           >
             {activeCourseLesson.tip}
           </Typography>
+          <IconButton
+            aria-label="Hide tip"
+            onClick={() => setLessonTipOpen(false)}
+            sx={{
+              position: "absolute",
+              top: 4,
+              right: 4,
+              width: 40,
+              height: 40,
+              color: "rgba(255,255,255,0.8)",
+            }}
+          >
+            <IconX size={18} />
+          </IconButton>
         </Box>
       )}
 
@@ -2070,6 +2143,16 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
+        {sourceImage && (
+          <TraceViewPicker
+            view={traceView}
+            tones={shapeTones ?? lastShapeTones}
+            busy={viewBusy ?? (isConvertingToSketch ? "lines" : null)}
+            onPick={(v) => void showView(v)}
+            onTones={(n) => void showView("shapes", n)}
+          />
+        )}
+
         {/* Main Controls */}
         <Box
           sx={{
@@ -2215,10 +2298,6 @@ const ARTraceTool: React.FC<ARTraceToolProps> = ({
             <TraceToolbar
               fileInputId="image-upload"
               hasImage={Boolean(image)}
-              hasSourcePhoto={Boolean(sourceImage) && !activeCourseLesson}
-              isSketchMode={isSketchMode}
-              isConvertingToSketch={isConvertingToSketch}
-              onToggleSketch={handleSketchToggle}
               isFixed={isFixed}
               onToggleFixed={() => setIsFixed(!isFixed)}
               strobeActive={strobeActive}
